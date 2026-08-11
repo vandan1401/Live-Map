@@ -1,11 +1,12 @@
 ---
 name: build
-description: Implement one approved plan. Does not plan, does not review.
+description: Implement one plan on disk. Does not plan, does not review.
 model: sonnet
 effort: medium
+allowed-tools: Bash(git add *)
 ---
 
-## The approved plan
+## The plan on disk
 !`bash .claude/preamble.sh plan-latest`
 
 ## Your task
@@ -22,4 +23,7 @@ Implement the plan above, and nothing else.
 - Do not start the next unit of work. Do not fix things outside the plan — note them in
   PROGRESS.md under Deferred and mention them.
 
-Report in the fixed format from CLAUDE.md. Nothing after it.
+Run `git add -AN` (intent-to-add) so new files show up in `git diff HEAD` — `/review`'s
+diff is HEAD-relative and untracked files are otherwise invisible to it. Then report in
+the fixed format from CLAUDE.md, then immediately invoke `/review` against the diff — no
+approval gate here, `/review` is the checkpoint.

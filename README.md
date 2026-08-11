@@ -22,14 +22,16 @@ claude
 /start
 ```
 
-`/start` reads `PROGRESS.md` and proposes the next action. Approve before it writes code.
+`/start` reads `PROGRESS.md` and proposes the next action, then runs it — no approval
+gate. For Tier 1 work it chains `/plan` → `/build` → `/review` automatically and stops at
+`/review`'s findings; Tier 2 gets `/check`, Tier 3 gets the test gate.
 
 ## The loop
 
 ```
 /start          recover state, propose the next action
-/plan <task>    Tier 1 only — writes an approved brief to docs/plans/
-/build <NN>     implement one approved plan, nothing else
+/plan <task>    Tier 1 only — writes a brief to docs/plans/, then invokes /build
+/build <NN>     implement one plan on disk, nothing else
 /check          PASS/FAIL table against acceptance criteria, fixes nothing
 /review         adversarial review by a forked agent — Tier 1 only
 /wrap           full gate, update state files, log, commit

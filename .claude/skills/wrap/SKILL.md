@@ -22,6 +22,12 @@ allowed-tools: Bash(make *) Bash(pnpm *) Bash(pytest *) Bash(git add *) Bash(git
      session most needs and the one most often left empty. If nothing surprised you,
      write "none", but check first.
    - Move any gap you found but did not fix into `## Deferred`.
+   - If the plan this session built is fully done — every acceptance criterion in its
+     §5 actually run and passing, not just implemented — append `**Status:** complete`
+     as the last line of its `docs/plans/NN.md` file. `/start` reads this marker to
+     decide whether a plan is still open. If any criterion is unverified or blocked
+     (e.g. needs a live DB Claude doesn't have), leave the marker off — the plan stays
+     open on purpose.
 
 3. **Update `NAVIGATION.md`** if you added a module, route, table, or a function others
    should reuse. An un-indexed function gets re-implemented by the next session.

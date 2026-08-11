@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Produce an approved, durable implementation brief for one unit of work. Tier 1 tasks only.
+description: Produce a durable implementation brief for one unit of work. Tier 1 tasks only.
 argument-hint: [task name]
 model: opus
 effort: high
@@ -8,7 +8,11 @@ effort: high
 
 <!-- Model routing lives HERE, in frontmatter — not in a subagent. You get the expensive
      model exactly for the reasoning step and nothing else, at zero spawn cost, in the
-     same warm conversation. This is the cheap version of "Opus plans, Sonnet executes". -->
+     same warm conversation. This is the cheap version of "Opus plans, Sonnet executes".
+     UNVERIFIED: whether frontmatter `model:` is honoured when this skill is invoked by
+     another skill (e.g. /start chaining into /plan) rather than typed directly has not
+     been confirmed in this repo. If /build's steps read as though they ran on the wrong
+     model, check this first. -->
 
 ## Current state
 !`bash .claude/preamble.sh current`
@@ -45,4 +49,6 @@ section is *why* the build goes wrong later, not bad luck.
 tests. Leave naming, internal structure, and implementation detail open. Specifying line
 by line wastes the planning; under-specifying the load-bearing calls costs the session.
 
-Present the plan and **stop for my approval before writing it to disk.**
+Write the plan to disk (print it in the response too, for visibility), then immediately
+invoke `/build` against it in the same turn — no approval gate here. The checkpoint for
+Tier 1 work is `/review`, after the code exists, not a pause before it's written.

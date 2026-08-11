@@ -31,7 +31,7 @@ Review the diff below. **You did not write this code.** Be sceptical.
 1. **Invariant violations** — float money, state written outside the state machine,
    database access outside the data layer, uniqueness enforced in app code instead of a
    constraint, `any`, business constants inline in a component.
-2. **Implemented vs. approved plan** — every requirement present; nothing outside scope
+2. **Implemented vs. plan on disk** — every requirement present; nothing outside scope
    changed. Judge against the written plan, not against what the code seems to intend.
 3. **Failure modes** — partial writes, idempotency, concurrency, orphans, dead computation.
 4. **Claims not backed by evidence** — anywhere the work asserts something works without
