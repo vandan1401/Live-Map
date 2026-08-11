@@ -1,0 +1,34 @@
+# --- apps/map (React PWA, pnpm) ---
+apps/map/node_modules/
+apps/map/dist/
+apps/map/build/
+apps/map/.vite/
+apps/map/coverage/
+apps/map/*.local
+apps/map/.env
+apps/map/.env.*
+!apps/map/.env.example
+
+# --- tools/pipeline (Python) ---
+tools/pipeline/.venv/
+tools/pipeline/__pycache__/
+tools/pipeline/**/__pycache__/
+tools/pipeline/*.egg-info/
+tools/pipeline/.pytest_cache/
+tools/pipeline/.mypy_cache/
+tools/pipeline/.ruff_cache/
+tools/pipeline/out/
+
+# tools/pipeline/overrides/ is intentionally NOT ignored (D-107):
+# hand-made corrections keyed by centroid, cannot be regenerated.
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# --- misc build artifacts ---
+*.log
+npm-debug.log*

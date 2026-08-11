@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://colony.local/colony.schema.json",
+  "title": "Colony manifest",
+  "type": "object",
+  "required": ["colony", "plots", "features"],
+  "additionalProperties": false,
+  "properties": {
+    "colony": {
+      "type": "object",
+      "required": ["id", "name", "viewbox", "scale", "north_deg", "generated", "verified", "source"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+        "name": { "type": "string", "minLength": 1 },
+        "viewbox": {
+          "type": "array", "items": { "type": "number" },
+          "minItems": 4, "maxItems": 4,
+          "description": "Always [0, 0, 1000, H]. Width is fixed so the app needs no per-colony constants."
+        },
+        "scale": {
+          "type": "object", "required": ["px_per_ft"],
+          "properties": { "px_per_ft": { "type": "number", "exclusiveMinimum": 0 } }
+        },
+        "north_deg": { "type": "number", "minimum": 0, "exclusiveMaximum": 360 },
+        "generated": { "type": "string", "format": "date" },
+        "verified": {
+          "type": "boolean",
+          "description": "False until a human passes the verify page. The app refuses false. D-108."
+        },
+        "note": { "type": "string" },
+        "source": {
+          "type": "object",
+          "required": ["file", "revision", "plan_date", "method"],
+          "properties": {
+            "file": { "type": "string" },
+            "revision": { "type": "string" },
+            "plan_date": { "type": "string" },
+            "method": { "enum": ["vector-pdf", "raster", "traced", "dxf", "hand-authored fixture"] },
+            "note": { "type": "string" }
+          }
+        }
+      }
+    },
+    "plots": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["svg_id", "block", "number", "area_sqft", "centroid", "facing", "is_corner"],
+        "additionalProperties": false,
+        "properties": {
+          "svg_id": { "type": "string", "pattern": "^plot-[A-Z]+-[0-9]{2,}$" },
+          "block": { "type": "string", "pattern": "^[A-Z]+$" },
+          "number": { "type": "string", "pattern": "^[0-9]{2,}$" },
+          "area_sqft": { "type": "integer", "exclusiveMinimum": 0 },
+          "centroid": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+          "facing": { "enum": ["north", "north-east", "east", "south-east",
+                               "south", "south-west", "west", "north-west"] },
+          "is_corner": { "type": "boolean" },
+          "confidence": { "enum": ["contained", "nearest", "manual"] }
+        }
+      }
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["svg_id", "class", "kind", "label", "centroid"],
+        "additionalProperties": false,
+        "properties": {
+          "svg_id": { "type": "string" },
+          "class": { "enum": ["garden", "amenity", "water"] },
+          "kind": { "enum": ["park", "clubhouse", "temple", "tank", "playground", "parking"] },
+          "label": { "type": "string" },
+          "centroid": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+          "area_sqft": { "type": "integer", "minimum": 0 }
+        }
+      }
+    }
+  }
+}
