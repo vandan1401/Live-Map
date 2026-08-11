@@ -22,8 +22,7 @@
       "Bash(git push --force *)",
       "Read(.env)",
       "Read(.env.*)",
-      "Edit(.env)",
-      "Edit(migrations/**)"
+      "Edit(.env)"
     ]
   },
   "hooks": {

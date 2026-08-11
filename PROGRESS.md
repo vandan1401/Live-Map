@@ -2,29 +2,53 @@
 
 ## Current
 
-- **Task:** M1 — repo skeleton and colony render
-- **Tier:** 3 (scaffolding, config, static render). No state writes.
-- **Plan:** none on disk. Tier 3 needs no `/plan` — built straight from
-  `spec/01-map-skeleton.md`.
-- **State:** `apps/map/` scaffolded (Vite + React 19 + TS + Tailwind v4). Renders
-  `fixtures/shree-vatika-2/colony.svg` full-bleed via Leaflet `CRS.Simple` +
-  `L.svgOverlay` (D-009) — the SVG is read in place from the shared fixture, not copied.
-  `tools/pipeline/` still untouched.
-  `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` (the map half of
-  `make gate`) passes clean. `make gate` itself still fails at the `contract` prerequisite
-  — `tools/pipeline/` doesn't exist yet, which is expected before M9, not a regression.
-  Criterion 5 (click → id) confirmed manually in a real desktop browser. **Still not
-  verified:** criterion 6, pinch-zoom smoothness on an actual iPhone.
-- **Next action:** Verify criterion 6 on an iPhone to fully close M1, then move to
-  scaffolding `tools/pipeline/` per `spec/09-pipe-triage.md`, or continue the app per
-  `spec/02-map-schema.md` (Supabase schema, M2) — family confirmation of D-012/D-013 is a
-  prerequisite for M2 either way.
+- **Task:** M2 — Schema, seed import, status colours
+- **Tier:** 1 (migrations, RLS, `lib/db`). `/plan` written and built against.
+- **Plan:** `docs/plans/01.md`.
+- **State:** `apps/map/supabase/migrations/20260812120000_m2_schema.sql` creates
+  `colonies`, `plots`, `plot_history` — money as `bigint _paise`, `status` a `text` `CHECK`
+  (not a Postgres enum, since D-013's words are still unconfirmed), append-only
+  `plot_history` enforced by a trigger, RLS permissive per D-011 with M8-tightening
+  comments. `apps/map/supabase/config.toml` is hand-written (no Supabase CLI in this
+  environment — verify against your own CLI before trusting it). `lib/db/` (client,
+  colonies, plots, plotHistory) is the only place `supabase.from()` appears. `lib/colony/`
+  fetches plot status and stays DOM-free; `ColonyMap.tsx` applies it as `data-status`,
+  which `colony-theme.css`'s selectors from M1 already render. `scripts/import-seed.ts`
+  loads the fixture + `seed/plot-status-seed.csv`, refuses an unverified manifest,
+  validates `svg_id` orphans in both directions against the SVG and the CSV, and writes
+  one `plot_history` row per plot on import.
+  `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` all pass. The import
+  script was dry-run against the real fixture (parses, cross-validates, and correctly
+  stops at the missing-env-var check) and against a scratch manifest with
+  `verified: false` (exits 1 with the right message) — both real runs, not read back.
+  **Not verified:** criteria 1/2/3/4/5 from the plan, all of which need a live Supabase —
+  none is available in this environment. `pnpm import:seed` has never actually inserted a
+  row.
+- **Decided this session:** `registered` is not terminal (D-013 amended — a
+  `registered → available` reversal exists, symmetric with `booked → available`); D-012
+  field list and D-013 vocabulary words themselves remain unconfirmed against the family's
+  real PDF, proceeding on the words/fields already in the spec.
+- **Tooling fixed this session:** `/build`'s preamble had `$0` inside a `!` shell block,
+  which Claude Code's permission checker rejects outright whenever no argument is passed
+  (a hard shell-expansion guard, not a settings.json permission) — swapped to the
+  existing no-arg `plan-latest` subcommand. `disable-model-invocation: true` removed from
+  `plan`, `review`, `build`, `wrap`, `check`, `start` (user's explicit request, to let
+  Claude drive the full session loop without retyping each command). The
+  `Edit(migrations/**)` deny rule in `.claude/settings.json` was also removed (user's
+  explicit request) — migration files can now be edited/written directly.
+- **Next action:** Run `supabase db reset` locally (or otherwise provide DB access), set
+  `apps/map/.env` from `.env.example`, then run `pnpm import:seed` and the remaining
+  acceptance checks (§5 of `docs/plans/01.md`) for real. Then `/review` before `/wrap`.
 
 ## Deferred
 
-- Plot fields (D-012) and status words (D-013) are provisional. Confirm against the
-  family's WhatsApp status PDF **before** M2 writes the migration. Adding a column later is
-  cheap; renaming one after live data exists is not.
+- D-012's exact field list and D-013's four status *words* are still unconfirmed against
+  the family's real WhatsApp PDF (the `registered`-terminal sub-question is now settled,
+  see Current). Adding a column later is cheap; renaming one after live data exists is
+  not — confirm before M4 starts writing real transitions against these words.
+- `apps/map/supabase/config.toml` was hand-written without the Supabase CLI available in
+  this environment. Verify it against `supabase init`'s actual output on a machine that
+  has the CLI before relying on it for local dev.
 - `pnpm`/`wrangler` (D-014), Python toolchain (D-117), read-only offline (D-008), and
   no-photos-in-v1 (D-015) were proposed and not explicitly confirmed. All reversible.
 - Whether their real PDFs are vector or raster is unknown. If raster, M17's fallback stops
@@ -94,3 +118,31 @@
 - Next: criterion 6 (iPhone pinch-zoom) is the one open item before M1 is fully closed.
 - Surprises: none.
 - Verified: see above — real command output, not re-read from a prior pass.
+
+### 2026-08-12 — M2 build: schema, seed import, status colours
+- Done: Migration for `colonies`/`plots`/`plot_history` (append-only trigger, permissive
+  RLS, `status` as CHECK not enum), `lib/db/` (client + colonies/plots/plotHistory,
+  split into a pure `client.ts` and a Vite-only `browserClient.ts` so the same functions
+  work under both the app's bundler tsconfig and the import script's node tsconfig),
+  `lib/colony/plotStatus.ts`, `ColonyMap.tsx` wired to set `data-status`, and
+  `scripts/import-seed.ts`. Amended D-013 (registered no longer terminal) and the now-wrong
+  line in `spec/00-rules.md`. Also fixed `/build`'s broken preamble and removed
+  `disable-model-invocation`/the migrations deny-rule at the user's explicit request — see
+  Current for detail.
+- Next: get real DB access (user runs `supabase db reset`) and run the acceptance checks
+  that need it; then `/review`.
+- Surprises: `tsconfig.node.json` (vite.config.ts's config) and `tsconfig.app.json` (src's
+  config) disagreed once `scripts/` started importing from `src/lib/db/` — nodenext module
+  resolution demands explicit `.ts` extensions on relative imports and rejects
+  `import.meta.env`, neither of which the bundler-mode app config requires. Splitting
+  `getBrowserDbClient()` into its own file and adding extensions throughout `lib/db/`
+  fixed it; this is a real seam future `lib/*` code shared between app and scripts will
+  hit again.
+- Verified: `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` all pass.
+  `pnpm import:seed` run twice against the real fixture: once with real inputs (correctly
+  progressed through manifest parse, SVG/CSV orphan checks, and CSV field validation
+  before stopping at the missing-env-var check, since no Supabase instance exists here),
+  once against a scratch copy with `verified: false` (exited 1 with the D-108 refusal
+  message — criterion 2b is the one acceptance criterion actually closed this session).
+  Criteria 1/2/3/4/5 from `docs/plans/01.md` — **not run**, no live database in this
+  environment.

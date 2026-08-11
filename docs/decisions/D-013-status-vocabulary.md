@@ -19,8 +19,20 @@ Proposed legal transitions:
 available  → booked, hold
 booked     → registered, available   (available = a cancellation)
 hold       → available
-registered → (terminal)
+registered → available               (available = a cancellation, see below)
 ```
+
+**Amended 2026-08-12, during M2 planning:** `registered` is not terminal. A
+`registered → available` reversal exists, symmetric with `booked → available` — it appends
+a new `plot_history` row recording the reversal rather than deleting or editing the
+`registered` row that preceded it, so the record of what happened is never lost. This
+reopens the question the original reasoning below flagged as the single most important
+thing to confirm; the owner has since confirmed a reversal path is needed. The exact
+real-world trigger for this transition (a cancelled registry, a clerical correction) is
+still to be confirmed against the family's actual process — this decision only settles
+*that* the schema and vocabulary must allow it, not the operational detail of when it's
+used. Enforcement of this transition table lives in `applyPlotTransition()` (M4); M2 only
+needed the schema to not preclude it.
 
 ## Reasoning
 

@@ -2,7 +2,6 @@
 name: plan
 description: Produce an approved, durable implementation brief for one unit of work. Tier 1 tasks only.
 argument-hint: [task name]
-disable-model-invocation: true
 model: opus
 effort: high
 ---

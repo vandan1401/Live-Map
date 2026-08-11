@@ -9,9 +9,11 @@
     "typecheck": "tsc -b",
     "lint": "oxlint",
     "test": "vitest",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "import:seed": "tsx scripts/import-seed.ts"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
     "framer-motion": "^13.1.0",
     "leaflet": "^1.9.4",
     "react": "^19.2.8",
@@ -29,6 +31,7 @@
     "jsdom": "^30.0.1",
     "oxlint": "^1.75.0",
     "tailwindcss": "^4.3.3",
+    "tsx": "^4.19.2",
     "typescript": "~6.0.2",
     "vite": "^8.2.0",
     "vitest": "^4.1.10"

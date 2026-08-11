@@ -1,7 +1,6 @@
 ---
 name: check
 description: Verify the current work against its acceptance criteria. Diagnoses only, fixes nothing.
-disable-model-invocation: true
 model: sonnet
 effort: medium
 allowed-tools: Bash(make *) Bash(pnpm *) Bash(pytest *) Bash(git diff *)

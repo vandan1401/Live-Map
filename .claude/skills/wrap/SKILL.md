@@ -1,7 +1,6 @@
 ---
 name: wrap
 description: Close out a unit of work — full gate, update state files, log, commit.
-disable-model-invocation: true
 model: sonnet
 effort: low
 allowed-tools: Bash(make *) Bash(pnpm *) Bash(pytest *) Bash(git add *) Bash(git commit *) Bash(git status *) Bash(git diff *)

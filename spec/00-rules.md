@@ -51,7 +51,7 @@ The wrong word here produces a UI that lies about who owns what.
 | Plot | One saleable land parcel with an ID | Any polygon in the SVG |
 | Feature | Road, garden, amenity, water body — static, not saleable | A product feature |
 | Booked | Buyer committed, money taken, registry not done | Reserved, held, or enquired |
-| Registered | Sale deed executed. Terminal under D-013. | Recorded in the app |
+| Registered | Sale deed executed. Reversible to `available` under D-013 (amended). | Recorded in the app |
 | On hold | Deliberately withheld from sale by the family | Awaiting paperwork |
 | Owner | The buyer named on the plot record | The developer |
 | Broker | Whoever brought the buyer — determines commission | Any family member |

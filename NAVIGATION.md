@@ -78,12 +78,23 @@ what makes it cheap to test, and every other module depends on it.
 | Feature | Domain logic | Data access | UI | Tables |
 |---|---|---|---|---|
 | Colony render, pan/zoom (M1) | none yet | none yet — fixture read directly | `apps/map/src/components/ColonyMap.tsx` | none yet |
+| Status colours (M2) | `apps/map/src/lib/colony/plotStatus.ts` | `apps/map/src/lib/db/` | `apps/map/src/components/ColonyMap.tsx` sets `data-status` | `colonies`, `plots`, `plot_history` |
 
 ## Reusable functions
 
 | Function | Path | What it does |
 |---|---|---|
-| _(filled in as milestones land)_ | | |
+| `createDbClient(url, anonKey)` | `apps/map/src/lib/db/client.ts` | Pure Supabase client factory — no `import.meta`/`process.env` reads. Safe from both Vite and tsx contexts. |
+| `getBrowserDbClient()` | `apps/map/src/lib/db/browserClient.ts` | Reads `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` and calls `createDbClient`. Vite-only — never import this from `scripts/`. |
+| `insertColony`, `insertPlots`, `fetchPlotStatuses` | `apps/map/src/lib/db/{colonies,plots}.ts` | The only place `supabase.from()` appears. |
+| `insertPlotHistory` | `apps/map/src/lib/db/plotHistory.ts` | Appends history rows; the table itself rejects UPDATE/DELETE via a DB trigger. |
+| `loadPlotStatuses(client, colonyId)` | `apps/map/src/lib/colony/plotStatus.ts` | Domain-shaped `{ svg_id: status }`. DOM-free by design — callers apply `data-status` themselves. |
+
+## Scripts
+
+| Script | Path | What it does |
+|---|---|---|
+| `pnpm import:seed` | `apps/map/scripts/import-seed.ts` | One-off initial load: manifest + `seed/plot-status-seed.csv` → `colonies`/`plots`/`plot_history`. Refuses `verified: false`; validates `svg_id` orphans both ways against `colony.svg` and the CSV. Not the app's write path — that's M4. |
 
 ## Shared fixtures
 

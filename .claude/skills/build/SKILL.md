@@ -1,14 +1,12 @@
 ---
 name: build
 description: Implement one approved plan. Does not plan, does not review.
-argument-hint: [plan number]
-disable-model-invocation: true
 model: sonnet
 effort: medium
 ---
 
 ## The approved plan
-!`bash .claude/preamble.sh plan-n $0`
+!`bash .claude/preamble.sh plan-latest`
 
 ## Your task
 

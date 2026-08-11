@@ -2,10 +2,13 @@ import { useEffect, useRef, useState, type MouseEvent } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import colonySvgRaw from "../../../../fixtures/shree-vatika-2/colony.svg?raw";
+import { getBrowserDbClient } from "../lib/db/browserClient.ts";
+import { loadPlotStatuses } from "../lib/colony/plotStatus.ts";
 
 // The fixture's viewBox is the pixel-space bounds Leaflet's CRS.Simple pans and
 // zooms over. Both halves treat this file as the single shared demo colony.
 const VIEW_BOX = { width: 1000, height: 720 };
+const COLONY_ID = "shree-vatika-2";
 
 function parseColonySvg(raw: string): SVGSVGElement {
   const doc = new DOMParser().parseFromString(raw, "image/svg+xml");
@@ -42,7 +45,29 @@ export function ColonyMap() {
     L.svgOverlay(svgEl, bounds).addTo(map);
     map.fitBounds(bounds);
 
+    // lib/colony stays DOM-free by design (NAVIGATION.md layer rule); applying the
+    // fetched status as data-status is this component's job, not the domain layer's.
+    // colony-theme.css's [data-status] selectors do the rest. Missing env vars (e.g. no
+    // .env configured yet) degrade to plots rendering with no status colour, not a crash.
+    let cancelled = false;
+    try {
+      const client = getBrowserDbClient();
+      loadPlotStatuses(client, COLONY_ID)
+        .then((statuses) => {
+          if (cancelled) return;
+          for (const [svgId, status] of Object.entries(statuses)) {
+            svgEl.querySelector(`#${svgId}`)?.setAttribute("data-status", status);
+          }
+        })
+        .catch((error: unknown) => {
+          console.error("failed to load plot statuses:", error);
+        });
+    } catch (error) {
+      console.error("failed to create Supabase client:", error);
+    }
+
     return () => {
+      cancelled = true;
       map.remove();
     };
   }, []);

@@ -1,7 +1,6 @@
 ---
 name: review
 description: Adversarial review of the current diff by a reviewer that did not write it. Tier 1 tasks.
-disable-model-invocation: true
 context: fork
 agent: adversarial-reviewer
 background: false

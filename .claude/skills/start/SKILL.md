@@ -1,7 +1,6 @@
 ---
 name: start
 description: Recover project state at the beginning of a session and propose the next action.
-disable-model-invocation: true
 allowed-tools: Bash(git status *) Bash(git log *) Bash(git diff *)
 model: inherit
 effort: medium
