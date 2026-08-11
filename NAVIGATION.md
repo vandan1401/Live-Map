@@ -77,7 +77,7 @@ what makes it cheap to test, and every other module depends on it.
 
 | Feature | Domain logic | Data access | UI | Tables |
 |---|---|---|---|---|
-| _(filled in as milestones land)_ | | | | |
+| Colony render, pan/zoom (M1) | none yet | none yet — fixture read directly | `apps/map/src/components/ColonyMap.tsx` | none yet |
 
 ## Reusable functions
 

@@ -15,8 +15,11 @@ One repo, two halves, one contract between them.
 - Verify (fast): `make verify` — both halves
 - One half: `make verify-map` · `make verify-pipe`
 - Full gate: `make gate` — typecheck, lint, full tests, production build, contract check
-- Never run: `pnpm dev`, `make serve` (I run those), `wrangler pages deploy`,
-  `supabase db reset`, anything deleting an overrides file
+- `pnpm dev` (apps/map) may be run, including in the background, to serve the app for
+  manual checks — Claude has no browser or device to test with, so a human still has to
+  open the URL and look.
+- Never run: `make serve` (I run that — see `.claude/hooks/guard.sh`), `wrangler pages
+  deploy`, `supabase db reset`, anything deleting an overrides file
 
 Makefile targets are found by name — never grep for a script. Skill preambles call
 `.claude/preamble.sh <sub>`; Claude Code rejects compound shell in `!` blocks, so extend

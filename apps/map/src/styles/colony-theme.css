@@ -1,0 +1,144 @@
+/*
+ * One theme, every colony (D-004). Every colour a plot can show lives here as a
+ * variable. Changing a status colour means editing one line, and it changes for
+ * every colony at once — do not hardcode a colour in a component.
+ */
+:root {
+  --colony-ground: #eef0e6;
+  --colony-site-boundary: #8a8f7c;
+
+  --colony-road: #d8d4c8;
+  --colony-garden: #b7d3a4;
+  --colony-amenity: #cbb994;
+  --colony-tree-crown: #6f9a5c;
+  --colony-tree-shadow: rgba(0, 0, 0, 0.12);
+
+  --colony-plot-fill: #ffffff;
+  --colony-plot-stroke: #9a9a92;
+  --colony-plot-stroke-width: 1.5;
+  --colony-plot-selected-stroke: #08060d;
+
+  /* Unused until M2 — status arrives from Postgres, applied via data-status. */
+  --colony-status-available: #3fa34d;
+  --colony-status-booked: #e0a527;
+  --colony-status-registered: #8a8f7c;
+  --colony-status-hold: #c0392b;
+}
+
+.colony-map-container {
+  position: absolute;
+  inset: 0;
+  background: var(--colony-ground);
+}
+
+/* Leaflet writes plenty of inline styles to its own panes — none of that reaches
+ * the plots themselves (D-009). This just gets the container out of the way. */
+.colony-map-container .leaflet-container {
+  background: var(--colony-ground);
+  width: 100%;
+  height: 100%;
+}
+
+.colony-svg-root {
+  /* No SVG filters (blur, drop-shadow) — they force a repaint on every zoom step
+   * in mobile Safari. Shadows here are solid offset shapes only. */
+  filter: none;
+}
+
+.site-boundary {
+  fill: none;
+  stroke: var(--colony-site-boundary);
+  stroke-width: 2;
+  pointer-events: none;
+}
+
+.road {
+  fill: var(--colony-road);
+  pointer-events: none;
+}
+
+.garden {
+  fill: var(--colony-garden);
+  pointer-events: none;
+}
+
+.amenity {
+  fill: var(--colony-amenity);
+  pointer-events: none;
+}
+
+.tree-crown {
+  fill: var(--colony-tree-crown);
+  pointer-events: none;
+}
+
+.tree-shadow {
+  fill: var(--colony-tree-shadow);
+  pointer-events: none;
+}
+
+.plot {
+  fill: var(--colony-plot-fill);
+  stroke: var(--colony-plot-stroke);
+  stroke-width: var(--colony-plot-stroke-width);
+  cursor: pointer;
+  transition: fill 150ms ease-out;
+}
+
+/* Leaflet's own stylesheet sets `.leaflet-pane > svg path { pointer-events: none }`
+ * for non-interactive overlays (specificity 0,1,2) — it silently wins over a bare
+ * `.plot` rule (0,1,0) and swallows every click before it reaches the page. The
+ * extra class here (0,2,0) is what actually beats it. */
+.colony-svg-root .plot {
+  pointer-events: auto;
+}
+
+/* Selected state uses stroke and scale, never fill — fill belongs to status. */
+.plot.is-selected {
+  stroke: var(--colony-plot-selected-stroke);
+  stroke-width: 3;
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(1.03);
+}
+
+.plot[data-status="available"] {
+  fill: var(--colony-status-available);
+}
+.plot[data-status="booked"] {
+  fill: var(--colony-status-booked);
+}
+.plot[data-status="registered"] {
+  fill: var(--colony-status-registered);
+}
+.plot[data-status="hold"] {
+  fill: var(--colony-status-hold);
+}
+
+.colony-scale-note {
+  position: absolute;
+  left: 0.75rem;
+  bottom: 0.75rem;
+  z-index: 1000;
+  pointer-events: none;
+  font-size: 0.75rem;
+  color: var(--colony-site-boundary);
+  background: rgba(255, 255, 255, 0.85);
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+}
+
+/* import.meta.env.DEV-gated — never present in a production build. */
+.colony-dev-click-badge {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 1000;
+  pointer-events: none;
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.8rem;
+  color: #fff;
+  background: rgba(8, 6, 13, 0.85);
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.25rem;
+}
