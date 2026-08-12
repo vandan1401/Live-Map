@@ -44,3 +44,25 @@ this must be confirmed **before** the M2 migration, not after.
   schema.
 - **A generic JSONB attributes bag** — flexible, but unqueryable, untypable, and it makes
   every field optional forever.
+
+## Amended 2026-08-14 — displayed field set narrowed to dimensions + conditional owner
+
+The owner gave a direct, explicit answer for what the plot detail sheet should show:
+**length, breadth, and the owner's name — only while the plot is `booked`** (not
+`registered`, confirmed when asked; the attribution line and `plot_history` list stay,
+also confirmed — those answer "who changed this and when," a different question from
+"what does this plot look like").
+
+Two new columns, `length_ft`/`breadth_ft` (`numeric not null`), are added to the table
+above — they didn't exist before, geometry doesn't derive them the way it derives
+`area_sqft`/`facing`/`is_corner`, so they're entered like `owner_name` etc. (in practice,
+added by hand to the one hand-authored demo fixture manifest — the real pipeline that
+would derive or import them doesn't exist yet, pre-M9).
+
+This is a **display** change only. `owner_phone`, `broker_name`, `rate_paise`,
+`booking_amount_paise`, `booking_date`, `registry_date`, `notes` are still all real
+columns in `plots` — nothing was dropped from the schema, and `spec/00-rules.md` already
+permits storing `booking_amount_paise` as a plain number. The authoritative-PDF question
+this decision was originally waiting on is still open; this amendment answers a narrower,
+more urgent question (what does the *sheet* show today) without resolving the wider one.
+

@@ -8,12 +8,12 @@ afterEach(() => {
 
 describe("ColonyMap", () => {
   it("renders all 45 plots from the shared fixture", () => {
-    const { container } = render(<ColonyMap />);
+    const { container } = render(<ColonyMap actor="test-actor" />);
     expect(container.querySelectorAll(".plot")).toHaveLength(45);
   });
 
   it("logs a plot's id when clicked", () => {
-    const { container } = render(<ColonyMap />);
+    const { container } = render(<ColonyMap actor="test-actor" />);
     const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 
     const plot = container.querySelector(".plot") as SVGPathElement;
@@ -24,7 +24,7 @@ describe("ColonyMap", () => {
   });
 
   it("shows the not-to-scale note", () => {
-    const { getByText } = render(<ColonyMap />);
+    const { getByText } = render(<ColonyMap actor="test-actor" />);
     expect(getByText("Indicative layout — not to scale")).toBeInTheDocument();
   });
 });

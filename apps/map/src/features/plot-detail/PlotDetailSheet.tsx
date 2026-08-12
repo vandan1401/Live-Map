@@ -2,13 +2,26 @@ import { useEffect, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { motion, useDragControls, type PanInfo } from "framer-motion";
 import { loadPlotDetail, type PlotDetail } from "../../lib/colony/plotDetail.ts";
+import { applyPlotTransition } from "../../lib/plot-status/applyPlotTransition.ts";
+import { fetchPlotHistory } from "../../lib/db/plotHistory.ts";
+import type { PlotStatus } from "../../lib/db/types.ts";
 import { PlotDetailContent } from "./PlotDetailContent.tsx";
+import { PlotStatusActions } from "./PlotStatusActions.tsx";
 
 interface Props {
   client: SupabaseClient | null;
   colonyId: string;
   svgId: string;
   onDismiss: () => void;
+  // Lets ColonyMap update the SVG's data-status attribute (D-004: status is a DOM
+  // attribute, never written into the SVG file itself) the moment a write succeeds,
+  // without re-fetching every plot's status.
+  onPlotStatusChange: (svgId: string, newStatus: PlotStatus) => void;
+  // Threaded down from App.tsx's non-null state, not read from localStorage here — a
+  // `?? "unknown"` fallback would let a write be attributed to nobody, and D-016/
+  // tier-1.md are explicit that a forged/placeholder actor turns plot_history's evidence
+  // into a claim (this was a real /review finding, not a hypothetical).
+  actor: string;
 }
 
 // Drag distance (px) past which a release counts as a deliberate gesture rather than
@@ -18,10 +31,19 @@ const DRAG_THRESHOLD = 80;
 // otherwise a small downward wobble while expanded leaves the sheet stuck open.
 const COLLAPSE_THRESHOLD = 20;
 
-export function PlotDetailSheet({ client, colonyId, svgId, onDismiss }: Props) {
+export function PlotDetailSheet({
+  client,
+  colonyId,
+  svgId,
+  onDismiss,
+  onPlotStatusChange,
+  actor,
+}: Props) {
   const [detail, setDetail] = useState<PlotDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [conflictMessage, setConflictMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   // Drag starts only from the handle (dragListener={false} + onPointerDown below) —
   // otherwise the drag gesture on the whole sheet swallows a finger-scroll over the
   // field list, and content taller than the collapsed 42% becomes unreachable on a
@@ -37,6 +59,7 @@ export function PlotDetailSheet({ client, colonyId, svgId, onDismiss }: Props) {
     setDetail(null);
     setError(null);
     setExpanded(false);
+    setConflictMessage(null);
     if (!client) {
       setError("Not connected to the database.");
       return;
@@ -76,6 +99,53 @@ export function PlotDetailSheet({ client, colonyId, svgId, onDismiss }: Props) {
     setExpanded((value) => !value);
   };
 
+  const handleChangeStatus = async (toStatus: PlotStatus) => {
+    if (!client || !detail) return;
+    setSaving(true);
+    setConflictMessage(null);
+    try {
+      const result = await applyPlotTransition(client, {
+        plotId: detail.plot.id,
+        fromStatus: detail.plot.status,
+        toStatus,
+        expectedVersion: detail.plot.version,
+        actor,
+      });
+      if (result.ok) {
+        const history = await fetchPlotHistory(client, detail.plot.id);
+        setDetail({ plot: result.plot, history });
+        onPlotStatusChange(svgId, result.plot.status);
+      } else if (result.reason === "conflict") {
+        setConflictMessage(`${result.winnerName} changed this — refresh to see the latest.`);
+      } else {
+        // illegal_transition — PlotStatusActions only offers legal next statuses and
+        // gates Undo the same way, so this is an unexpected mismatch, not a user error.
+        setError("That change is no longer valid — refresh and try again.");
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Could not save this change.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUndo = () => {
+    if (!detail || detail.history.length < 2) return;
+    void handleChangeStatus(detail.history[1].status);
+  };
+
+  const handleRefresh = () => {
+    if (!client) return;
+    setConflictMessage(null);
+    loadPlotDetail(client, colonyId, svgId)
+      .then((result) => {
+        if (result) setDetail(result);
+      })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : "Could not refresh this plot.");
+      });
+  };
+
   return (
     <motion.div
       className={`plot-detail-sheet ${expanded ? "is-expanded" : ""}`}
@@ -99,7 +169,27 @@ export function PlotDetailSheet({ client, colonyId, svgId, onDismiss }: Props) {
       />
       {error && <p className="plot-detail-error">{error}</p>}
       {!error && !detail && <p className="plot-detail-loading">Loading…</p>}
-      {detail && <PlotDetailContent {...detail} />}
+      {conflictMessage && (
+        <p className="plot-detail-conflict">
+          {conflictMessage}{" "}
+          <button type="button" className="plot-detail-refresh" onClick={handleRefresh}>
+            Refresh
+          </button>
+        </p>
+      )}
+      {detail && (
+        <>
+          <PlotDetailContent {...detail} />
+          <PlotStatusActions
+            plot={detail.plot}
+            history={detail.history}
+            actor={actor}
+            saving={saving}
+            onChangeStatus={(status) => void handleChangeStatus(status)}
+            onUndo={handleUndo}
+          />
+        </>
+      )}
     </motion.div>
   );
 }

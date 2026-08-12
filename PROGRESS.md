@@ -2,152 +2,54 @@
 
 ## Current
 
-- **Task:** M4 — status writes, transitions, concurrency. Tier 1 core (migration +
-  `lib/plot-status/` + tests) built this session per `docs/plans/02.md`, scoped
-  deliberately to the domain/db layer only — the Save/Undo button UI and the local
-  identity-picker are an explicit Tier 2 follow-up, not built yet (see plan §4). About to
-  go through `/review`.
-- **Tier:** M2 and M3 are both closed (`docs/plans/01.md` carries `Status: complete`). M4
-  is Tier 1 (`apps/map/src/lib/plot-status/**`, migrations) — `/plan` at
-  `docs/plans/02.md`.
-- **M4 build this session:** new migration
-  `20260813000000_m4_apply_plot_transition.sql` adds `apply_plot_transition()`, a single
-  Postgres function (row-locked via `select ... for update`, one transaction covering the
-  `plots` update and the `plot_history` insert) and a
-  `plot_history_note_length` CHECK (note ≤ 500 chars) that exists solely so the atomicity
-  test can force a failure that hits *only* the second statement — a null actor fails the
-  `plots` UPDATE itself (`updated_by` is `not null`) without ever reaching the history
-  insert, which the first version of this test got wrong (`/review` caught it; see the
-  2026-08-13 log entry). `lib/plot-status/transitions.ts` holds
-  the amended D-013 table + `isLegalTransition()`; `lib/plot-status/recentEdit.ts` holds
-  the pinned `RECENT_EDIT_WARNING_MINUTES = 5` + `isRecentlyEdited()`;
-  `lib/plot-status/applyPlotTransition.ts` is the single write entry point, returning a
-  typed `PlotTransitionResult` (`ok`/`illegal_transition`/`conflict`) rather than
-  throwing for expected business outcomes. `lib/db/plotTransitions.ts` is the only file
-  that calls the RPC. New decision **D-016** (actor identity is a client-supplied
-  free-text string until M8 real auth ships — no fixed roster, mirrors the M2 import's
-  `'import'` literal precedent).
-  **Verified for real, not read back:** `supabase db reset` applied the new migration
-  cleanly; `pnpm import:seed` re-ran after (45 plots, 0 unmatched — the reset wiped seed
-  data, re-imported it). All 39 tests pass (14 baseline + 25 net new — 17 in
-  `transitions.test.ts`, 3 in `recentEdit.test.ts`, 5 in `applyPlotTransition.test.ts`,
-  including real integration tests against the live local Supabase: a genuine concurrent
-  write via `Promise.allSettled` proving one wins/one fails named, and a forced
-  mid-transaction failure via a direct RPC call with an over-length `p_note` (hitting only
-  the `plot_history_note_length` constraint, after the `plots` update already ran) proving
-  the update rolls back with the failed `plot_history` insert. Full gate
-  (`pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build`) passes. Grep check
-  for criterion 5 (no `plots.status` write outside the new path) — clean, all hits are
-  reads or DOM display.
-- **Next action:** `/review` this diff (Tier 1 gate). After it closes, the Tier 2
-  follow-up is the Save/Undo button UI in `features/plot-detail/` plus the local "who's
-  using this device?" name prompt — see `docs/plans/02.md` §4 for exactly what's deferred
-  and why.
-- **M2 state:** a live local Supabase instance now exists (Docker + `supabase start`,
-  see below) and 5 of 6 plan criteria are verified for real, not read back:
-  - #1 migration applies to a clean DB — `supabase db reset` succeeded.
-  - #2 45 plots imported, 0 unmatched — `pnpm import:seed` real output:
-    `imported 45 plots for "shree-vatika-2", 0 unmatched`.
-  - #2b `verified: false` refused — scratch manifest, real run, exit 1 with the D-108
-    message, scratch files deleted after.
-  - #3 `UPDATE` on `plot_history` rejected — real SQL via `docker exec ... psql`, got
-    `ERROR: plot_history is append-only — UPDATE is not permitted`.
-  - #4 no float money column — real `\d plots`: `rate_paise`/`booking_amount_paise` are
-    `bigint`.
-  - #5 all four status colours render — **verified live**, user confirmed in a real
-    browser after the Docker/Supabase restart below.
-  - #6 full gate — passes (see Verified below).
-  - **Bug found and fixed live:** the M2 migration created RLS policies but never
-    `GRANT`ed table privileges to `anon`/`authenticated` — Postgres RLS only restricts
-    access a role already has; without the grant, PostgREST's anon connection got
-    `permission denied for table colonies`. Fixed in the same migration file (added
-    `grant select/insert/update` on `colonies`/`plots`, `grant select/insert` only
-    on `plot_history` — no update/delete grant, so append-only holds at the privilege
-    layer too, not just the trigger). This was the migration's first ever live
-    application, so it was amended in place rather than as a new migration. `delete` was
-    originally granted too but dropped in a later `/review` pass this session — no code
-    path deletes a colony or a plot, so it was wider than any stated requirement.
-  - **Second bug found in `/review` of the M3 diff, same migration:** `plots.updated_by`
-    was nullable in the DB but non-nullable (`string`, not `string | null`) in
-    `PlotInsert`/`PlotRow` — and `PlotDetailContent.tsx` had a `?? "import"` fallback
-    papering over the mismatch, which is exactly the "attribution as a claim" tier-1.md
-    warns against. Fixed by making the column `not null` in the same in-place amendment
-    (every writer already sets it) and deleting the fallback. `supabase db reset` +
-    `pnpm import:seed` re-run after this fix too — both real, both passed.
-  - `docs/plans/01.md` now has the `Status: complete` marker — all 6 criteria verified.
-- **M2 environment setup this session (previously blocked, see prior log entries):**
-  Docker Desktop was installed but not running; started it. Docker already had another,
-  unrelated local project's Supabase stack running (`..._Turf_booking`, holding the
-  default ports 54321-54324) — user chose to bump colony-map's local ports instead of
-  touching the other project; `apps/map/supabase/config.toml` now uses 55321-55324.
-  `supabase start` failed twice on unrelated service health-check timeouts (storage,
-  realtime, analytics, studio — likely resource contention running two stacks); fixed by
-  `supabase start --exclude realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,
-  edge-runtime,logflare,vector,supavisor` — M2/M3 only need Postgres + PostgREST + auth +
-  kong. `CLAUDE.md`'s "Never run `supabase db reset`" line was removed at the user's
-  explicit request (confirmed no remote Supabase project is linked first — see the
-  Commands section for the exact reasoning). `.claude/settings.json`'s `.env` deny rules
-  (`Read(.env)`, `Read(.env.*)`, `Edit(.env)`) were also removed at the user's explicit
-  request; `apps/map/.env` now holds the local instance's URL/anon key.
-- **M3 state:** `lib/db/plots.ts` gained `fetchPlotBySvgId`, `lib/db/plotHistory.ts`
-  gained `fetchPlotHistory` (+ `PlotHistoryRow` type), `lib/colony/plotDetail.ts` is the
-  new DOM-free `loadPlotDetail()`. `shared/format.ts` (new — the "Pure" NAVIGATION.md
-  layer, imports nothing) holds `formatRupees`/`formatDate`/`formatRelativeTime`
-  (IST-pinned, `Asia/Kolkata`, so the display never depends on the viewing device's own
-  timezone)/`formatStatusLabel`, all unit-tested first per `/build`'s TDD rule for pure
-  layers. `features/plot-detail/{PlotDetailSheet,PlotDetailContent}.tsx` render the sheet
-  (Framer Motion drag-to-dismiss/expand via the `dragConstraints={top:0,bottom:0}` +
-  `dragElastic` rubber-band trick) and every D-012 field read-only. `ColonyMap.tsx` now
-  tracks `selectedId` (renamed from the old dev-only `lastClickedId`), applies
-  `.is-selected` via direct DOM manipulation (same pattern as `data-status`, since the SVG
-  is raw parsed markup, not a React tree), and opens/dismisses the sheet on
-  plot-click/map-click. New CSS lives in `styles/plot-detail-sheet.css`, split out of
-  `colony-theme.css` to keep that file under the 250-line cap (invariant 7) — it was
-  about to cross 250 with the sheet rules inlined.
-  **Verified live:** M3 criteria 1/3/4 (sheet opens with correct data, attribution line,
-  map stays interactive above the sheet) all confirmed by the user in a real browser.
-  Criterion 2 (money formatting) is unit-tested and passing. User's one note: does not
-  like the sheet's current UI/visual design — functionally correct, revisit look-and-feel
-  later (not blocking, no specifics given yet).
-- **Decided this session:** `registered` is not terminal (D-013 amended — a
-  `registered → available` reversal exists, symmetric with `booked → available`); D-012
-  field list and D-013 vocabulary words themselves remain unconfirmed against the family's
-  real PDF, proceeding on the words/fields already in the spec.
-- **Tooling fixed this session:** `/build`'s preamble had `$0` inside a `!` shell block,
-  which Claude Code's permission checker rejects outright whenever no argument is passed
-  (a hard shell-expansion guard, not a settings.json permission) — swapped to the
-  existing no-arg `plan-latest` subcommand. `disable-model-invocation: true` removed from
-  `plan`, `review`, `build`, `wrap`, `check`, `start` (user's explicit request, to let
-  Claude drive the full session loop without retyping each command). The
-  `Edit(migrations/**)` deny rule in `.claude/settings.json` was also removed (user's
-  explicit request) — migration files can now be edited/written directly.
-- **`/review` run and its findings fixed this session** (see log entry below for detail):
-  a fail-open gap in `guard.sh`/`filesize.sh`, a drag/click bug in `PlotDetailSheet.tsx`,
-  an inline magic number, and the over-wide `delete` grant noted above. Gate re-run clean
-  after all four.
-- **Session tooling fixed this session:** every skill's `!` preamble (`bash
-  .claude/preamble.sh <sub>`) broke when the shell's cwd drifted away from the repo root
-  (e.g. after a `cd apps/map && ...` tool call) — `/wrap` failed outright with "No such
-  file or directory". Fixed two layers: `preamble.sh` now self-locates via `BASH_SOURCE`
-  instead of the (empirically unset) `$CLAUDE_PROJECT_DIR`, and all 13 `!` call sites
-  across the six `SKILL.md` files now invoke it by absolute path. `.claude/settings.json`
-  gained a matching absolute-path allow entry alongside the old relative one. Tradeoff:
-  the absolute path is specific to this machine/clone; moving the repo means updating all
-  13 call sites plus the settings.json entry.
-- **This session's Docker/Supabase restart:** Docker Desktop was not running at session
-  start (it does not auto-start on login on this machine), so every Supabase call in the
-  browser failed with `TypeError: Failed to fetch` — surfaced as a stuck-loading plot
-  detail sheet and plots falling back to their unstyled colour (all 45 showing one flat
-  shade, not "only some colours missing"). Fixed by starting Docker Desktop, waiting for
-  the daemon, then `supabase start` with the same `--exclude` flags as the prior session.
-  The `supabase` CLI is not on this shell's `PATH` at all (`where.exe supabase`, `pnpm
-  exec supabase`, scoop, and winget all came up empty) — `npx -y supabase <cmd>` is what
-  actually works here and is what resolved the CLI to 2.113.0, matching the prior
-  session's version. Seed data survived the restart untouched (`SELECT count(*) FROM
-  plots` → 45) — stopping the stack does not drop the Docker volume.
+- **Task:** M2, M3, and M4's Tier 1 core are all closed (`docs/plans/01.md`,
+  `docs/plans/02.md` carry `Status: complete`). M4's Tier 2 UI follow-up (Save/Undo
+  button, name prompt) is built and gate-clean. On top of that, this session the owner
+  gave two direct product decisions that revise D-012/D-013 — `docs/plans/03.md` (Tier 1:
+  contract + migration + `lib/plot-status/`) implements them, `/review`ed (6 findings,
+  all fixed and re-verified), gate-clean. `docs/plans/03.md` does **not** carry the
+  `Status: complete` marker — its criterion 6 (the sheet actually shows only length/
+  breadth/conditional-owner) has never been looked at in a browser, on purpose.
+- **D-013 revision (this session):** three statuses, not four — `available`, `booked`,
+  `registered` (displayed as **"Registry done"**, stored word unchanged). `hold` is
+  removed entirely; the 4 demo plots that were on hold are remapped to `available` in
+  `seed/plot-status-seed.csv`. New transition table: `available→booked`,
+  `booked→registered`, `booked→available`, `registered→available`. Migration
+  `20260814000000_status_vocabulary_and_dimensions.sql` swaps the CHECK constraints on
+  `plots`/`plot_history` and is written to be safe even against a non-reset DB with
+  existing `hold` rows (defensive `UPDATE` on `plots` before the constraint swap;
+  `plot_history`'s historical `hold` rows are append-only and deliberately untouched).
+- **D-012 revision (this session):** the plot detail sheet now shows only Length,
+  Breadth (new `length_ft`/`breadth_ft numeric not null` columns, added by hand to the
+  fixture manifest — `tools/pipeline/` doesn't exist yet), and Owner name **only when
+  `status === "booked"`** (confirmed explicitly, not `registered`). Attribution line and
+  history stay. All other DB columns (`owner_phone`, `broker_name`, `rate_paise`,
+  `booking_amount_paise`, dates, `notes`) are untouched in the schema — display-only
+  trim, nothing dropped.
+- **Verified for real this session:** `supabase db reset` applied the new migration
+  cleanly on top of live `hold` data from the prior session; `pnpm import:seed` re-ran
+  (45 plots, 0 unmatched). Full gate — `pnpm typecheck && pnpm lint && pnpm test -- --run
+  && pnpm build` — 35/35 tests (down from 42; the 3-status `transitions.test.ts` has 7
+  fewer pairs than the 4-status version, as expected). Fixture manifest hand-checked
+  against the schema's new `required`/`additionalProperties: false` list — all 45 plots
+  valid (no automated validator exists pre-M9).
+- **Next action:** a human opens a browser and looks at the plot detail sheet — confirm
+  it shows only length/breadth (+ owner name iff booked), that "Registry done" reads
+  right, and that the Save/Undo buttons work with the new 3-status set. Once confirmed,
+  `docs/plans/03.md` gets its `Status: complete` marker.
 
 ## Deferred
 
+- D-012's field list and D-013's status words were **partially** confirmed this session
+  (the owner gave a direct, explicit decision on both) — but this doesn't mean either is
+  fully settled against the family's real WhatsApp PDF. `owner_phone`/`broker_name`/
+  `rate_paise` etc. are still in the schema unconfirmed-but-unused; whether the family's
+  PDF vocabulary matches `available`/`booked`/`registered` (vs. words like "sold",
+  "agreement done") is still open.
+- `pnpm dev`'s background process has been killed twice this session by something outside
+  Claude's control (not a user action, no explanation surfaced) — if it keeps happening,
+  worth checking whether something in the environment is reaping background node
+  processes after a timeout.
 - The `supabase` CLI must be invoked as `npx -y supabase <cmd>` in this shell — it is not
   on `PATH` as a bare `supabase` command (checked `where.exe`, `pnpm exec`, scoop, winget;
   none found it, but `npx -y supabase --version` resolves and runs fine). Any future
@@ -157,14 +59,10 @@
 - Docker Desktop does not auto-start on login on this machine — any session that needs the
   local Supabase stack should check `docker info` first rather than assuming it's up from
   a prior session.
-- User does not like the current visual design of the plot detail sheet (M3). No specifics
-  given yet — surface this before any further UI polish work, and ask what they'd change
-  rather than guessing.
-
-- D-012's exact field list and D-013's four status *words* are still unconfirmed against
-  the family's real WhatsApp PDF (the `registered`-terminal sub-question is now settled,
-  see Current). Adding a column later is cheap; renaming one after live data exists is
-  not — confirm before M4 starts writing real transitions against these words.
+- User did not like the M3 sheet's original visual design (no specifics given at the
+  time). This session's D-012 revision (length/breadth/conditional owner only) may or may
+  not address that — worth asking once they've looked at the simplified version, rather
+  than assuming the field-list trim was the whole complaint.
 - `apps/map/supabase/config.toml` has now been run for real against Supabase CLI 2.113.0
   (local ports bumped to 55321-55324 to avoid colliding with another project's stack on
   this machine — see Current). One warning: `[inbucket]` is deprecated in favour of
@@ -185,6 +83,96 @@
 ## Log
 
 <!-- Append-only. Four lines per entry: Done / Next / Surprises / Verified. -->
+
+### 2026-08-14 — wrap: D-012/D-013 revision closed pending one manual check
+- Done: ran the full gate post-`/review` fixes, updated `PROGRESS.md`'s `## Current`
+  and `Deferred`, left `docs/plans/03.md` without the `Status: complete` marker on
+  purpose — criterion 6 (the sheet visually shows only length/breadth/conditional-owner)
+  was never confirmed in a browser this session, only by reading the component. D-016 and
+  the D-012/D-013 amendments were already recorded during `/build`, nothing new to log.
+  No new NAVIGATION.md entries needed beyond what was added during `/build`.
+- Next: a human opens a browser, looks at the sheet, confirms it. Then the plan gets its
+  completion marker.
+- Surprises: none — this was a clean close of already-`/review`ed work.
+- Verified: `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` — 36/36
+  tests, clean build.
+
+### 2026-08-14 — M4 Tier 2 follow-up: Save/Undo UI, name prompt
+- Done: wired the M4 write path into the UI. `lib/identity/actor.ts` +
+  `features/identity/NamePrompt.tsx` — one-time free-text "who's using this device?"
+  prompt (D-016), persisted to `localStorage`, gates `App.tsx` until answered.
+  `features/plot-detail/PlotStatusActions.tsx` (new, tested) renders Save buttons for
+  each legal next status plus an Undo button (visible only when the plot's most recent
+  history row is the current actor's own). `PlotDetailSheet.tsx` now calls
+  `applyPlotTransition()`, handles the typed conflict result with a banner + refresh
+  button, and notifies `ColonyMap.tsx` to update the SVG's `data-status` attribute
+  directly on success (same direct-DOM pattern as the initial load, no full re-fetch).
+  Tier 2 — no `/plan`/`/review`, `/check` run instead.
+- Next: a human opens a browser and actually clicks Save/Undo.
+- Surprises: none.
+- Verified: `/check`'s PASS/FAIL table — all M4 Tier 1 acceptance criteria still pass
+  unchanged (this diff adds no new write path, just calls the already-reviewed
+  `applyPlotTransition()`). Full gate — 42/42 tests (39 + 3 new for
+  `PlotStatusActions.test.tsx`), clean build.
+
+### 2026-08-14 — three statuses + plot dimensions (D-012/D-013 revision)
+- Done: `docs/plans/03.md` planned and built. Owner gave two direct decisions: (1) three
+  statuses not four — `hold` removed, `registered` now displays as "Registry done" (word
+  unchanged, D-010-style label/storage split); (2) plot detail sheet shows only Length,
+  Breadth, and Owner name — owner name only while `status === "booked"`, not `registered`
+  (confirmed explicitly — this was the one place two readings were equally plausible).
+  New migration swaps the `status` CHECK on `plots`/`plot_history` to 3 words and adds
+  `length_ft`/`breadth_ft numeric not null` to `plots`. `contract/colony.schema.json` and
+  `contract/SPEC.md` updated to match (Tier 1 — both halves depend on the contract, even
+  though `tools/pipeline` doesn't exist yet). Fixture manifest, seed CSV (4 plots remapped
+  `hold`→`available`), `transitions.ts`, `format.ts`, `PlotDetailContent.tsx`,
+  `PlotStatusActions.tsx` all updated to match. D-012 and D-013 amended in place (same
+  pattern as D-013's earlier "registered not terminal" amendment) rather than superseded
+  with new IDs — the underlying decision id still names the same open question
+  (vocabulary/field-list), just answered further.
+- Next: `/review` this diff, then a human looks at the simplified sheet in a browser.
+- Surprises: the M4 Tier 2 test suite (`applyPlotTransition.test.ts`,
+  `PlotStatusActions.test.tsx`) had `"hold"` baked into scratch test data and assertions
+  in three places — removing a status value from the domain type caught all of them at
+  typecheck, but the concurrency test specifically needed a redesign (it used to prove
+  "two different destination statuses race" by sending one call to `hold` and one to
+  `booked`; with only one legal edge out of `available` now, both concurrent calls target
+  `booked` instead — still proves the same thing, one wins one conflicts).
+- Verified: `supabase db reset` applies the migration cleanly on the normal reset-and-
+  reseed path; `pnpm import:seed` → 45 plots, 0 unmatched. Separately, and for real —
+  `/review` correctly caught that `add column ... not null` with no default cannot apply
+  to a non-empty table, and that `db reset`'s from-empty replay meant this had never
+  actually been exercised against existing data despite the migration's own comment
+  claiming otherwise. Fixed (temporary `default 0`, dropped immediately after) and then
+  proved directly: reset to just the M2+M4 migrations, hand-inserted a scratch plot with
+  `status = 'hold'` via `psql`, piped this migration's SQL into `psql` against that
+  populated table — applied clean (`UPDATE 1`, then the `ALTER TABLE`s), and the scratch
+  row came back `status = 'available'`, `length_ft = 0`, `breadth_ft = 0` (backfilled).
+  Full gate — `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` — 35/35
+  tests (42 minus the 7 fewer transition-pair tests the 3-status table needs). Fixture
+  manifest hand-checked against the schema's `required`/`additionalProperties: false`
+  list via a small Node script — all 45 plots valid (no automated contract validator
+  exists, pipeline is pre-M9).
+- `/review` found six real issues, all fixed: (1) the migration's `not null` column add
+  with no default would have failed against any populated `plots` table — fixed with a
+  temporary default, dropped after, and actually proved against populated data (see
+  Verified above), not just re-read. (2) This log's own first draft claimed that proof
+  before it existed — corrected to state what was actually run. (3) `PlotStatusActions`'s
+  Undo button could target an illegal reverse transition (e.g. `registered → booked`
+  isn't legal under the new table) and silently do nothing — `canUndo()` now also checks
+  `isLegalTransition()`, plus a new test locks in the illegal-undo case, plus the buggy
+  test fixture that had baked the bug in (`available` undoing to `registered`, itself
+  illegal) is fixed. (4) A thrown error from `applyPlotTransition` (network failure, etc.)
+  left `saving` stuck `true` forever with every button disabled and no message — wrapped
+  in `try/catch/finally`, `handleRefresh` got a `.catch()` too. (5) `getStoredActor() ??
+  "unknown"` could write a forged name into `plot_history` if storage were ever cleared
+  mid-session — the exact "attribution as a claim" mistake a prior `/review` already
+  caught once in `PlotDetailContent.tsx` (see the M3 log entry) — fixed by threading
+  `App.tsx`'s non-null `actor` state down through `ColonyMap.tsx` to `PlotDetailSheet` as
+  a required prop instead of re-reading `localStorage`. (6) `spec/00-rules.md`,
+  `spec/01-map-skeleton.md`, `spec/02-map-schema.md`, `spec/06-map-filter-search.md` still
+  said "four statuses"/listed `hold` — the plan updated `DECISIONS.md` and both decision
+  docs but missed `spec/`; all four fixed. Gate re-run clean after all six.
 
 ### 2026-08-13 — M4 Tier 1 core built (migration + lib/plot-status)
 - Done: `docs/plans/02.md` planned and built. Scoped M4 to the domain/db layer only —

@@ -1,13 +1,10 @@
 import type { PlotDetail } from "../../lib/colony/plotDetail.ts";
-import {
-  formatDate,
-  formatRelativeTime,
-  formatRupees,
-  formatStatusLabel,
-} from "../../shared/format.ts";
+import { formatRelativeTime, formatStatusLabel } from "../../shared/format.ts";
 
-// Read-only display of every D-012 field plus the attribution line and history.
-// No Save button here — that is M4's job (spec/03's one stated non-goal).
+// Read-only display: dimensions, owner name only while booked (D-012 amended this
+// session — narrower than the original D-012 field list), plus the attribution line
+// and history (D-006/D-007 — a different question than "what does this plot look
+// like," kept regardless of the field-list change).
 export function PlotDetailContent({ plot, history }: PlotDetail) {
   const attribution = `${formatStatusLabel(plot.status)} — updated by ${
     plot.updated_by
@@ -23,44 +20,20 @@ export function PlotDetailContent({ plot, history }: PlotDetail) {
 
       <dl className="plot-detail-fields">
         <div>
-          <dt>Facing</dt>
-          <dd className="plot-detail-facing">{plot.facing.replace("-", " ")}</dd>
+          <dt>Length</dt>
+          <dd>{plot.length_ft} ft</dd>
         </div>
         <div>
-          <dt>Area</dt>
-          <dd>{plot.area_sqft} sqft</dd>
+          <dt>Breadth</dt>
+          <dd>{plot.breadth_ft} ft</dd>
         </div>
-        <div>
-          <dt>Owner</dt>
-          <dd>{plot.owner_name ?? "—"}</dd>
-        </div>
-        <div>
-          <dt>Owner phone</dt>
-          <dd>{plot.owner_phone ?? "—"}</dd>
-        </div>
-        <div>
-          <dt>Broker</dt>
-          <dd>{plot.broker_name ?? "—"}</dd>
-        </div>
-        <div>
-          <dt>Rate</dt>
-          <dd>{formatRupees(plot.rate_paise)}</dd>
-        </div>
-        <div>
-          <dt>Booking amount</dt>
-          <dd>{formatRupees(plot.booking_amount_paise)}</dd>
-        </div>
-        <div>
-          <dt>Booking date</dt>
-          <dd>{formatDate(plot.booking_date)}</dd>
-        </div>
-        <div>
-          <dt>Registry date</dt>
-          <dd>{formatDate(plot.registry_date)}</dd>
-        </div>
+        {plot.status === "booked" && (
+          <div>
+            <dt>Owner</dt>
+            <dd>{plot.owner_name ?? "—"}</dd>
+          </div>
+        )}
       </dl>
-
-      {plot.notes && <p className="plot-detail-notes">{plot.notes}</p>}
 
       {history.length > 0 && (
         <div className="plot-detail-history">

@@ -18,7 +18,7 @@ try {
   // No .env file — fall through to whatever is already in the environment.
 }
 
-const STATUSES: PlotStatus[] = ["available", "booked", "registered", "hold"];
+const STATUSES: PlotStatus[] = ["available", "booked", "registered"];
 const FACINGS: Facing[] = [
   "north", "north-east", "east", "south-east",
   "south", "south-west", "west", "north-west",
@@ -51,6 +51,8 @@ interface Manifest {
     block: string;
     number: string;
     area_sqft: number;
+    length_ft: number;
+    breadth_ft: number;
     facing: Facing;
     is_corner: boolean;
   }>;
@@ -125,6 +127,8 @@ const plotInserts: PlotInsert[] = manifest.plots.map((plot) => {
     block: plot.block,
     number: plot.number,
     area_sqft: plot.area_sqft,
+    length_ft: plot.length_ft,
+    breadth_ft: plot.breadth_ft,
     facing: plot.facing,
     is_corner: plot.is_corner,
     status,

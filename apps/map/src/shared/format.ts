@@ -65,6 +65,6 @@ export function formatRelativeTime(iso: string, now: Date = new Date()): string 
 }
 
 export function formatStatusLabel(status: string): string {
-  if (status === "hold") return "On hold";
+  if (status === "registered") return "Registry done";
   return status.charAt(0).toUpperCase() + status.slice(1);
 }

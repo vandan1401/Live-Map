@@ -80,7 +80,7 @@ what makes it cheap to test, and every other module depends on it.
 | Colony render, pan/zoom (M1) | none yet | none yet — fixture read directly | `apps/map/src/components/ColonyMap.tsx` | none yet |
 | Status colours (M2) | `apps/map/src/lib/colony/plotStatus.ts` | `apps/map/src/lib/db/` | `apps/map/src/components/ColonyMap.tsx` sets `data-status` | `colonies`, `plots`, `plot_history` |
 | Plot detail sheet (M3) | `apps/map/src/lib/colony/plotDetail.ts` | `apps/map/src/lib/db/` | `apps/map/src/features/plot-detail/{PlotDetailSheet,PlotDetailContent}.tsx`, opened from `ColonyMap.tsx`'s `selectedId` | `plots`, `plot_history` (read-only) |
-| Status writes/transitions (M4, domain core only — no UI yet) | `apps/map/src/lib/plot-status/{transitions,recentEdit,applyPlotTransition}.ts` | `apps/map/src/lib/db/plotTransitions.ts` → `apply_plot_transition()` (Postgres function, one transaction, row-locked) | none yet — Save/Undo button and the local identity picker are the Tier 2 follow-up | `plots`, `plot_history` (write) |
+| Status writes/transitions (M4) | `apps/map/src/lib/plot-status/{transitions,recentEdit,applyPlotTransition}.ts` | `apps/map/src/lib/db/plotTransitions.ts` → `apply_plot_transition()` (Postgres function, one transaction, row-locked) | `features/plot-detail/PlotStatusActions.tsx` (Save/Undo buttons, called from `PlotDetailSheet.tsx`); `features/identity/NamePrompt.tsx` (one-time actor prompt, gates `App.tsx`) | `plots`, `plot_history` (write) |
 
 ## Reusable functions
 
@@ -97,6 +97,7 @@ what makes it cheap to test, and every other module depends on it.
 | `isLegalTransition(from, to)` | `apps/map/src/lib/plot-status/transitions.ts` | The amended D-013 table. No self-transitions. |
 | `isRecentlyEdited(updatedAt, now)`, `RECENT_EDIT_WARNING_MINUTES` | `apps/map/src/lib/plot-status/recentEdit.ts` | Pinned at 5 minutes (spec/04) — not yet wired into any UI warning banner. |
 | `callApplyPlotTransition(client, args)` | `apps/map/src/lib/db/plotTransitions.ts` | The only place `apply_plot_transition` is called via `.rpc()`. |
+| `getStoredActor()`, `setStoredActor(name)` | `apps/map/src/lib/identity/actor.ts` | `localStorage`-backed actor identity (D-016). One name per device, collected once by `NamePrompt.tsx`. |
 
 ## Scripts
 

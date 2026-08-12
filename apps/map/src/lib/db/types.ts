@@ -1,7 +1,7 @@
 // Mirrors apps/map/supabase/migrations/20260812120000_m2_schema.sql. Keep field names
 // snake_case — these map directly to Postgres columns via supabase-js.
 
-export type PlotStatus = "available" | "booked" | "registered" | "hold";
+export type PlotStatus = "available" | "booked" | "registered";
 
 export type Facing =
   | "north"
@@ -31,6 +31,8 @@ export interface PlotInsert {
   block: string;
   number: string;
   area_sqft: number;
+  length_ft: number;
+  breadth_ft: number;
   facing: Facing;
   is_corner: boolean;
   status: PlotStatus;

@@ -1,0 +1,59 @@
+/* One-time "who's using this device?" prompt (M4 follow-up, D-016). Its own file, not
+ * folded into plot-detail-sheet.css — a different feature entirely, shown before the
+ * map ever mounts. */
+.name-prompt-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--colony-ground);
+  padding: 1.5rem;
+}
+
+.name-prompt-card {
+  width: 100%;
+  max-width: 22rem;
+  background: #ffffff;
+  border-radius: 1rem;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.18);
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.name-prompt-card h1 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+
+.name-prompt-card p {
+  font-size: 0.85rem;
+  color: var(--colony-site-boundary);
+  margin: 0 0 1rem;
+}
+
+.name-prompt-input {
+  width: 100%;
+  font-size: 1rem;
+  border: 1px solid var(--colony-plot-stroke);
+  border-radius: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.name-prompt-submit {
+  width: 100%;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: var(--colony-status-booked);
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.6rem;
+}
+
+.name-prompt-submit:disabled {
+  opacity: 0.5;
+}

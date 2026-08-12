@@ -16,7 +16,7 @@ neutral — no status colours yet, because status comes from Postgres in M2.
 - Leaflet in `CRS.Simple` mode as a pan/zoom container only. The SVG is a plain overlay.
   Do **not** route plot paths through Leaflet's vector layer — it writes inline styles and
   those beat the stylesheet (D-009).
-- `apps/map/src/styles/colony-theme.css` holds every colour as a CSS variable. The four status
+- `apps/map/src/styles/colony-theme.css` holds every colour as a CSS variable. The three status
   rules exist and are unused until M2.
 - Static decoration (`.road`, `.garden`, `.tree`, `.site-boundary`) gets
   `pointer-events: none`. Only `.plot` is interactive.

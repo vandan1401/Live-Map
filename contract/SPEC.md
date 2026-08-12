@@ -59,6 +59,7 @@ viewBox width is always 1000; height follows the aspect ratio.
   },
   "plots": [
     { "svg_id": "plot-A-14", "block": "A", "number": "14", "area_sqft": 1237,
+      "length_ft": 35, "breadth_ft": 35,
       "centroid": [412, 288], "facing": "east", "is_corner": true,
       "confidence": "contained | nearest | manual" }
   ],

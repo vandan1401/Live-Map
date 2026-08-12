@@ -6,17 +6,11 @@ describe("isLegalTransition — legal pairs", () => {
   it("available -> booked", () => {
     expect(isLegalTransition("available", "booked")).toBe(true);
   });
-  it("available -> hold", () => {
-    expect(isLegalTransition("available", "hold")).toBe(true);
-  });
   it("booked -> registered", () => {
     expect(isLegalTransition("booked", "registered")).toBe(true);
   });
   it("booked -> available", () => {
     expect(isLegalTransition("booked", "available")).toBe(true);
-  });
-  it("hold -> available", () => {
-    expect(isLegalTransition("hold", "available")).toBe(true);
   });
   it("registered -> available", () => {
     expect(isLegalTransition("registered", "available")).toBe(true);
@@ -33,32 +27,17 @@ describe("isLegalTransition — illegal pairs", () => {
   it("booked -> booked (self)", () => {
     expect(isLegalTransition("booked", "booked")).toBe(false);
   });
-  it("booked -> hold", () => {
-    expect(isLegalTransition("booked", "hold")).toBe(false);
-  });
-  it("hold -> hold (self)", () => {
-    expect(isLegalTransition("hold", "hold")).toBe(false);
-  });
-  it("hold -> booked", () => {
-    expect(isLegalTransition("hold", "booked")).toBe(false);
-  });
-  it("hold -> registered", () => {
-    expect(isLegalTransition("hold", "registered")).toBe(false);
-  });
   it("registered -> registered (self)", () => {
     expect(isLegalTransition("registered", "registered")).toBe(false);
   });
   it("registered -> booked", () => {
     expect(isLegalTransition("registered", "booked")).toBe(false);
   });
-  it("registered -> hold", () => {
-    expect(isLegalTransition("registered", "hold")).toBe(false);
-  });
 });
 
 describe("isLegalTransition — every ordered pair is covered", () => {
-  it("has exactly 6 legal and 10 illegal pairs across the 4 statuses", () => {
-    const statuses: PlotStatus[] = ["available", "booked", "registered", "hold"];
+  it("has exactly 4 legal and 5 illegal pairs across the 3 statuses", () => {
+    const statuses: PlotStatus[] = ["available", "booked", "registered"];
     let legal = 0;
     let illegal = 0;
     for (const from of statuses) {
@@ -67,7 +46,7 @@ describe("isLegalTransition — every ordered pair is covered", () => {
         else illegal++;
       }
     }
-    expect(legal).toBe(6);
-    expect(illegal).toBe(10);
+    expect(legal).toBe(4);
+    expect(illegal).toBe(5);
   });
 });

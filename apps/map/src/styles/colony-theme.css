@@ -111,9 +111,6 @@
 .plot[data-status="registered"] {
   fill: var(--colony-status-registered);
 }
-.plot[data-status="hold"] {
-  fill: var(--colony-status-hold);
-}
 
 .colony-scale-note {
   position: absolute;

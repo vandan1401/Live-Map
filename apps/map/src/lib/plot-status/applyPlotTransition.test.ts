@@ -50,6 +50,8 @@ async function createScratchPlot(client: SupabaseClient): Promise<{
       block: "A",
       number: "1",
       area_sqft: 1200,
+      length_ft: 30,
+      breadth_ft: 40,
       facing: "north",
       is_corner: false,
       status: "available",
@@ -99,7 +101,7 @@ describe("applyPlotTransition — live integration", () => {
       applyPlotTransition(client, {
         plotId,
         fromStatus: "available",
-        toStatus: "hold",
+        toStatus: "booked",
         expectedVersion: 1,
         actor: "test-actor-b",
       }),

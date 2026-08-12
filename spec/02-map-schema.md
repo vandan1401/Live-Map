@@ -40,7 +40,7 @@ cleanly. Plots render in their status colours, driven by `data-status` set at ru
 | 2b | A manifest with `verified: false` is refused | Flip the flag in a copy; assert non-zero exit |
 | 3 | An UPDATE on `plot_history` is rejected | Real SQL against the database, output pasted |
 | 4 | No float money column exists | `\d plots` output pasted; every money column is `bigint` |
-| 5 | All four status colours render | Manual, against the fixture |
+| 5 | All three status colours render | Manual, against the fixture |
 | 6 | Full gate passes | `make verify-map && pnpm lint && pnpm test -- --run && pnpm build` |
 
 ## Non-goals

@@ -18,6 +18,17 @@ existed to prove cross-statement rollback proved nothing, and PROGRESS.md assert
 Same family as [[review-docs-vs-enforcement-drift]]: prose claims a guarantee the enforcing
 layer never exercised.
 
+**2nd recurrence, 2026-08-14 (plan 03).** `PROGRESS.md` claimed `supabase db reset` proved a
+migration's defensive `UPDATE ... WHERE status = 'hold'` works "on top of live hold data from
+the prior session." `supabase db reset` **drops and recreates** the database and replays every
+migration from scratch; there is no `apps/map/supabase/seed.sql`, so `plots` is empty when any
+new migration runs. Every "migration is safe against existing data" claim proved by `db reset`
+is vacuous by construction, and in that case it hid a hard failure (`ADD COLUMN ... NOT NULL`
+with no default aborts on a non-empty table). **Rule: `db reset` can only ever prove a
+migration works on an empty DB.** To prove the pre-existing-data path, apply the single
+migration file to a populated copy (`docker exec ... psql -f`), or check the assertion by hand
+in a transaction with `rollback`.
+
 **How to apply:** the local Supabase Docker stack is usually up
 (`docker exec supabase_db_colony-map psql -U postgres -d postgres -c "..."`). Postgres's
 `CONTEXT:` line names the exact failing SQL statement — one command settles it. For a

@@ -23,7 +23,7 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-010 | Money stored as integer paise | accepted |
 | D-011 | Auth deferred to M8; app must not be publicly deployed before it | accepted |
 | D-012 | Plot field set derived from the owner's stated needs | provisional |
-| D-013 | Four-status vocabulary with defined legal transitions | provisional |
+| D-013 | Three-status vocabulary with defined legal transitions | provisional |
 | D-014 | pnpm + Vite + Vitest + Wrangler | provisional |
 | D-015 | No photos or documents per plot in v1 | provisional |
 | D-016 | Actor identity is a client-supplied free-text string until M8 | provisional |

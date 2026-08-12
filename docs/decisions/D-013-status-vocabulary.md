@@ -60,3 +60,32 @@ will encode in the notes field, where nothing can filter or count it.
   the counts, and the transition rules impossible.
 - **More granular statuses** (part-payment, agreement-signed, registry-pending) — plausible,
   but inventing states they did not ask for is worse than missing one they did.
+
+## Amended 2026-08-14 — hold removed, three statuses
+
+The owner gave a direct, explicit decision this session: three statuses, not four.
+`hold` (deliberately withheld from sale) is removed entirely — confirmed explicitly
+rather than assumed when asked what should happen to the family's on-hold plots (they're
+remapped to `available` in the demo seed data, since `hold` no longer exists as a
+concept). `registered` is now displayed as **"Registry done"** — the stored word is
+unchanged (`registered`), only `formatStatusLabel()`'s rendering changes, the same
+storage/display separation D-010 already established for money.
+
+New transition table:
+
+```
+available  → booked
+booked     → registered, available   (available = a cancellation)
+registered → available                (available = a cancellation, per the 2026-08-12 amendment above)
+```
+
+Stored CHECK constraint values are `available`, `booked`, `registered` — `plots` and
+`plot_history` both updated in the same migration
+(`20260814000000_status_vocabulary_and_dimensions.sql`). Historical `plot_history` rows
+that already recorded `hold` before this change are append-only and were not touched —
+the CHECK only validates new writes, it does not retroactively rewrite evidence.
+
+This is a real word being retired, not a provisional detail — the family's real WhatsApp
+PDF vocabulary is still unconfirmed (the original reason this decision stayed
+provisional), and this amendment doesn't resolve that; it reflects the owner choosing to
+simplify ahead of that confirmation rather than wait for it.

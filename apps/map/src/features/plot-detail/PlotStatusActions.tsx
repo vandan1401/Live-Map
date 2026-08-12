@@ -1,0 +1,67 @@
+import { isLegalTransition } from "../../lib/plot-status/transitions.ts";
+import { isRecentlyEdited } from "../../lib/plot-status/recentEdit.ts";
+import { formatStatusLabel } from "../../shared/format.ts";
+import type { PlotHistoryRow, PlotRow, PlotStatus } from "../../lib/db/types.ts";
+
+const ALL_STATUSES: PlotStatus[] = ["available", "booked", "registered"];
+
+interface Props {
+  plot: PlotRow;
+  history: PlotHistoryRow[];
+  actor: string;
+  saving: boolean;
+  onChangeStatus: (toStatus: PlotStatus) => void;
+  onUndo: () => void;
+}
+
+// Undo is a new forward transition, never a delete (spec/04) — eligible only when the
+// most recent history row is the current actor's own change (so nobody undoes someone
+// else's edit from their own device) AND the reverse transition is itself legal — the
+// three-status table has no back-edge from every state (e.g. registered -> booked isn't
+// legal), so an "undo" back past two changes could land on an illegal transition.
+function canUndo(plot: PlotRow, history: PlotHistoryRow[], actor: string): boolean {
+  return (
+    history.length >= 2 &&
+    history[0].changed_by === actor &&
+    isLegalTransition(plot.status, history[1].status)
+  );
+}
+
+export function PlotStatusActions({ plot, history, actor, saving, onChangeStatus, onUndo }: Props) {
+  const nextStatuses = ALL_STATUSES.filter((status) => isLegalTransition(plot.status, status));
+  const showRecentEditWarning =
+    plot.updated_by !== actor && isRecentlyEdited(plot.updated_at, new Date());
+
+  return (
+    <div className="plot-status-actions">
+      {showRecentEditWarning && (
+        <p className="plot-status-warning">
+          {plot.updated_by} edited this a few minutes ago — check before you save.
+        </p>
+      )}
+      <div className="plot-status-buttons">
+        {nextStatuses.map((status) => (
+          <button
+            key={status}
+            type="button"
+            className="plot-status-button"
+            disabled={saving}
+            onClick={() => onChangeStatus(status)}
+          >
+            Mark {formatStatusLabel(status)}
+          </button>
+        ))}
+        {canUndo(plot, history, actor) && (
+          <button
+            type="button"
+            className="plot-status-button plot-status-undo"
+            disabled={saving}
+            onClick={onUndo}
+          >
+            Undo my last change
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}

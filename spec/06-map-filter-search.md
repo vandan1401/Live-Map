@@ -25,7 +25,7 @@ The three things the family will use every day beyond looking at the map.
 
 | # | Criterion | Command |
 |---|---|---|
-| 1 | Filtering by each status dims the correct plots | Manual, all four statuses |
+| 1 | Filtering by each status dims the correct plots | Manual, all three statuses |
 | 2 | Search finds a plot by number, owner, and broker | Unit tests on the search function |
 | 3 | Share output pastes into WhatsApp legibly | Manual paste test on a phone |
 | 4 | Labels and trees hide below the zoom threshold | Manual |

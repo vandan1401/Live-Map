@@ -1,12 +1,11 @@
 import type { PlotStatus } from "../db/types.ts";
 
 // The legal transition table from D-013 (amended 2026-08-12 — registered is not
-// terminal). No self-entries: a Save that doesn't change status never reaches this
-// layer, it's a UI-level no-op.
+// terminal; amended again 2026-08-14 — hold removed, three statuses). No self-entries:
+// a Save that doesn't change status never reaches this layer, it's a UI-level no-op.
 const PLOT_TRANSITIONS: Record<PlotStatus, PlotStatus[]> = {
-  available: ["booked", "hold"],
+  available: ["booked"],
   booked: ["registered", "available"],
-  hold: ["available"],
   registered: ["available"],
 };
 

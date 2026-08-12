@@ -60,13 +60,12 @@ describe("formatRelativeTime", () => {
 });
 
 describe("formatStatusLabel", () => {
-  it("capitalises available, booked, registered", () => {
+  it("capitalises available and booked", () => {
     expect(formatStatusLabel("available")).toBe("Available");
     expect(formatStatusLabel("booked")).toBe("Booked");
-    expect(formatStatusLabel("registered")).toBe("Registered");
   });
 
-  it("renders hold as 'On hold'", () => {
-    expect(formatStatusLabel("hold")).toBe("On hold");
+  it("renders registered as 'Registry done'", () => {
+    expect(formatStatusLabel("registered")).toBe("Registry done");
   });
 });

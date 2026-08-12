@@ -28,6 +28,8 @@
       "block": "A",
       "number": "01",
       "area_sqft": 1237,
+      "length_ft": 35,
+      "breadth_ft": 35,
       "centroid": [
         100,
         125
@@ -40,6 +42,8 @@
       "block": "A",
       "number": "02",
       "area_sqft": 1237,
+      "length_ft": 35,
+      "breadth_ft": 35,
       "centroid": [
         184,
         125
@@ -52,6 +56,8 @@
       "block": "A",
       "number": "03",
       "area_sqft": 1237,
+      "length_ft": 35,
+      "breadth_ft": 35,
       "centroid": [
         268,
         125
@@ -64,6 +70,8 @@
       "block": "A",
       "number": "04",
       "area_sqft": 1237,
+      "length_ft": 35,
+      "breadth_ft": 35,
       "centroid": [
         352,
         125
@@ -76,6 +84,8 @@
       "block": "A",
       "number": "05",
       "area_sqft": 1237,
+      "length_ft": 35,
+      "breadth_ft": 35,
       "centroid": [
         436,
         125
@@ -88,6 +98,8 @@
       "block": "A",
       "number": "06",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         100,
         256
@@ -100,6 +112,8 @@
       "block": "A",
       "number": "07",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         184,
         256
@@ -112,6 +126,8 @@
       "block": "A",
       "number": "08",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         268,
         256
@@ -124,6 +140,8 @@
       "block": "A",
       "number": "09",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         352,
         256
@@ -136,6 +154,8 @@
       "block": "A",
       "number": "10",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         436,
         256
@@ -148,6 +168,8 @@
       "block": "A",
       "number": "11",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         100,
         336
@@ -160,6 +182,8 @@
       "block": "A",
       "number": "12",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         184,
         336
@@ -172,6 +196,8 @@
       "block": "A",
       "number": "13",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         268,
         336
@@ -184,6 +210,8 @@
       "block": "A",
       "number": "14",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         352,
         336
@@ -196,6 +224,8 @@
       "block": "A",
       "number": "15",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         436,
         336
@@ -208,6 +238,8 @@
       "block": "A",
       "number": "16",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         100,
         446
@@ -220,6 +252,8 @@
       "block": "A",
       "number": "17",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         184,
         446
@@ -232,6 +266,8 @@
       "block": "A",
       "number": "18",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         268,
         446
@@ -244,6 +280,8 @@
       "block": "A",
       "number": "19",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         352,
         446
@@ -256,6 +294,8 @@
       "block": "A",
       "number": "20",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         436,
         446
@@ -268,6 +308,8 @@
       "block": "A",
       "number": "21",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         100,
         526
@@ -280,6 +322,8 @@
       "block": "A",
       "number": "22",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         184,
         526
@@ -292,6 +336,8 @@
       "block": "A",
       "number": "23",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         268,
         526
@@ -304,6 +350,8 @@
       "block": "A",
       "number": "24",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         352,
         526
@@ -316,6 +364,8 @@
       "block": "A",
       "number": "25",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         436,
         526
@@ -328,6 +378,8 @@
       "block": "A",
       "number": "26",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         100,
         636
@@ -340,6 +392,8 @@
       "block": "A",
       "number": "27",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         184,
         636
@@ -352,6 +406,8 @@
       "block": "A",
       "number": "28",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         268,
         636
@@ -364,6 +420,8 @@
       "block": "A",
       "number": "29",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         352,
         636
@@ -376,6 +434,8 @@
       "block": "A",
       "number": "30",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         436,
         636
@@ -388,6 +448,8 @@
       "block": "B",
       "number": "01",
       "area_sqft": 1237,
+      "length_ft": 35,
+      "breadth_ft": 35,
       "centroid": [
         560,
         125
@@ -400,6 +462,8 @@
       "block": "B",
       "number": "02",
       "area_sqft": 1237,
+      "length_ft": 35,
+      "breadth_ft": 35,
       "centroid": [
         644,
         125
@@ -412,6 +476,8 @@
       "block": "B",
       "number": "03",
       "area_sqft": 1237,
+      "length_ft": 35,
+      "breadth_ft": 35,
       "centroid": [
         728,
         125
@@ -424,6 +490,8 @@
       "block": "B",
       "number": "04",
       "area_sqft": 1237,
+      "length_ft": 35,
+      "breadth_ft": 35,
       "centroid": [
         812,
         125
@@ -436,6 +504,8 @@
       "block": "B",
       "number": "05",
       "area_sqft": 1237,
+      "length_ft": 35,
+      "breadth_ft": 35,
       "centroid": [
         896,
         125
@@ -448,6 +518,8 @@
       "block": "B",
       "number": "06",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         560,
         256
@@ -460,6 +532,8 @@
       "block": "B",
       "number": "07",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         644,
         256
@@ -472,6 +546,8 @@
       "block": "B",
       "number": "08",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         728,
         256
@@ -484,6 +560,8 @@
       "block": "B",
       "number": "09",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         812,
         256
@@ -496,6 +574,8 @@
       "block": "B",
       "number": "10",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         896,
         256
@@ -508,6 +588,8 @@
       "block": "B",
       "number": "11",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         560,
         336
@@ -520,6 +602,8 @@
       "block": "B",
       "number": "12",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         644,
         336
@@ -532,6 +616,8 @@
       "block": "B",
       "number": "13",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         728,
         336
@@ -544,6 +630,8 @@
       "block": "B",
       "number": "14",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         812,
         336
@@ -556,6 +644,8 @@
       "block": "B",
       "number": "15",
       "area_sqft": 900,
+      "length_ft": 30,
+      "breadth_ft": 30,
       "centroid": [
         896,
         336
