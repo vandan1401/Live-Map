@@ -26,6 +26,7 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-013 | Four-status vocabulary with defined legal transitions | provisional |
 | D-014 | pnpm + Vite + Vitest + Wrangler | provisional |
 | D-015 | No photos or documents per plot in v1 | provisional |
+| D-016 | Actor identity is a client-supplied free-text string until M8 | provisional |
 
 ## tools/pipeline
 

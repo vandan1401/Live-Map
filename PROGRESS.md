@@ -2,12 +2,47 @@
 
 ## Current
 
-- **Task:** M2 and M3 are both closed. `docs/plans/01.md` carries the `Status: complete`
-  marker. Next up is M4 (`applyPlotTransition()`) or M9 (pipeline), plus the UI-taste pass
-  noted below — pick one to start next session.
-- **Tier:** M2 was Tier 1 (migrations, RLS, `lib/db`) — `/plan` at `docs/plans/01.md`, built
-  and now live-verified, plan closed. M3 was Tier 2 (`features/plot-detail`, `lib/colony`,
-  `lib/db`) — no `/plan` required, built, `/check`ed, and now live-verified.
+- **Task:** M4 — status writes, transitions, concurrency. Tier 1 core (migration +
+  `lib/plot-status/` + tests) built this session per `docs/plans/02.md`, scoped
+  deliberately to the domain/db layer only — the Save/Undo button UI and the local
+  identity-picker are an explicit Tier 2 follow-up, not built yet (see plan §4). About to
+  go through `/review`.
+- **Tier:** M2 and M3 are both closed (`docs/plans/01.md` carries `Status: complete`). M4
+  is Tier 1 (`apps/map/src/lib/plot-status/**`, migrations) — `/plan` at
+  `docs/plans/02.md`.
+- **M4 build this session:** new migration
+  `20260813000000_m4_apply_plot_transition.sql` adds `apply_plot_transition()`, a single
+  Postgres function (row-locked via `select ... for update`, one transaction covering the
+  `plots` update and the `plot_history` insert) and a
+  `plot_history_note_length` CHECK (note ≤ 500 chars) that exists solely so the atomicity
+  test can force a failure that hits *only* the second statement — a null actor fails the
+  `plots` UPDATE itself (`updated_by` is `not null`) without ever reaching the history
+  insert, which the first version of this test got wrong (`/review` caught it; see the
+  2026-08-13 log entry). `lib/plot-status/transitions.ts` holds
+  the amended D-013 table + `isLegalTransition()`; `lib/plot-status/recentEdit.ts` holds
+  the pinned `RECENT_EDIT_WARNING_MINUTES = 5` + `isRecentlyEdited()`;
+  `lib/plot-status/applyPlotTransition.ts` is the single write entry point, returning a
+  typed `PlotTransitionResult` (`ok`/`illegal_transition`/`conflict`) rather than
+  throwing for expected business outcomes. `lib/db/plotTransitions.ts` is the only file
+  that calls the RPC. New decision **D-016** (actor identity is a client-supplied
+  free-text string until M8 real auth ships — no fixed roster, mirrors the M2 import's
+  `'import'` literal precedent).
+  **Verified for real, not read back:** `supabase db reset` applied the new migration
+  cleanly; `pnpm import:seed` re-ran after (45 plots, 0 unmatched — the reset wiped seed
+  data, re-imported it). All 39 tests pass (14 baseline + 25 net new — 17 in
+  `transitions.test.ts`, 3 in `recentEdit.test.ts`, 5 in `applyPlotTransition.test.ts`,
+  including real integration tests against the live local Supabase: a genuine concurrent
+  write via `Promise.allSettled` proving one wins/one fails named, and a forced
+  mid-transaction failure via a direct RPC call with an over-length `p_note` (hitting only
+  the `plot_history_note_length` constraint, after the `plots` update already ran) proving
+  the update rolls back with the failed `plot_history` insert. Full gate
+  (`pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build`) passes. Grep check
+  for criterion 5 (no `plots.status` write outside the new path) — clean, all hits are
+  reads or DOM display.
+- **Next action:** `/review` this diff (Tier 1 gate). After it closes, the Tier 2
+  follow-up is the Save/Undo button UI in `features/plot-detail/` plus the local "who's
+  using this device?" name prompt — see `docs/plans/02.md` §4 for exactly what's deferred
+  and why.
 - **M2 state:** a live local Supabase instance now exists (Docker + `supabase start`,
   see below) and 5 of 6 plan criteria are verified for real, not read back:
   - #1 migration applies to a clean DB — `supabase db reset` succeeded.
@@ -110,9 +145,6 @@
   actually works here and is what resolved the CLI to 2.113.0, matching the prior
   session's version. Seed data survived the restart untouched (`SELECT count(*) FROM
   plots` → 45) — stopping the stack does not drop the Docker volume.
-- **Next action:** pick M4 (`applyPlotTransition()`, Tier 1) or M9 (pipeline scaffold) to
-  start next session. The UI-taste feedback on the plot detail sheet is unscoped — ask the
-  user what specifically they'd change before touching `styles/plot-detail-sheet.css`.
 
 ## Deferred
 
@@ -153,6 +185,42 @@
 ## Log
 
 <!-- Append-only. Four lines per entry: Done / Next / Surprises / Verified. -->
+
+### 2026-08-13 — M4 Tier 1 core built (migration + lib/plot-status)
+- Done: `docs/plans/02.md` planned and built. Scoped M4 to the domain/db layer only —
+  spec/04's acceptance criteria are all automated, none manual, so the Save/Undo UI and
+  local identity picker were deliberately left as a Tier 2 follow-up rather than bundled
+  into this Tier 1 pass (see plan §4). Migration adds `apply_plot_transition()` (row-locked
+  via `select ... for update`, one Postgres transaction covering the `plots` update and the
+  `plot_history` insert). `lib/plot-status/{transitions,recentEdit,applyPlotTransition}.ts`
+  plus `lib/db/plotTransitions.ts`. New decision D-016: actor identity is a client-supplied
+  free-text string until M8 — resolved via a user prompt this session rather than guessed,
+  since it's a pinned interface shape (`applyPlotTransition(..., actor: string, ...)`).
+- Next: build the Tier 2 follow-up (Save/Undo button in `features/plot-detail/`, the local
+  name-prompt UI) and get a human to exercise it.
+- `/review` found two real issues, both fixed: (1) the atomicity test's original
+  `p_actor: null` forced a failure on the `plots` UPDATE itself, never reaching the
+  `plot_history` insert — proved nothing about rollback despite the test's own comment
+  claiming otherwise. Fixed by adding a `plot_history_note_length` CHECK and forcing the
+  failure via an over-length `p_note` instead, which fails only the second statement.
+  (2) The test helper inserted its scratch colony with `verified: true`, violating D-108
+  ("no code path sets it true") — fixed to `false`. Gate re-run clean after both fixes,
+  still 39/39.
+- Surprises: `import.meta.env.VITE_SUPABASE_URL` resolves correctly under Vitest (probed
+  directly before relying on it) — meant integration tests could reuse
+  `getBrowserDbClient()` as-is rather than needing a separate test-only client factory.
+  Also: `supabase db reset` wipes the 45-plot seed data along with applying the new
+  migration — had to re-run `pnpm import:seed` immediately after, easy to forget.
+- Verified: `supabase db reset` applied the new migration cleanly (real output, no
+  errors); `pnpm import:seed` re-ran after, `imported 45 plots for "shree-vatika-2", 0
+  unmatched`. `pnpm test -- --run applyPlotTransition` → 5/5, including two tests that hit
+  the live local DB for real: a genuine `Promise.allSettled` concurrent write (one
+  `ok:true`, one `ok:false, reason:"conflict"` with the correct `winnerName`) and a forced
+  mid-transaction failure via a direct RPC call with `p_actor: null` (asserted the plot's
+  `status`/`version` were unchanged and zero history rows existed afterward). Full gate —
+  `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` — 39/39 tests (14
+  baseline + 25 new), clean typecheck/lint/build. Grep for criterion 5 (no `plots.status`
+  write outside the new path) — clean.
 
 ### 2026-08-12 — M2/M3 live-verified in browser, docs/plans/01.md closed
 - Done: Docker Desktop wasn't running this session; started it, waited for the daemon,

@@ -1,3 +1,4 @@
 - [Autonomous skill loop](project-autonomous-loop.md) — approval gates removed on purpose; flag the fallout, not the decision.
 - [Review diff blind spots](review-diff-blind-spots.md) — `diff-head` hides untracked files; run `git status --short` first, every review.
 - [Docs vs enforcement drift](review-docs-vs-enforcement-drift.md) — 4x recurrence: prose relaxed, `guard.sh`/`_json.sh` too broad or failing open. Check both, every pass.
+- [Vacuous acceptance tests](review-vacuous-acceptance-tests.md) — negative/forced-failure tests that pass for the wrong reason; re-run the path, read Postgres's `CONTEXT:` line.
