@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./styles/colony-theme.css";
+@import "./styles/plot-detail-sheet.css";
 
 html,
 body,

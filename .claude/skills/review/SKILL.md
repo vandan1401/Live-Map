@@ -18,13 +18,13 @@ background: false
 Review the diff below. **You did not write this code.** Be sceptical.
 
 ## The diff
-!`bash .claude/preamble.sh diff-head`
+!`bash "C:/Users/moont/live projects/Colony Viewer/.claude/preamble.sh" diff-head`
 
 ## Rules it must satisfy
-!`bash .claude/preamble.sh invariants`
+!`bash "C:/Users/moont/live projects/Colony Viewer/.claude/preamble.sh" invariants`
 
 ## The plan it is supposed to implement
-!`bash .claude/preamble.sh plan-full`
+!`bash "C:/Users/moont/live projects/Colony Viewer/.claude/preamble.sh" plan-full`
 
 ## Check in this priority order
 

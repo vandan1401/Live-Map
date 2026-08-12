@@ -7,7 +7,20 @@
 
 INPUT=$(cat)
 FILE=$(printf '%s' "$INPUT" | jget .tool_input.file_path)
-{ [ -z "$FILE" ] || [ ! -f "$FILE" ]; } && exit 0
+if [ "$FILE" = "__JGET_NO_READER__" ]; then
+  printf '{"decision":"block","reason":"no JSON reader (jq/node/python3) available — the 250-line cap could not be checked for this write. Check the file length yourself."}\n'
+  exit 0
+fi
+# The matcher for this hook is Edit|Write, so .tool_input.file_path is always
+# populated in a real payload — empty here means the reader ran but failed to parse
+# it, not "nothing to check". Fail closed, not open (2026-08-12), same reasoning as
+# guard.sh. A path that doesn't exist on disk is a different, legitimate case (not a
+# reader failure) and still skips.
+if [ -z "$FILE" ]; then
+  printf '{"decision":"block","reason":"could not read the file path from the hook payload — the 250-line cap could not be checked for this write. Check the file length yourself."}\n'
+  exit 0
+fi
+[ ! -f "$FILE" ] && exit 0
 
 case "$FILE" in *.ts|*.tsx|*.js|*.jsx|*.py) ;; *) exit 0 ;; esac
 

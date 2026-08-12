@@ -19,7 +19,12 @@ One repo, two halves, one contract between them.
   manual checks — Claude has no browser or device to test with, so a human still has to
   open the URL and look.
 - Never run: `make serve` (I run that — see `.claude/hooks/guard.sh`), `wrangler pages
-  deploy`, `supabase db reset`, anything deleting an overrides file
+  deploy`, anything deleting an overrides file
+- `supabase db reset` may be run by Claude (user's explicit instruction, 2026-08-12) —
+  confirmed no remote project is linked (`supabase projects list` has no access token,
+  no `.supabase` link folder), so it only ever touches the local Docker Postgres this
+  project's `config.toml` defines. Re-confirm the no-link check before relying on this
+  if the project ever gets linked to a real Supabase project.
 
 Makefile targets are found by name — never grep for a script. Skill preambles call
 `.claude/preamble.sh <sub>`; Claude Code rejects compound shell in `!` blocks, so extend

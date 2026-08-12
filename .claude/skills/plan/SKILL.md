@@ -15,10 +15,10 @@ effort: high
      model, check this first. -->
 
 ## Current state
-!`bash .claude/preamble.sh current`
+!`bash "C:/Users/moont/live projects/Colony Viewer/.claude/preamble.sh" current`
 
 ## Relevant decisions
-!`bash .claude/preamble.sh decisions`
+!`bash "C:/Users/moont/live projects/Colony Viewer/.claude/preamble.sh" decisions`
 
 ## Your task
 

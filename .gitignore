@@ -8,6 +8,8 @@ apps/map/*.local
 apps/map/.env
 apps/map/.env.*
 !apps/map/.env.example
+apps/map/supabase/.branches/
+apps/map/supabase/.temp/
 
 # --- tools/pipeline (Python) ---
 tools/pipeline/.venv/

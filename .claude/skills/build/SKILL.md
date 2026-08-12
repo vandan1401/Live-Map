@@ -7,7 +7,7 @@ allowed-tools: Bash(git add *)
 ---
 
 ## The plan on disk
-!`bash .claude/preamble.sh plan-latest`
+!`bash "C:/Users/moont/live projects/Colony Viewer/.claude/preamble.sh" plan-latest`
 
 ## Your task
 

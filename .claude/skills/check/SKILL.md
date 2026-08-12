@@ -7,10 +7,10 @@ allowed-tools: Bash(make *) Bash(pnpm *) Bash(pytest *) Bash(git diff *)
 ---
 
 ## Acceptance criteria from the plan
-!`bash .claude/preamble.sh plan-acceptance`
+!`bash "C:/Users/moont/live projects/Colony Viewer/.claude/preamble.sh" plan-acceptance`
 
 ## What changed
-!`bash .claude/preamble.sh diff-stat`
+!`bash "C:/Users/moont/live projects/Colony Viewer/.claude/preamble.sh" diff-stat`
 
 ## Your task
 

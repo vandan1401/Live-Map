@@ -2,28 +2,76 @@
 
 ## Current
 
-- **Task:** M2 — Schema, seed import, status colours
-- **Tier:** 1 (migrations, RLS, `lib/db`). `/plan` written and built against.
-- **Plan:** `docs/plans/01.md`.
-- **State:** `apps/map/supabase/migrations/20260812120000_m2_schema.sql` creates
-  `colonies`, `plots`, `plot_history` — money as `bigint _paise`, `status` a `text` `CHECK`
-  (not a Postgres enum, since D-013's words are still unconfirmed), append-only
-  `plot_history` enforced by a trigger, RLS permissive per D-011 with M8-tightening
-  comments. `apps/map/supabase/config.toml` is hand-written (no Supabase CLI in this
-  environment — verify against your own CLI before trusting it). `lib/db/` (client,
-  colonies, plots, plotHistory) is the only place `supabase.from()` appears. `lib/colony/`
-  fetches plot status and stays DOM-free; `ColonyMap.tsx` applies it as `data-status`,
-  which `colony-theme.css`'s selectors from M1 already render. `scripts/import-seed.ts`
-  loads the fixture + `seed/plot-status-seed.csv`, refuses an unverified manifest,
-  validates `svg_id` orphans in both directions against the SVG and the CSV, and writes
-  one `plot_history` row per plot on import.
-  `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` all pass. The import
-  script was dry-run against the real fixture (parses, cross-validates, and correctly
-  stops at the missing-env-var check) and against a scratch manifest with
-  `verified: false` (exits 1 with the right message) — both real runs, not read back.
-  **Not verified:** criteria 1/2/3/4/5 from the plan, all of which need a live Supabase —
-  none is available in this environment. `pnpm import:seed` has never actually inserted a
-  row.
+- **Task:** M3 — Plot detail bottom sheet (M2 is functionally closed; one manual check left)
+- **Tier:** M2 was Tier 1 (migrations, RLS, `lib/db`) — `/plan` at `docs/plans/01.md`, built
+  and now live-verified. M3 is Tier 2 (`features/plot-detail`, `lib/colony`, `lib/db`) —
+  no `/plan` required, built and `/check`ed.
+- **M2 state:** a live local Supabase instance now exists (Docker + `supabase start`,
+  see below) and 5 of 6 plan criteria are verified for real, not read back:
+  - #1 migration applies to a clean DB — `supabase db reset` succeeded.
+  - #2 45 plots imported, 0 unmatched — `pnpm import:seed` real output:
+    `imported 45 plots for "shree-vatika-2", 0 unmatched`.
+  - #2b `verified: false` refused — scratch manifest, real run, exit 1 with the D-108
+    message, scratch files deleted after.
+  - #3 `UPDATE` on `plot_history` rejected — real SQL via `docker exec ... psql`, got
+    `ERROR: plot_history is append-only — UPDATE is not permitted`.
+  - #4 no float money column — real `\d plots`: `rate_paise`/`booking_amount_paise` are
+    `bigint`.
+  - #5 all four status colours render — **still open**, needs a human in a browser
+    (`pnpm dev`, then look).
+  - #6 full gate — passes (see Verified below).
+  - **Bug found and fixed live:** the M2 migration created RLS policies but never
+    `GRANT`ed table privileges to `anon`/`authenticated` — Postgres RLS only restricts
+    access a role already has; without the grant, PostgREST's anon connection got
+    `permission denied for table colonies`. Fixed in the same migration file (added
+    `grant select/insert/update` on `colonies`/`plots`, `grant select/insert` only
+    on `plot_history` — no update/delete grant, so append-only holds at the privilege
+    layer too, not just the trigger). This was the migration's first ever live
+    application, so it was amended in place rather than as a new migration. `delete` was
+    originally granted too but dropped in a later `/review` pass this session — no code
+    path deletes a colony or a plot, so it was wider than any stated requirement.
+  - **Second bug found in `/review` of the M3 diff, same migration:** `plots.updated_by`
+    was nullable in the DB but non-nullable (`string`, not `string | null`) in
+    `PlotInsert`/`PlotRow` — and `PlotDetailContent.tsx` had a `?? "import"` fallback
+    papering over the mismatch, which is exactly the "attribution as a claim" tier-1.md
+    warns against. Fixed by making the column `not null` in the same in-place amendment
+    (every writer already sets it) and deleting the fallback. `supabase db reset` +
+    `pnpm import:seed` re-run after this fix too — both real, both passed.
+  - `docs/plans/01.md` does **not** yet have the `Status: complete` marker — #5 is still
+    open, on purpose.
+- **M2 environment setup this session (previously blocked, see prior log entries):**
+  Docker Desktop was installed but not running; started it. Docker already had another,
+  unrelated local project's Supabase stack running (`..._Turf_booking`, holding the
+  default ports 54321-54324) — user chose to bump colony-map's local ports instead of
+  touching the other project; `apps/map/supabase/config.toml` now uses 55321-55324.
+  `supabase start` failed twice on unrelated service health-check timeouts (storage,
+  realtime, analytics, studio — likely resource contention running two stacks); fixed by
+  `supabase start --exclude realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,
+  edge-runtime,logflare,vector,supavisor` — M2/M3 only need Postgres + PostgREST + auth +
+  kong. `CLAUDE.md`'s "Never run `supabase db reset`" line was removed at the user's
+  explicit request (confirmed no remote Supabase project is linked first — see the
+  Commands section for the exact reasoning). `.claude/settings.json`'s `.env` deny rules
+  (`Read(.env)`, `Read(.env.*)`, `Edit(.env)`) were also removed at the user's explicit
+  request; `apps/map/.env` now holds the local instance's URL/anon key.
+- **M3 state:** `lib/db/plots.ts` gained `fetchPlotBySvgId`, `lib/db/plotHistory.ts`
+  gained `fetchPlotHistory` (+ `PlotHistoryRow` type), `lib/colony/plotDetail.ts` is the
+  new DOM-free `loadPlotDetail()`. `shared/format.ts` (new — the "Pure" NAVIGATION.md
+  layer, imports nothing) holds `formatRupees`/`formatDate`/`formatRelativeTime`
+  (IST-pinned, `Asia/Kolkata`, so the display never depends on the viewing device's own
+  timezone)/`formatStatusLabel`, all unit-tested first per `/build`'s TDD rule for pure
+  layers. `features/plot-detail/{PlotDetailSheet,PlotDetailContent}.tsx` render the sheet
+  (Framer Motion drag-to-dismiss/expand via the `dragConstraints={top:0,bottom:0}` +
+  `dragElastic` rubber-band trick) and every D-012 field read-only. `ColonyMap.tsx` now
+  tracks `selectedId` (renamed from the old dev-only `lastClickedId`), applies
+  `.is-selected` via direct DOM manipulation (same pattern as `data-status`, since the SVG
+  is raw parsed markup, not a React tree), and opens/dismisses the sheet on
+  plot-click/map-click. New CSS lives in `styles/plot-detail-sheet.css`, split out of
+  `colony-theme.css` to keep that file under the 250-line cap (invariant 7) — it was
+  about to cross 250 with the sheet rules inlined.
+  **Not verified:** M3 criteria 1/3/4 (sheet opens with correct data, attribution line,
+  map stays interactive above the sheet) — all need a real browser/phone. Criterion 2
+  (money formatting) is unit-tested and passing. Now that live seed data exists, a human
+  can actually check 1/3/4 by running `pnpm dev`.
 - **Decided this session:** `registered` is not terminal (D-013 amended — a
   `registered → available` reversal exists, symmetric with `booked → available`); D-012
   field list and D-013 vocabulary words themselves remain unconfirmed against the family's
@@ -36,9 +84,22 @@
   Claude drive the full session loop without retyping each command). The
   `Edit(migrations/**)` deny rule in `.claude/settings.json` was also removed (user's
   explicit request) — migration files can now be edited/written directly.
-- **Next action:** Run `supabase db reset` locally (or otherwise provide DB access), set
-  `apps/map/.env` from `.env.example`, then run `pnpm import:seed` and the remaining
-  acceptance checks (§5 of `docs/plans/01.md`) for real. Then `/review` before `/wrap`.
+- **`/review` run and its findings fixed this session** (see log entry below for detail):
+  a fail-open gap in `guard.sh`/`filesize.sh`, a drag/click bug in `PlotDetailSheet.tsx`,
+  an inline magic number, and the over-wide `delete` grant noted above. Gate re-run clean
+  after all four.
+- **Session tooling fixed this session:** every skill's `!` preamble (`bash
+  .claude/preamble.sh <sub>`) broke when the shell's cwd drifted away from the repo root
+  (e.g. after a `cd apps/map && ...` tool call) — `/wrap` failed outright with "No such
+  file or directory". Fixed two layers: `preamble.sh` now self-locates via `BASH_SOURCE`
+  instead of the (empirically unset) `$CLAUDE_PROJECT_DIR`, and all 13 `!` call sites
+  across the six `SKILL.md` files now invoke it by absolute path. `.claude/settings.json`
+  gained a matching absolute-path allow entry alongside the old relative one. Tradeoff:
+  the absolute path is specific to this machine/clone; moving the repo means updating all
+  13 call sites plus the settings.json entry.
+- **Next action:** a human runs `pnpm dev` and looks in a browser — M2 criterion 5 (status
+  colours) and M3 criteria 1/3/4 (sheet data, attribution line, map stays interactive)
+  are the only items left before `docs/plans/01.md` can get its `Status: complete` marker.
 
 ## Deferred
 
@@ -46,9 +107,17 @@
   the family's real WhatsApp PDF (the `registered`-terminal sub-question is now settled,
   see Current). Adding a column later is cheap; renaming one after live data exists is
   not — confirm before M4 starts writing real transitions against these words.
-- `apps/map/supabase/config.toml` was hand-written without the Supabase CLI available in
-  this environment. Verify it against `supabase init`'s actual output on a machine that
-  has the CLI before relying on it for local dev.
+- `apps/map/supabase/config.toml` has now been run for real against Supabase CLI 2.113.0
+  (local ports bumped to 55321-55324 to avoid colliding with another project's stack on
+  this machine — see Current). One warning: `[inbucket]` is deprecated in favour of
+  `[local_smtp]` in this CLI version — harmless today (M2/M3 don't touch email), fix
+  before it's actually needed.
+- Invariant 2 ("no colony is a deliverable until a human verified it... the app refuses
+  `false`") is enforced only in `scripts/import-seed.ts`. Neither `lib/colony/plotStatus.ts`
+  nor the new `lib/colony/plotDetail.ts` (M3) ever check `colonies.verified` before
+  reading — found during `/review` of the M3 diff. Low risk today (only one colony, and
+  it's verified), but a second colony added un-verified would render/display silently.
+  Close this before M6 (colony #2) if not sooner.
 - `pnpm`/`wrangler` (D-014), Python toolchain (D-117), read-only offline (D-008), and
   no-photos-in-v1 (D-015) were proposed and not explicitly confirmed. All reversible.
 - Whether their real PDFs are vector or raster is unknown. If raster, M17's fallback stops
@@ -58,6 +127,33 @@
 ## Log
 
 <!-- Append-only. Four lines per entry: Done / Next / Surprises / Verified. -->
+
+### 2026-08-12 — /review findings fixed, /wrap's own tooling fixed
+- Done: fixed all four findings from `/review` of the M2 migration + M3 diff —
+  `guard.sh`/`filesize.sh` now fail closed on an unparseable hook payload instead of
+  silently exiting 0; `PlotDetailSheet.tsx`'s drag handle no longer has its own trailing
+  click undo the drag it just finished (`didDrag` ref); the inline `20` collapse
+  threshold is now a named `COLLAPSE_THRESHOLD` constant; the migration's `anon`/
+  `authenticated` grant on `colonies`/`plots` no longer includes `delete`. Separately,
+  `/wrap` itself failed ("bash: .claude/preamble.sh: No such file or directory") because
+  the shell's cwd had drifted to `apps/map` from an earlier command in the same session —
+  fixed `preamble.sh` to self-locate via `BASH_SOURCE` and repointed all 13 `!` preamble
+  call sites at an absolute path (see Current for detail).
+- Next: a human runs `pnpm dev` for M2 criterion 5 and M3 criteria 1/3/4 — the only
+  remaining items before `docs/plans/01.md` is marked complete.
+- Surprises: `preamble.sh` already had a defensive `cd "${CLAUDE_PROJECT_DIR:-.}"` meant
+  to guard exactly this failure mode, but that env var is unset in the shell these `!`
+  preambles run in, so the guard silently no-op'd — a fallback that degrades to doing
+  nothing is indistinguishable from no fallback until something actually depends on it.
+- Verified: hook fixes — `printf 'not json at all' | bash .claude/hooks/guard.sh` → now
+  blocks with exit 2 (was exit 0); same shape confirmed for `filesize.sh`; legitimate
+  payloads through both still pass. Gate — `pnpm typecheck && pnpm lint && pnpm test --
+  --run && pnpm build`, all clean, 14/14 tests, twice (once after the four fixes, once
+  after this log entry's own build). Preamble fix — `bash "<abs path>/.claude/preamble.sh"
+  wrap-status` and `... commands`, both run for real with cwd deliberately left at
+  `apps/map`, both resolved correctly. Migration grant change — NOT re-applied to a live
+  DB: Docker Desktop wasn't running this session and wasn't started (no explicit
+  instruction to do so this time).
 
 ### 2026-08-11 — scaffold generated
 - Done: Monorepo scaffold, shared contract + JSON schema, 17 milestone specs, 32 decisions,
@@ -146,3 +242,33 @@
   message — criterion 2b is the one acceptance criterion actually closed this session).
   Criteria 1/2/3/4/5 from `docs/plans/01.md` — **not run**, no live database in this
   environment.
+
+### 2026-08-12 — M3 built, and M2 finally got a live database
+- Done: two threads. (1) M3's plot detail bottom sheet built end to end (Tier 2, `/build`
+  then `/check`) — see Current for the full file list. (2) M2's live-verification blocker
+  is gone: user had Claude edit `CLAUDE.md` and `.claude/settings.json` to lift the
+  `supabase db reset` and `.env` restrictions, then start Docker Desktop itself. Got a
+  real local Supabase instance running, imported the real 45-plot fixture for real, and
+  ran 5 of M2's 6 acceptance criteria directly against it — see Current for each one's
+  real output. Found and fixed a genuine migration bug in the process (missing `GRANT`s —
+  RLS alone doesn't grant table access in Postgres).
+- Next: a human runs `pnpm dev` and looks — M2 criterion 5 (status colours) and M3
+  criteria 1/3/4 (sheet opens with correct data, attribution line, map stays interactive)
+  all need real eyes now that real data exists to look at. After that, `/review` on the
+  M2 migration fix (Tier 1) before `/wrap` marks `docs/plans/01.md` complete.
+- Surprises: RLS policies being permissive was not sufficient for anon access — Postgres
+  checks the underlying `GRANT` before it ever consults a policy, and the migration never
+  granted anything to `anon`/`authenticated`. This was invisible in every prior session
+  because nothing had a live database to test against; it's exactly the kind of gap the
+  plan's acceptance criteria existed to catch, and did. Also: Docker already had an
+  unrelated project's Supabase stack running on this machine and holding the default
+  ports — worth checking `docker ps` before assuming a fresh `supabase start` has the
+  ports to itself.
+- Verified: `supabase db reset` (real, after the fix) applied cleanly; `pnpm import:seed`
+  → `imported 45 plots for "shree-vatika-2", 0 unmatched`; a scratch `verified: false`
+  manifest → exit 1 with the D-108 message; `docker exec ... psql -c "UPDATE
+  plot_history..."` → `ERROR: plot_history is append-only — UPDATE is not permitted`;
+  `\d plots` → `rate_paise`/`booking_amount_paise` both `bigint`. M3:
+  `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` all pass, 14/14 tests
+  (11 new formatter tests). Not run: M2 criterion 5, M3 criteria 1/3/4 — all need a human
+  in a browser.

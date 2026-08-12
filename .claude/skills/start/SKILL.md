@@ -13,16 +13,16 @@ effort: medium
 ## State (already loaded — do not read these files again)
 
 ### PROGRESS.md
-!`bash .claude/preamble.sh progress`
+!`bash "C:/Users/moont/live projects/Colony Viewer/.claude/preamble.sh" progress`
 
 ### Git
-!`bash .claude/preamble.sh git`
+!`bash "C:/Users/moont/live projects/Colony Viewer/.claude/preamble.sh" git`
 
 ### Available commands (use these by name — never search for a script)
-!`bash .claude/preamble.sh commands`
+!`bash "C:/Users/moont/live projects/Colony Viewer/.claude/preamble.sh" commands`
 
 ### Open plan, if any
-!`bash .claude/preamble.sh plan-latest`
+!`bash "C:/Users/moont/live projects/Colony Viewer/.claude/preamble.sh" plan-latest`
 
 ## Your task
 

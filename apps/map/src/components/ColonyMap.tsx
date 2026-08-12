@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { AnimatePresence } from "framer-motion";
 import colonySvgRaw from "../../../../fixtures/shree-vatika-2/colony.svg?raw";
 import { getBrowserDbClient } from "../lib/db/browserClient.ts";
 import { loadPlotStatuses } from "../lib/colony/plotStatus.ts";
+import { PlotDetailSheet } from "../features/plot-detail/PlotDetailSheet.tsx";
 
 // The fixture's viewBox is the pixel-space bounds Leaflet's CRS.Simple pans and
 // zooms over. Both halves treat this file as the single shared demo colony.
@@ -19,7 +22,9 @@ function parseColonySvg(raw: string): SVGSVGElement {
 
 export function ColonyMap() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [lastClickedId, setLastClickedId] = useState<string | null>(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const clientRef = useRef<SupabaseClient | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -42,6 +47,7 @@ export function ColonyMap() {
     });
 
     const svgEl = parseColonySvg(colonySvgRaw);
+    svgRef.current = svgEl;
     L.svgOverlay(svgEl, bounds).addTo(map);
     map.fitBounds(bounds);
 
@@ -49,9 +55,12 @@ export function ColonyMap() {
     // fetched status as data-status is this component's job, not the domain layer's.
     // colony-theme.css's [data-status] selectors do the rest. Missing env vars (e.g. no
     // .env configured yet) degrade to plots rendering with no status colour, not a crash.
+    // The same client is reused by the plot detail sheet (M3) so a click never re-reads
+    // env vars or opens a second connection.
     let cancelled = false;
     try {
       const client = getBrowserDbClient();
+      clientRef.current = client;
       loadPlotStatuses(client, COLONY_ID)
         .then((statuses) => {
           if (cancelled) return;
@@ -72,6 +81,20 @@ export function ColonyMap() {
     };
   }, []);
 
+  // Selected plot gets .is-selected — stroke and scale only, never a fill change,
+  // since fill belongs to status (spec/03). The SVG is raw parsed markup, not a React
+  // tree, so this has to be a direct DOM write, same pattern as data-status above.
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    svg
+      .querySelectorAll(".plot.is-selected")
+      .forEach((el) => el.classList.remove("is-selected"));
+    if (selectedId) {
+      svg.querySelector(`#${selectedId}`)?.classList.add("is-selected");
+    }
+  }, [selectedId]);
+
   // React's own delegated click, not a raw addEventListener on the node Leaflet
   // owns — that listener could go stale across a dev-mode remount without any
   // visible sign, since the map still renders fine either way.
@@ -80,7 +103,10 @@ export function ColonyMap() {
     const plot = target?.closest(".plot");
     if (plot?.id) {
       console.log(plot.id);
-      setLastClickedId(plot.id);
+      setSelectedId(plot.id);
+    } else if (selectedId) {
+      // Tap the map (not a plot) to dismiss the sheet (spec/03).
+      setSelectedId(null);
     }
   };
 
@@ -92,10 +118,20 @@ export function ColonyMap() {
         onClick={handleClick}
       />
       <p className="colony-scale-note">Indicative layout — not to scale</p>
-      {import.meta.env.DEV && lastClickedId && (
+      <AnimatePresence>
+        {selectedId && (
+          <PlotDetailSheet
+            client={clientRef.current}
+            colonyId={COLONY_ID}
+            svgId={selectedId}
+            onDismiss={() => setSelectedId(null)}
+          />
+        )}
+      </AnimatePresence>
+      {import.meta.env.DEV && selectedId && (
         // Dev-only stand-in for a console you can't reach on a phone. Stripped
         // from production builds by import.meta.env.DEV — not a shipped feature.
-        <p className="colony-dev-click-badge">clicked: {lastClickedId}</p>
+        <p className="colony-dev-click-badge">clicked: {selectedId}</p>
       )}
     </div>
   );

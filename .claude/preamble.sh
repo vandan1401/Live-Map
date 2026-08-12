@@ -11,7 +11,14 @@
 # helpful message instead of breaking the preamble.
 
 set -u
-cd "${CLAUDE_PROJECT_DIR:-.}" 2>/dev/null || true
+# Self-locate rather than trust $CLAUDE_PROJECT_DIR — it is unset in the shell that
+# runs skill !`...` preambles (confirmed 2026-08-12), so the old
+# `cd "${CLAUDE_PROJECT_DIR:-.}"` silently no-opped and left every relative read below
+# depending on whatever cwd the shell happened to be in (which drifts whenever a prior
+# tool call left a `cd` in place — that is what broke /wrap that day). BASH_SOURCE
+# always names this file's own real location regardless of invocation cwd.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+cd "$SCRIPT_DIR/.." 2>/dev/null || true
 SUB="${1:-}"
 ARG="${2:-}"
 

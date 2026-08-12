@@ -7,7 +7,7 @@ allowed-tools: Bash(make *) Bash(pnpm *) Bash(pytest *) Bash(git add *) Bash(git
 ---
 
 ## What changed
-!`bash .claude/preamble.sh wrap-status`
+!`bash "C:/Users/moont/live projects/Colony Viewer/.claude/preamble.sh" wrap-status`
 
 ## Your task, in this order. Do not skip a step or reorder.
 

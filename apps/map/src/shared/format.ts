@@ -1,0 +1,70 @@
+// Pure formatters — no DOM, no network, nothing else in this repo (NAVIGATION.md's
+// "Pure" layer). Rupees exist only here; every other layer moves integer paise (D-010).
+
+export function formatRupees(paise: number | null | undefined): string {
+  if (paise == null) return "—";
+  // Whole rupees drop the decimal; a paise remainder always shows both digits —
+  // "₹1,500.5" reads as a typo, not fifty paise.
+  const hasFraction = paise % 100 !== 0;
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: hasFraction ? 2 : 0,
+    maximumFractionDigits: 2,
+  }).format(paise / 100);
+}
+
+export function formatDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(iso));
+}
+
+// India-only business (D-... none pinned, but the whole colony is one Indian site) —
+// always render in IST regardless of the viewing device's own timezone, so a
+// screenshot compared between two family members' phones never disagrees.
+const TIME_ZONE = "Asia/Kolkata";
+
+function dateKey(date: Date): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: TIME_ZONE }).format(date);
+}
+
+function formatClock(date: Date): string {
+  const parts = new Intl.DateTimeFormat("en-IN", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: TIME_ZONE,
+  }).formatToParts(date);
+  const hour = parts.find((p) => p.type === "hour")?.value ?? "";
+  const minute = parts.find((p) => p.type === "minute")?.value ?? "";
+  const dayPeriod = parts.find((p) => p.type === "dayPeriod")?.value ?? "";
+  return `${hour}:${minute} ${dayPeriod.toLowerCase()}`;
+}
+
+// "Booked — updated by Vikas, 2:40pm today" (spec/03) is the line that resolves most
+// of the confusion the WhatsApp PDF causes today — it needs to read at a glance.
+export function formatRelativeTime(iso: string, now: Date = new Date()): string {
+  const then = new Date(iso);
+  const thenKey = dateKey(then);
+  if (thenKey === dateKey(now)) return `${formatClock(then)} today`;
+
+  const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+  if (thenKey === dateKey(yesterday)) return `${formatClock(then)} yesterday`;
+
+  const dateLabel = new Intl.DateTimeFormat("en-IN", {
+    day: "numeric",
+    month: "short",
+    timeZone: TIME_ZONE,
+  }).format(then);
+  return `${dateLabel}, ${formatClock(then)}`;
+}
+
+export function formatStatusLabel(status: string): string {
+  if (status === "hold") return "On hold";
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}

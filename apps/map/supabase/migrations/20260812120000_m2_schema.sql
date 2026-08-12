@@ -50,7 +50,7 @@ create table plots (
   registry_date date,
   notes text,
   version integer not null default 1,
-  updated_by text,
+  updated_by text not null,
   updated_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
   unique (colony_id, svg_id)
@@ -66,6 +66,9 @@ comment on column plots.version is
 loudly with the winner''s name. Not exercised until M4 — M2 has no write path.';
 comment on column plots.rate_paise is 'Integer paise (D-010). Never a float.';
 comment on column plots.booking_amount_paise is 'Integer paise (D-010). Never a float.';
+comment on column plots.updated_by is
+  'Not null (D-007) — attribution must never be a claim the UI has to invent a fallback
+for. Every writer (scripts/import-seed.ts today, applyPlotTransition() from M4) sets it.';
 
 -- ---------------------------------------------------------------------------
 -- plot_history — append-only. The evidence that settles a commission dispute.
@@ -118,3 +121,14 @@ comment on policy "plots_permissive_all" on plots is
   'Permissive per D-011. Tighten at M8 — do not deploy publicly before then.';
 comment on policy "plot_history_permissive_all" on plot_history is
   'Permissive per D-011. Tighten at M8 — do not deploy publicly before then.';
+
+-- RLS policies only apply once a role already has the underlying table grant — without
+-- these, PostgREST's anon connection gets "permission denied" regardless of how
+-- permissive the policies above are. No code path deletes a colony or a plot (nothing
+-- in lib/db, import-seed.ts, or the planned applyPlotTransition() does), so delete is
+-- withheld here too — least privilege, not just append-only enforcement on history.
+-- plot_history gets no update/delete grant at all, so the append-only guarantee holds
+-- at the privilege layer too, not just the trigger.
+grant usage on schema public to anon, authenticated;
+grant select, insert, update on colonies, plots to anon, authenticated;
+grant select, insert on plot_history to anon, authenticated;

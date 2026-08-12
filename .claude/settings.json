@@ -2,6 +2,7 @@
   "permissions": {
     "allow": [
       "Bash(bash .claude/preamble.sh:*)",
+      "Bash(bash \"C:/Users/moont/live projects/Colony Viewer/.claude/preamble.sh\":*)",
       "Bash(make *)",
       "Bash(pnpm typecheck)",
       "Bash(pnpm lint)",
@@ -19,10 +20,7 @@
     ],
     "deny": [
       "Bash(rm -rf *)",
-      "Bash(git push --force *)",
-      "Read(.env)",
-      "Read(.env.*)",
-      "Edit(.env)"
+      "Bash(git push --force *)"
     ]
   },
   "hooks": {

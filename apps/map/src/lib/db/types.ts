@@ -58,3 +58,8 @@ export interface PlotHistoryInsert {
   changed_by: string;
   note?: string | null;
 }
+
+export interface PlotHistoryRow extends PlotHistoryInsert {
+  id: string;
+  changed_at: string;
+}

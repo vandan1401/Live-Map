@@ -1,0 +1,116 @@
+/* Plot detail bottom sheet (M3, spec/03). Covers the lower ~40% of the screen with
+ * the map still visible and interactive above it; drag or tap the handle to expand.
+ * Split out of colony-theme.css to keep that file under the 250-line cap (CLAUDE.md
+ * invariant 7) — colony-theme.css stays the one place status/map colours live (D-004);
+ * this file is feature chrome, not part of that colour contract. */
+.plot-detail-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1200;
+  height: 42%;
+  max-height: 42%;
+  overflow-y: auto;
+  background: #ffffff;
+  border-radius: 1rem 1rem 0 0;
+  box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.18);
+  padding: 0 1rem 1.5rem;
+  transition: height 200ms ease-out, max-height 200ms ease-out;
+}
+
+.plot-detail-sheet.is-expanded {
+  height: 88%;
+  max-height: 88%;
+}
+
+/* Only the handle initiates the drag gesture (see PlotDetailSheet.tsx's dragControls)
+ * — touch-action: none is scoped to it alone, so a finger-scroll over the field list
+ * below still scrolls instead of being swallowed as a sheet drag. */
+.plot-detail-sheet-handle {
+  display: block;
+  width: 2.5rem;
+  height: 0.3rem;
+  margin: 0.75rem auto 0.5rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--colony-plot-stroke);
+  padding: 0;
+  touch-action: none;
+}
+
+.plot-detail-heading {
+  font-size: 1.1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.plot-detail-corner-badge {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--colony-status-hold);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+}
+
+.plot-detail-attribution {
+  font-size: 0.85rem;
+  color: var(--colony-site-boundary);
+  margin-bottom: 0.75rem;
+}
+
+.plot-detail-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem 1rem;
+  margin: 0 0 0.75rem;
+}
+
+.plot-detail-fields dt {
+  font-size: 0.7rem;
+  color: var(--colony-site-boundary);
+}
+
+.plot-detail-fields dd {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.plot-detail-facing {
+  text-transform: capitalize;
+}
+
+.plot-detail-notes {
+  font-size: 0.9rem;
+  border-top: 1px solid var(--colony-road);
+  padding-top: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.plot-detail-history h3 {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0 0 0.35rem;
+}
+
+.plot-detail-history ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.8rem;
+  color: var(--colony-site-boundary);
+}
+
+.plot-detail-history li {
+  padding: 0.2rem 0;
+}
+
+.plot-detail-error,
+.plot-detail-loading {
+  font-size: 0.9rem;
+  color: var(--colony-site-boundary);
+  padding: 1rem 0;
+}

@@ -28,3 +28,19 @@ export async function fetchPlotStatuses(
   }
   return statuses;
 }
+
+// Full row for the plot detail sheet (M3) — every D-012 field, not just status.
+export async function fetchPlotBySvgId(
+  client: SupabaseClient,
+  colonyId: string,
+  svgId: string,
+): Promise<PlotRow | null> {
+  const { data, error } = await client
+    .from("plots")
+    .select("*")
+    .eq("colony_id", colonyId)
+    .eq("svg_id", svgId)
+    .maybeSingle();
+  if (error) throw new Error(`fetchPlotBySvgId failed: ${error.message}`);
+  return (data as PlotRow | null) ?? null;
+}

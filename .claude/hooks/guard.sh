@@ -7,9 +7,14 @@
 
 INPUT=$(cat)
 CMD=$(printf '%s' "$INPUT" | jget .tool_input.command)
-[ -z "$CMD" ] && exit 0
 
 block() { echo "Blocked: $1" >&2; exit 2; }
+
+[ "$CMD" = "__JGET_NO_READER__" ] && block "no JSON reader (jq/node/python3) available — cannot inspect this command safely."
+# The matcher for this hook is Bash, so .tool_input.command is always populated in a
+# real payload — empty here means the reader ran but failed to parse it (bad JSON,
+# unexpected shape), not "nothing to check". Fail closed, not open (2026-08-12).
+[ -z "$CMD" ] && block "could not read the command from the hook payload."
 
 # Long-running servers are mine. Claude never starts them.
 echo "$CMD" | grep -qE '(npm|pnpm|yarn|bun) run dev' && block "I run the dev server in a separate terminal."
@@ -24,7 +29,14 @@ echo "$CMD" | grep -qiE 'drop +(table|database)' && block "destructive SQL."
 
 # apps/map — no auth until M8 (D-011). A URL leak exposes ownership records.
 echo "$CMD" | grep -qE 'wrangler pages deploy|wrangler deploy' && block "deploys are manual — and there is no auth until M8 (D-011). Never deploy this publicly."
-echo "$CMD" | grep -qE 'supabase db reset|supabase db push'    && block "migrations and resets are mine to run. See D-011."
+# `supabase db reset` (local target only) is deliberately NOT blocked (user's explicit
+# instruction, 2026-08-12 — see CLAUDE.md's Commands section for the no-remote-link
+# reasoning). Everything that can target or create a remote link stays blocked: `db push`,
+# `db reset --linked`/`--db-url` (both reset a REMOTE database per `supabase db reset
+# --help`, not the local one), and `supabase link` itself, since linking would silently
+# invalidate the no-remote-link precondition the CLAUDE.md permission rests on.
+echo "$CMD" | grep -qE 'supabase db push|supabase link|supabase .*(--linked|--db-url)' \
+  && block "remote-targeting supabase commands are mine to run. Local-only \`supabase db reset\` is allowed. See D-011."
 
 # tools/pipeline — hand-verified corrections and the local-only rule.
 echo "$CMD" | grep -qE 'rm .*(overrides|out/|verified)' && block "that path holds hand-verified corrections. See D-107."

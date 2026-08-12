@@ -71,7 +71,7 @@ what makes it cheap to test, and every other module depends on it.
 
 | File | What it does |
 |---|---|
-| `.claude/preamble.sh` | Read-only helper the skills call to inline state into their `!` blocks. Claude Code's permission checker rejects compound shell (`\|\|`, pipes, `;`) inside those blocks, so all of it lives here behind one allow-list entry. Add a subcommand rather than putting shell back in a skill. |
+| `.claude/preamble.sh` | Read-only helper the skills call to inline state into their `!` blocks. Claude Code's permission checker rejects any shell expansion (`\|\|`, pipes, `;`, `$(...)`, bare `$VAR`) inside those blocks, so all of it lives here behind one allow-list entry, invoked with a literal, hardcoded absolute path (`C:/Users/moont/live projects/Colony Viewer/.claude/preamble.sh`) — a relative path breaks the moment the shell's cwd drifts from repo root, which happened and broke `/wrap` on 2026-08-12. The script self-locates via `BASH_SOURCE` once running; do not reintroduce a `$CLAUDE_PROJECT_DIR` dependency, it is unset in this shell. Add a subcommand rather than putting shell back in a skill. |
 
 ## Feature index
 
@@ -79,6 +79,7 @@ what makes it cheap to test, and every other module depends on it.
 |---|---|---|---|---|
 | Colony render, pan/zoom (M1) | none yet | none yet — fixture read directly | `apps/map/src/components/ColonyMap.tsx` | none yet |
 | Status colours (M2) | `apps/map/src/lib/colony/plotStatus.ts` | `apps/map/src/lib/db/` | `apps/map/src/components/ColonyMap.tsx` sets `data-status` | `colonies`, `plots`, `plot_history` |
+| Plot detail sheet (M3) | `apps/map/src/lib/colony/plotDetail.ts` | `apps/map/src/lib/db/` | `apps/map/src/features/plot-detail/{PlotDetailSheet,PlotDetailContent}.tsx`, opened from `ColonyMap.tsx`'s `selectedId` | `plots`, `plot_history` (read-only) |
 
 ## Reusable functions
 
@@ -86,9 +87,11 @@ what makes it cheap to test, and every other module depends on it.
 |---|---|---|
 | `createDbClient(url, anonKey)` | `apps/map/src/lib/db/client.ts` | Pure Supabase client factory — no `import.meta`/`process.env` reads. Safe from both Vite and tsx contexts. |
 | `getBrowserDbClient()` | `apps/map/src/lib/db/browserClient.ts` | Reads `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` and calls `createDbClient`. Vite-only — never import this from `scripts/`. |
-| `insertColony`, `insertPlots`, `fetchPlotStatuses` | `apps/map/src/lib/db/{colonies,plots}.ts` | The only place `supabase.from()` appears. |
-| `insertPlotHistory` | `apps/map/src/lib/db/plotHistory.ts` | Appends history rows; the table itself rejects UPDATE/DELETE via a DB trigger. |
+| `insertColony`, `insertPlots`, `fetchPlotStatuses`, `fetchPlotBySvgId` | `apps/map/src/lib/db/{colonies,plots}.ts` | The only place `supabase.from()` appears. |
+| `insertPlotHistory`, `fetchPlotHistory` | `apps/map/src/lib/db/plotHistory.ts` | Appends/reads history rows; the table itself rejects UPDATE/DELETE via a DB trigger, and the migration grants it no update/delete privilege either. |
 | `loadPlotStatuses(client, colonyId)` | `apps/map/src/lib/colony/plotStatus.ts` | Domain-shaped `{ svg_id: status }`. DOM-free by design — callers apply `data-status` themselves. |
+| `loadPlotDetail(client, colonyId, svgId)` | `apps/map/src/lib/colony/plotDetail.ts` | Full plot row + its history, DOM-free — `PlotDetailSheet.tsx` owns rendering. |
+| `formatRupees`, `formatDate`, `formatRelativeTime`, `formatStatusLabel` | `apps/map/src/shared/format.ts` | The "Pure" layer (imports nothing). Rupees exist only here (D-010); `formatRelativeTime` is pinned to `Asia/Kolkata` regardless of viewer's device timezone. Unit-tested in `format.test.ts`. |
 
 ## Scripts
 
