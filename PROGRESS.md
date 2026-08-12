@@ -2,10 +2,12 @@
 
 ## Current
 
-- **Task:** M3 — Plot detail bottom sheet (M2 is functionally closed; one manual check left)
+- **Task:** M2 and M3 are both closed. `docs/plans/01.md` carries the `Status: complete`
+  marker. Next up is M4 (`applyPlotTransition()`) or M9 (pipeline), plus the UI-taste pass
+  noted below — pick one to start next session.
 - **Tier:** M2 was Tier 1 (migrations, RLS, `lib/db`) — `/plan` at `docs/plans/01.md`, built
-  and now live-verified. M3 is Tier 2 (`features/plot-detail`, `lib/colony`, `lib/db`) —
-  no `/plan` required, built and `/check`ed.
+  and now live-verified, plan closed. M3 was Tier 2 (`features/plot-detail`, `lib/colony`,
+  `lib/db`) — no `/plan` required, built, `/check`ed, and now live-verified.
 - **M2 state:** a live local Supabase instance now exists (Docker + `supabase start`,
   see below) and 5 of 6 plan criteria are verified for real, not read back:
   - #1 migration applies to a clean DB — `supabase db reset` succeeded.
@@ -17,8 +19,8 @@
     `ERROR: plot_history is append-only — UPDATE is not permitted`.
   - #4 no float money column — real `\d plots`: `rate_paise`/`booking_amount_paise` are
     `bigint`.
-  - #5 all four status colours render — **still open**, needs a human in a browser
-    (`pnpm dev`, then look).
+  - #5 all four status colours render — **verified live**, user confirmed in a real
+    browser after the Docker/Supabase restart below.
   - #6 full gate — passes (see Verified below).
   - **Bug found and fixed live:** the M2 migration created RLS policies but never
     `GRANT`ed table privileges to `anon`/`authenticated` — Postgres RLS only restricts
@@ -37,8 +39,7 @@
     warns against. Fixed by making the column `not null` in the same in-place amendment
     (every writer already sets it) and deleting the fallback. `supabase db reset` +
     `pnpm import:seed` re-run after this fix too — both real, both passed.
-  - `docs/plans/01.md` does **not** yet have the `Status: complete` marker — #5 is still
-    open, on purpose.
+  - `docs/plans/01.md` now has the `Status: complete` marker — all 6 criteria verified.
 - **M2 environment setup this session (previously blocked, see prior log entries):**
   Docker Desktop was installed but not running; started it. Docker already had another,
   unrelated local project's Supabase stack running (`..._Turf_booking`, holding the
@@ -68,10 +69,11 @@
   plot-click/map-click. New CSS lives in `styles/plot-detail-sheet.css`, split out of
   `colony-theme.css` to keep that file under the 250-line cap (invariant 7) — it was
   about to cross 250 with the sheet rules inlined.
-  **Not verified:** M3 criteria 1/3/4 (sheet opens with correct data, attribution line,
-  map stays interactive above the sheet) — all need a real browser/phone. Criterion 2
-  (money formatting) is unit-tested and passing. Now that live seed data exists, a human
-  can actually check 1/3/4 by running `pnpm dev`.
+  **Verified live:** M3 criteria 1/3/4 (sheet opens with correct data, attribution line,
+  map stays interactive above the sheet) all confirmed by the user in a real browser.
+  Criterion 2 (money formatting) is unit-tested and passing. User's one note: does not
+  like the sheet's current UI/visual design — functionally correct, revisit look-and-feel
+  later (not blocking, no specifics given yet).
 - **Decided this session:** `registered` is not terminal (D-013 amended — a
   `registered → available` reversal exists, symmetric with `booked → available`); D-012
   field list and D-013 vocabulary words themselves remain unconfirmed against the family's
@@ -97,11 +99,35 @@
   gained a matching absolute-path allow entry alongside the old relative one. Tradeoff:
   the absolute path is specific to this machine/clone; moving the repo means updating all
   13 call sites plus the settings.json entry.
-- **Next action:** a human runs `pnpm dev` and looks in a browser — M2 criterion 5 (status
-  colours) and M3 criteria 1/3/4 (sheet data, attribution line, map stays interactive)
-  are the only items left before `docs/plans/01.md` can get its `Status: complete` marker.
+- **This session's Docker/Supabase restart:** Docker Desktop was not running at session
+  start (it does not auto-start on login on this machine), so every Supabase call in the
+  browser failed with `TypeError: Failed to fetch` — surfaced as a stuck-loading plot
+  detail sheet and plots falling back to their unstyled colour (all 45 showing one flat
+  shade, not "only some colours missing"). Fixed by starting Docker Desktop, waiting for
+  the daemon, then `supabase start` with the same `--exclude` flags as the prior session.
+  The `supabase` CLI is not on this shell's `PATH` at all (`where.exe supabase`, `pnpm
+  exec supabase`, scoop, and winget all came up empty) — `npx -y supabase <cmd>` is what
+  actually works here and is what resolved the CLI to 2.113.0, matching the prior
+  session's version. Seed data survived the restart untouched (`SELECT count(*) FROM
+  plots` → 45) — stopping the stack does not drop the Docker volume.
+- **Next action:** pick M4 (`applyPlotTransition()`, Tier 1) or M9 (pipeline scaffold) to
+  start next session. The UI-taste feedback on the plot detail sheet is unscoped — ask the
+  user what specifically they'd change before touching `styles/plot-detail-sheet.css`.
 
 ## Deferred
+
+- The `supabase` CLI must be invoked as `npx -y supabase <cmd>` in this shell — it is not
+  on `PATH` as a bare `supabase` command (checked `where.exe`, `pnpm exec`, scoop, winget;
+  none found it, but `npx -y supabase --version` resolves and runs fine). Any future
+  session or skill preamble that shells out to `supabase` directly will fail the same way
+  `/wrap`'s `preamble.sh` broke on a relative path — prefer `npx -y supabase` or document
+  wherever the real binary lives if the user installs it more permanently.
+- Docker Desktop does not auto-start on login on this machine — any session that needs the
+  local Supabase stack should check `docker info` first rather than assuming it's up from
+  a prior session.
+- User does not like the current visual design of the plot detail sheet (M3). No specifics
+  given yet — surface this before any further UI polish work, and ask what they'd change
+  rather than guessing.
 
 - D-012's exact field list and D-013's four status *words* are still unconfirmed against
   the family's real WhatsApp PDF (the `registered`-terminal sub-question is now settled,
@@ -127,6 +153,29 @@
 ## Log
 
 <!-- Append-only. Four lines per entry: Done / Next / Surprises / Verified. -->
+
+### 2026-08-12 — M2/M3 live-verified in browser, docs/plans/01.md closed
+- Done: Docker Desktop wasn't running this session; started it, waited for the daemon,
+  then brought the local Supabase stack back up (`npx -y supabase start` with last
+  session's `--exclude` flags — the bare `supabase` command isn't on this shell's `PATH`).
+  User then confirmed in a real browser: M2 criterion 5 (all four status colours render)
+  and M3 criteria 1/3/4 (sheet loads correct data, attribution line, map stays interactive
+  above the sheet). `docs/plans/01.md` now carries the `Status: complete` marker — all 6
+  M2 criteria and all 4 M3 criteria verified for real across this session and the last.
+  User separately flagged they don't like the sheet's current visual design — noted as
+  unscoped feedback in Deferred, not acted on.
+- Next: pick M4 (`applyPlotTransition()`, Tier 1) or M9 (pipeline scaffold) to start next
+  session; ask the user what they'd change about the sheet's UI before touching it.
+- Surprises: the stuck-loading sheet and the single-flat-colour map were the same root
+  cause (Supabase unreachable), not two separate bugs — `fetchPlotBySvgId`'s `TypeError:
+  Failed to fetch` was the tell. Also: the `supabase` CLI isn't resolvable as a bare
+  command in this shell at all (not on `PATH`, not via `pnpm exec`, scoop, or winget) —
+  only `npx -y supabase` works, despite the prior session's log implying a normal
+  `supabase start` invocation.
+- Verified: `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` all pass,
+  14/14 tests. `docker exec ... psql -c "SELECT count(*) FROM plots"` → 45, confirming the
+  seed data survived the Docker restart untouched. M2 #5 and M3 #1/#3/#4 — user-confirmed
+  live in a browser, not read back from code.
 
 ### 2026-08-12 — /review findings fixed, /wrap's own tooling fixed
 - Done: fixed all four findings from `/review` of the M2 migration + M3 diff —

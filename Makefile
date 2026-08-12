@@ -1,9 +1,12 @@
 # Root dispatcher. Targets are the interface — found by name, never by searching.
 # Real implementations land in M1; these are the names the skills and CLAUDE.md rely on.
 
-.PHONY: verify verify-map verify-pipe gate contract inspect serve
+.PHONY: verify verify-map verify-pipe gate contract inspect serve db-start
 
 verify: verify-map verify-pipe
+
+db-start:  ## local Supabase stack (Docker must already be running); excludes services M2/M3 don't need
+	cd apps/map && npx -y supabase start --exclude realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
 
 verify-map:
 	cd apps/map && pnpm typecheck && pnpm test
