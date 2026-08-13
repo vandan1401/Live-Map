@@ -20,17 +20,18 @@
   it — M5 needed it). If a future milestone needs another currently-excluded service
   (`storage-api`, etc.), remember: a plain `supabase start` restart silently keeps the
   old exclusion — `supabase stop` fully first, then `start` with the new flags.
-- **Theme repainted this session** (Tier 3, `colony-theme.css`, owner-requested):
-  roads dark asphalt gray, gardens/trees more saturated green, plot status colours
-  changed to available=green/booked=blue/registered=orange (owner chose "adopt
-  reference's saturated palette" over keeping the original amber-for-booked scheme).
-  New `--colony-warning-amber` token decouples the freshness indicator's offline colour
-  (spec/05 criterion 3, "turns amber") from `--colony-status-booked` — that variable had
-  been reused for both, and repainting `booked` to blue would have silently broken the
-  offline indicator's colour if left coupled. No literal dashed road centerline: `.road`
-  is one filled polygon per segment in the fixture, no separate centerline path, so a
-  CSS stroke/pattern would trace each polygon's outline rather than draw a lane marking
-  — a pipeline/geometry change, not a theme one, if wanted later.
+- **Theme repainted this session, live-verified in a browser by the owner** (Tier 3,
+  `colony-theme.css`, owner-requested): roads dark asphalt gray, gardens/trees more
+  saturated green, plot status colours changed to available=green/booked=blue/
+  registered=orange (owner chose "adopt reference's saturated palette" over keeping the
+  original amber-for-booked scheme). New `--colony-warning-amber` token decouples the
+  freshness indicator's offline colour (spec/05 criterion 3, "turns amber") from
+  `--colony-status-booked` — that variable had been reused for both, and repainting
+  `booked` to blue would have silently broken the offline indicator's colour if left
+  coupled. No literal dashed road centerline: `.road` is one filled polygon per segment
+  in the fixture, no separate centerline path, so a CSS stroke/pattern would trace each
+  polygon's outline rather than draw a lane marking — a pipeline/geometry change, not a
+  theme one, if wanted later.
 
 ## Deferred
 
@@ -111,6 +112,15 @@
 ## Log
 
 <!-- Append-only. Four lines per entry: Done / Next / Surprises / Verified. -->
+
+### 2026-08-13 — theme repaint live-verified in browser
+- Done: owner confirmed the theme repaint (previous log entry — asphalt roads,
+  saturated garden/tree greens, available=green/booked=blue/registered=orange) in a
+  real browser and reported it looks right. No further changes made.
+- Next: M5's four spec/05 manual acceptance criteria and the M4 Save/Undo click-through
+  are still the two open live-verification items (see `## Current`).
+- Surprises: none.
+- Verified: owner's own visual confirmation in a browser — not re-derived from code.
 
 ### 2026-08-13 — theme repaint (Tier 3, owner-requested)
 - Done: restyled `colony-theme.css` to match a reference image the owner shared — dark
