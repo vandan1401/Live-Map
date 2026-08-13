@@ -2,20 +2,19 @@
 
 ## Current
 
-- **Task:** M2, M3, M4, and the D-012/D-013 revision are all closed (`docs/plans/01.md`,
-  `02.md`, `03.md` all carry `Status: complete`; detail in `## Log` below). M5 —
-  realtime plot-status sync plus the always-visible freshness indicator
-  (spec/05-map-realtime.md, `docs/plans/04.md`) — is built, `/review`ed, all 5 findings
-  fixed and re-verified, gate-clean (44/44 tests). `docs/plans/04.md` does **not** yet
-  carry `Status: complete`: spec/05's four acceptance criteria are all manual (two real
-  browser windows — propagation under 2s, freshness tick over 5 minutes, DevTools
-  offline mode, reconnect refetch) and none have been run by a human yet.
-- **Next action:** a human runs `pnpm dev`, opens two browser windows against the same
-  colony, and walks spec/05 §5's four criteria. Once they pass, `/wrap` again just to
-  append the `Status: complete` marker (same pattern as `docs/plans/03.md`'s two-part
-  close). Separately still open: the M4 Save/Undo buttons have never been clicked live
-  in a browser either (noted in the 2026-08-13 log entry below) — worth doing in the
-  same session as M5's manual check.
+- **Task:** M2, M3, M4, M5, and the D-012/D-013 revision are all closed (`docs/plans/01.md`
+  through `04.md` all carry `Status: complete`; detail in `## Log` below). M5 — realtime
+  plot-status sync plus the always-visible freshness indicator (spec/05-map-realtime.md,
+  `docs/plans/04.md`) — owner live-verified spec/05 §5's four manual acceptance criteria
+  (propagation under 2s, freshness tick over 5 minutes, DevTools offline mode, reconnect
+  refetch) in a real browser this session; plan closed.
+- **Next action:** pick the next milestone (M6+, see spec/ for numbering). Separately
+  still open: the M4 Save/Undo buttons have never been clicked live in a browser either
+  (noted in the 2026-08-13 log entry below) — worth a quick manual pass alongside
+  whatever's next. `tools/pipeline` still doesn't exist — expected pre-M9 (see
+  Makefile/`make gate` comment and the 2026-08-12 log entry below); `make gate` will keep
+  failing at `contract` until then, use `verify-map` plus the map-only
+  `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` slice instead.
 - **Local Supabase stack now runs `realtime`** (`Makefile`'s `db-start` used to exclude
   it — M5 needed it). If a future milestone needs another currently-excluded service
   (`storage-api`, etc.), remember: a plain `supabase start` restart silently keeps the
@@ -112,6 +111,23 @@
 ## Log
 
 <!-- Append-only. Four lines per entry: Done / Next / Surprises / Verified. -->
+
+### 2026-08-13 — M5 closed: spec/05 live-verified, plan marked complete
+- Done: owner live-verified spec/05 §5's four manual acceptance criteria (propagation
+  under 2s across two clients, freshness tick advancing over 5 minutes, DevTools offline
+  mode turning the indicator amber within 10s, reconnect refetch) in a real browser.
+  Appended `**Status:** complete` to `docs/plans/04.md`. No code changed this session.
+- Next: pick the next milestone; separately, the M4 Save/Undo click-through and
+  `tools/pipeline` (still pre-M9, doesn't exist) remain open (see `## Current`).
+- Surprises: `make gate` still fails at `contract` because `tools/pipeline` doesn't
+  exist — this is expected and already documented (2026-08-12 log entry below), not new
+  breakage. Worth flagging for a future session: this failure mode looks exactly like
+  something got deleted, and re-discovering "oh right, that's pre-M9" costs real
+  investigation time each time it's hit. Chased it down via git history + session
+  transcripts before finding the answer already written in this file.
+- Verified: `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` in
+  `apps/map` — all clean, 44/44 tests, production build succeeds. `make gate` not run
+  (fails at `contract` for the pre-M9 reason above, not a regression).
 
 ### 2026-08-13 — theme repaint live-verified in browser
 - Done: owner confirmed the theme repaint (previous log entry — asphalt roads,
