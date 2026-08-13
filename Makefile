@@ -5,8 +5,8 @@
 
 verify: verify-map verify-pipe
 
-db-start:  ## local Supabase stack (Docker must already be running); excludes services M2/M3 don't need
-	cd apps/map && npx -y supabase start --exclude realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+db-start:  ## local Supabase stack (Docker must already be running); excludes services this app doesn't need
+	cd apps/map && npx -y supabase start --exclude storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
 
 db-up:  ## start Docker Desktop if it isn't running, wait for it, then db-start. Used by /db-up skill
 	@docker info >/dev/null 2>&1 || { \

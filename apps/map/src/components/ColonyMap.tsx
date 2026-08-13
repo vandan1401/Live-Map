@@ -5,9 +5,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { AnimatePresence } from "framer-motion";
 import colonySvgRaw from "../../../../fixtures/shree-vatika-2/colony.svg?raw";
 import { getBrowserDbClient } from "../lib/db/browserClient.ts";
-import { loadPlotStatuses } from "../lib/colony/plotStatus.ts";
+import { attachSync } from "../lib/sync/attachSync.ts";
 import type { PlotStatus } from "../lib/db/types.ts";
 import { PlotDetailSheet } from "../features/plot-detail/PlotDetailSheet.tsx";
+import { FreshnessIndicator } from "./FreshnessIndicator.tsx";
 
 // The fixture's viewBox is the pixel-space bounds Leaflet's CRS.Simple pans and
 // zooms over. Both halves treat this file as the single shared demo colony.
@@ -33,6 +34,11 @@ export function ColonyMap({ actor }: Props) {
   const svgRef = useRef<SVGSVGElement | null>(null);
   const clientRef = useRef<SupabaseClient | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Sync/freshness state (M5, spec/05) — attachSync (lib/sync/) owns the subscription,
+  // the tick, and the reconnect logic; this component just renders what it reports and
+  // applies the DOM writes it asks for.
+  const [offline, setOffline] = useState(false);
+  const [freshnessLabel, setFreshnessLabel] = useState("Not synced yet");
 
   useEffect(() => {
     const el = containerRef.current;
@@ -59,32 +65,35 @@ export function ColonyMap({ actor }: Props) {
     L.svgOverlay(svgEl, bounds).addTo(map);
     map.fitBounds(bounds);
 
-    // lib/colony stays DOM-free by design (NAVIGATION.md layer rule); applying the
-    // fetched status as data-status is this component's job, not the domain layer's.
-    // colony-theme.css's [data-status] selectors do the rest. Missing env vars (e.g. no
-    // .env configured yet) degrade to plots rendering with no status colour, not a crash.
-    // The same client is reused by the plot detail sheet (M3) so a click never re-reads
-    // env vars or opens a second connection.
-    let cancelled = false;
+    // attachSync (lib/sync/) owns the subscription, the connection signals, the
+    // reconnect refetch, and the freshness tick. This component only supplies the DOM
+    // writes and state setters it asks for — colony-theme.css's [data-status]
+    // selectors do the rest. Missing env vars (e.g. no .env configured yet) degrade to
+    // plots rendering with no status colour, not a crash. The same client is reused by
+    // the plot detail sheet (M3) so a click never re-reads env vars or opens a second
+    // connection.
+    let detachSync: (() => void) | null = null;
     try {
       const client = getBrowserDbClient();
       clientRef.current = client;
-      loadPlotStatuses(client, COLONY_ID)
-        .then((statuses) => {
-          if (cancelled) return;
+      detachSync = attachSync(client, COLONY_ID, {
+        applyStatuses: (statuses) => {
           for (const [svgId, status] of Object.entries(statuses)) {
             svgEl.querySelector(`#${svgId}`)?.setAttribute("data-status", status);
           }
-        })
-        .catch((error: unknown) => {
-          console.error("failed to load plot statuses:", error);
-        });
+        },
+        applyStatus: (svgId, status) => {
+          svgEl.querySelector(`#${svgId}`)?.setAttribute("data-status", status);
+        },
+        setOffline,
+        setFreshnessLabel,
+      });
     } catch (error) {
       console.error("failed to create Supabase client:", error);
     }
 
     return () => {
-      cancelled = true;
+      detachSync?.();
       map.remove();
     };
   }, []);
@@ -133,6 +142,7 @@ export function ColonyMap({ actor }: Props) {
         onClick={handleClick}
       />
       <p className="colony-scale-note">Indicative layout — not to scale</p>
+      <FreshnessIndicator label={freshnessLabel} offline={offline} />
       <AnimatePresence>
         {selectedId && (
           <PlotDetailSheet

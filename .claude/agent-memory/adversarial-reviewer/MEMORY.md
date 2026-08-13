@@ -3,3 +3,4 @@
 - [Docs vs enforcement drift](review-docs-vs-enforcement-drift.md) — 4x recurrence: prose relaxed, `guard.sh`/`_json.sh` too broad or failing open. Check both, every pass.
 - [Vacuous acceptance tests](review-vacuous-acceptance-tests.md) — negative/forced-failure tests that pass for the wrong reason; `db reset` never proves migration-vs-existing-data.
 - [Attribution fallbacks](review-attribution-fallbacks.md) — 2x: `?? "unknown"` / `?? "import"` on actor fields forges evidence in `plot_history`. Grep every diff.
+- [Optimistic defaults](review-optimistic-defaults.md) — initial state that claims "synced"/"connected"/an actor it never verified. Ask what the screen says if the first fetch fails.

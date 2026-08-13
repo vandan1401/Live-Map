@@ -2,56 +2,46 @@
 
 ## Current
 
-- **Task:** M2, M3, and M4's Tier 1 core are all closed (`docs/plans/01.md`,
-  `docs/plans/02.md` carry `Status: complete`). M4's Tier 2 UI follow-up (Save/Undo
-  button, name prompt) is built and gate-clean. On top of that, this session the owner
-  gave two direct product decisions that revise D-012/D-013 — `docs/plans/03.md` (Tier 1:
-  contract + migration + `lib/plot-status/`) implements them, `/review`ed (6 findings,
-  all fixed and re-verified), gate-clean, and now `docs/plans/03.md` carries the
-  `Status: complete` marker — criterion 6 (sheet shows only length/breadth + owner iff
-  `booked`) was confirmed live in a browser this session (2026-08-13, see below), the
-  last open item.
-- **D-013 revision (this session):** three statuses, not four — `available`, `booked`,
-  `registered` (displayed as **"Registry done"**, stored word unchanged). `hold` is
-  removed entirely; the 4 demo plots that were on hold are remapped to `available` in
-  `seed/plot-status-seed.csv`. New transition table: `available→booked`,
-  `booked→registered`, `booked→available`, `registered→available`. Migration
-  `20260814000000_status_vocabulary_and_dimensions.sql` swaps the CHECK constraints on
-  `plots`/`plot_history` and is written to be safe even against a non-reset DB with
-  existing `hold` rows (defensive `UPDATE` on `plots` before the constraint swap;
-  `plot_history`'s historical `hold` rows are append-only and deliberately untouched).
-- **D-012 revision (this session):** the plot detail sheet now shows only Length,
-  Breadth (new `length_ft`/`breadth_ft numeric not null` columns, added by hand to the
-  fixture manifest — `tools/pipeline/` doesn't exist yet), and Owner name **only when
-  `status === "booked"`** (confirmed explicitly, not `registered`). Attribution line and
-  history stay. All other DB columns (`owner_phone`, `broker_name`, `rate_paise`,
-  `booking_amount_paise`, dates, `notes`) are untouched in the schema — display-only
-  trim, nothing dropped.
-- **Verified for real this session:** `supabase db reset` applied the new migration
-  cleanly on top of live `hold` data from the prior session; `pnpm import:seed` re-ran
-  (45 plots, 0 unmatched). Full gate — `pnpm typecheck && pnpm lint && pnpm test -- --run
-  && pnpm build` — 35/35 tests (down from 42; the 3-status `transitions.test.ts` has 7
-  fewer pairs than the 4-status version, as expected). Fixture manifest hand-checked
-  against the schema's new `required`/`additionalProperties: false` list — all 45 plots
-  valid (no automated validator exists pre-M9).
-- **Next action:** the Save/Undo buttons themselves (working, confirmed built in the
-  2026-08-14 Tier 2 log entry below) still haven't been clicked live by a human in a
-  browser — worth a real click-through, though nothing about it is currently blocked.
-  Otherwise pick the next milestone (M6 colony #2, or the D-107/verified-flag gap noted
-  in Deferred).
-- **2026-08-13 attempt blocked, then unblocked same day:** first attempt started
-  `pnpm dev` (http://localhost:5173/) but Docker Desktop / the local Supabase stack
-  wasn't running, so no plot data loaded at all. Fixed via new `make db-up` +
-  `.claude/skills/db-up/` (see Deferred) — booted Docker, ran `db-start`, then `pnpm dev`
-  (came up on :5174, :5173 was in use) and drove a real browser against it: the map
-  renders live status colours (green/gold/grey across all 45 plots, not the flat single
-  colour the down-DB state produces), clicking `A-03` (`available`) shows Length 35ft /
-  Breadth 35ft and **no** Owner field, clicking `A-01` (`booked`) shows the same plus
-  **Owner: Deepak Chouhan**. Criterion 6 confirmed both ways in one session — `docs/plans/
-  03.md` now carries `Status: complete`.
+- **Task:** M2, M3, M4, and the D-012/D-013 revision are all closed (`docs/plans/01.md`,
+  `02.md`, `03.md` all carry `Status: complete`; detail in `## Log` below). M5 —
+  realtime plot-status sync plus the always-visible freshness indicator
+  (spec/05-map-realtime.md, `docs/plans/04.md`) — is built, `/review`ed, all 5 findings
+  fixed and re-verified, gate-clean (44/44 tests). `docs/plans/04.md` does **not** yet
+  carry `Status: complete`: spec/05's four acceptance criteria are all manual (two real
+  browser windows — propagation under 2s, freshness tick over 5 minutes, DevTools
+  offline mode, reconnect refetch) and none have been run by a human yet.
+- **Next action:** a human runs `pnpm dev`, opens two browser windows against the same
+  colony, and walks spec/05 §5's four criteria. Once they pass, `/wrap` again just to
+  append the `Status: complete` marker (same pattern as `docs/plans/03.md`'s two-part
+  close). Separately still open: the M4 Save/Undo buttons have never been clicked live
+  in a browser either (noted in the 2026-08-13 log entry below) — worth doing in the
+  same session as M5's manual check.
+- **Local Supabase stack now runs `realtime`** (`Makefile`'s `db-start` used to exclude
+  it — M5 needed it). If a future milestone needs another currently-excluded service
+  (`storage-api`, etc.), remember: a plain `supabase start` restart silently keeps the
+  old exclusion — `supabase stop` fully first, then `start` with the new flags.
 
 ## Deferred
 
+- **From M5 (2026-08-13):** `ColonyMap.tsx` imports directly from `lib/db` and
+  `lib/colony`, which NAVIGATION.md's stated layer table says Components may not do
+  (only `src/shared`). This predates M5. During the `/review` fix pass, `lib/sync/
+  attachSync.ts` also ended up importing `loadPlotStatuses` from `lib/colony` — the
+  table's Sync row only lists `lib/db` as an allowed import, so this is the same class
+  of gap extended one layer further, chosen deliberately over introducing a second, dead
+  wrapper function around `lib/db` (see the `/review` fix log entry above). Worth a real
+  decision later: either loosen the documented rule to match reality, or refactor both
+  call sites to route through a shared adapter.
+- **From M5 (2026-08-13):** spec/05's non-goal "Save control is disabled and says why"
+  while offline is not built — D-008 already blocks the write itself (it just fails over
+  a dead connection), but there's no UI treatment yet. Small, separate Tier 1 change to
+  `PlotStatusActions.tsx` if wanted.
+- **From M5 (2026-08-13):** `Makefile`'s `db-start` previously excluded `storage-api,
+  imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor,realtime`
+  — `realtime` is now included (M5 needs it), the rest are still excluded as genuinely
+  unused. If a future milestone needs one of the others (e.g. `storage-api` for M15's
+  photo uploads, if ever built), the same fix applies: `supabase stop` fully before
+  `supabase start` with the new flags — a plain restart silently keeps the old exclusion.
 - New `make db-up` target + `.claude/skills/db-up/` (2026-08-13): automates the
   "Docker Desktop / local Supabase stack not running" blocker noted below and in the
   2026-08-13 Current entry above — checks `docker info`, launches Docker Desktop if
@@ -110,6 +100,39 @@
 ## Log
 
 <!-- Append-only. Four lines per entry: Done / Next / Surprises / Verified. -->
+
+### 2026-08-13 — M5: realtime sync + freshness indicator, /review's 5 findings fixed
+- Done: `docs/plans/04.md` planned and built — new `lib/sync/{subscribePlots,freshness,
+  attachSync}.ts`, `components/FreshnessIndicator.tsx`, migration
+  `20260815000000_m5_realtime_publication.sql` (adds `plots` to `supabase_realtime`,
+  never there before). `/review` found 5 issues, all fixed: freshness label could claim
+  a sync that never happened on a failed initial fetch (now starts "Not synced yet");
+  connection state wasn't seeded from `navigator.onLine` at setup, silently breaking the
+  reconnect-refetch transition; the realtime subscription only opened after the initial
+  fetch succeeded, leaving the app permanently blind on a failed first load; the live
+  test raced its write against the channel's connect ack; the offline indicator used the
+  red `--colony-status-hold` token when spec/05 says "amber". Fixing the first three
+  pushed `ColonyMap.tsx` to 267 lines (over the 250-line cap) — extracted the whole
+  subscription/reconnect/tick orchestration into `lib/sync/attachSync.ts`, which is also
+  the architecturally correct home (Tier 1, not Tier 3). `ColonyMap.tsx` is now 165
+  lines.
+- Next: a human runs spec/05's four manual acceptance criteria in two browser windows,
+  then `docs/plans/04.md` gets its `Status: complete` marker.
+- Surprises: local Supabase's `realtime` service had been excluded from `db-start` since
+  M2/M3 — the migration adding `plots` to the publication applied fine, but nothing
+  received events until the exclude flag was found and removed, and even then a plain
+  `supabase start` restart silently kept the old exclusion (had to `stop` fully first).
+  Separately, the live realtime integration test threw under this project's default
+  jsdom Vitest environment (`TypeError: ... instance of Event`) — jsdom's global `Event`
+  class shadows Node's native one and realtime-js's WebSocket transport does a
+  cross-realm `instanceof` check; fixed with a per-file `@vitest-environment node`
+  override, not investigated further as it's a known jsdom/undici interaction class, not
+  a bug in this repo.
+- Verified: `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` — 44/44
+  tests, clean build, run twice (once after the initial build, once after the 5 review
+  fixes). `subscribePlots.test.ts` specifically stress-tested 13/13 clean across two
+  batches (1 flake in 5 runs before the connect-ack fix, 0 in 8 after). Not run: spec/05's
+  four manual acceptance criteria — need a human in two real browser windows.
 
 ### 2026-08-13 — db-up automation, then live-verified docs/plans/03.md criterion 6
 - Done: built `make db-up` + `.claude/skills/db-up/` to remove the "Docker/Supabase not

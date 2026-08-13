@@ -82,7 +82,10 @@
   stroke: var(--colony-plot-stroke);
   stroke-width: var(--colony-plot-stroke-width);
   cursor: pointer;
-  transition: fill 150ms ease-out;
+  /* 400ms per spec/05 — this is the moment a realtime change feels multiplayer rather
+   * than like a page reload; it is worth the effort. Same rule fires for the local
+   * actor's own save (ColonyMap.tsx's handlePlotStatusChange), not a separate path. */
+  transition: fill 400ms ease-out;
 }
 
 /* Leaflet's own stylesheet sets `.leaflet-pane > svg path { pointer-events: none }`
@@ -123,6 +126,31 @@
   background: rgba(255, 255, 255, 0.85);
   padding: 0.25rem 0.5rem;
   border-radius: 0.25rem;
+}
+
+/* Always visible (spec/05) — the failure this guards against is trusting stale data,
+ * which is what sends the family back to WhatsApp. Top-left is the one corner not
+ * already used by .colony-scale-note (bottom-left) or .colony-dev-click-badge
+ * (top-right). */
+.colony-freshness-indicator {
+  position: absolute;
+  left: 0.75rem;
+  top: 0.75rem;
+  z-index: 1000;
+  pointer-events: none;
+  font-size: 0.75rem;
+  color: var(--colony-site-boundary);
+  background: rgba(255, 255, 255, 0.85);
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+}
+
+/* spec/05 criterion 3 is worded "turns amber" — --colony-status-hold (reused elsewhere
+ * as a generic warning accent, e.g. plot-detail-sheet.css's conflict banner) is
+ * actually red, so this reuses the palette's real amber instead. */
+.colony-freshness-indicator.is-offline {
+  color: var(--colony-status-booked);
+  font-weight: 600;
 }
 
 /* import.meta.env.DEV-gated — never present in a production build. */
