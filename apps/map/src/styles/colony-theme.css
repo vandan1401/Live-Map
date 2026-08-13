@@ -7,10 +7,15 @@
   --colony-ground: #eef0e6;
   --colony-site-boundary: #8a8f7c;
 
-  --colony-road: #d8d4c8;
-  --colony-garden: #b7d3a4;
+  /* Dark asphalt, not the old light tan — reads as a road at a glance the way the
+   * illustrated reference does. A literal dashed centerline isn't attempted: .road is
+   * one filled polygon per road segment (no separate centerline path in the fixture),
+   * so a CSS stroke/pattern would trace each polygon's outline, not a lane marking —
+   * that needs a pipeline/geometry change, not a theme one. */
+  --colony-road: #4a4a4a;
+  --colony-garden: #6fae63;
   --colony-amenity: #cbb994;
-  --colony-tree-crown: #6f9a5c;
+  --colony-tree-crown: #4f7a44;
   --colony-tree-shadow: rgba(0, 0, 0, 0.12);
 
   --colony-plot-fill: #ffffff;
@@ -18,11 +23,17 @@
   --colony-plot-stroke-width: 1.5;
   --colony-plot-selected-stroke: #08060d;
 
-  /* Unused until M2 — status arrives from Postgres, applied via data-status. */
-  --colony-status-available: #3fa34d;
-  --colony-status-booked: #e0a527;
-  --colony-status-registered: #8a8f7c;
+  /* Legend: available=green, booked=blue, registered=orange — a saturated palette
+   * chosen to read clearly against the darker road/garden colours above. */
+  --colony-status-available: #4caf50;
+  --colony-status-booked: #3b82f6;
+  --colony-status-registered: #e67e22;
   --colony-status-hold: #c0392b;
+  /* Independent of the status palette on purpose — the freshness indicator's "amber"
+   * (spec/05 criterion 3) must not silently change colour just because a plot status
+   * colour does. Reusing --colony-status-booked for this broke the moment booked
+   * became blue instead of amber; this token exists so that can't happen again. */
+  --colony-warning-amber: #e0a527;
 }
 
 .colony-map-container {
@@ -145,11 +156,10 @@
   border-radius: 0.25rem;
 }
 
-/* spec/05 criterion 3 is worded "turns amber" — --colony-status-hold (reused elsewhere
- * as a generic warning accent, e.g. plot-detail-sheet.css's conflict banner) is
- * actually red, so this reuses the palette's real amber instead. */
+/* spec/05 criterion 3 is worded "turns amber" — see --colony-warning-amber's
+ * definition above for why this is its own token, not a reused status colour. */
 .colony-freshness-indicator.is-offline {
-  color: var(--colony-status-booked);
+  color: var(--colony-warning-amber);
   font-weight: 600;
 }
 

@@ -20,6 +20,17 @@
   it — M5 needed it). If a future milestone needs another currently-excluded service
   (`storage-api`, etc.), remember: a plain `supabase start` restart silently keeps the
   old exclusion — `supabase stop` fully first, then `start` with the new flags.
+- **Theme repainted this session** (Tier 3, `colony-theme.css`, owner-requested):
+  roads dark asphalt gray, gardens/trees more saturated green, plot status colours
+  changed to available=green/booked=blue/registered=orange (owner chose "adopt
+  reference's saturated palette" over keeping the original amber-for-booked scheme).
+  New `--colony-warning-amber` token decouples the freshness indicator's offline colour
+  (spec/05 criterion 3, "turns amber") from `--colony-status-booked` — that variable had
+  been reused for both, and repainting `booked` to blue would have silently broken the
+  offline indicator's colour if left coupled. No literal dashed road centerline: `.road`
+  is one filled polygon per segment in the fixture, no separate centerline path, so a
+  CSS stroke/pattern would trace each polygon's outline rather than draw a lane marking
+  — a pipeline/geometry change, not a theme one, if wanted later.
 
 ## Deferred
 
@@ -100,6 +111,28 @@
 ## Log
 
 <!-- Append-only. Four lines per entry: Done / Next / Surprises / Verified. -->
+
+### 2026-08-13 — theme repaint (Tier 3, owner-requested)
+- Done: restyled `colony-theme.css` to match a reference image the owner shared — dark
+  asphalt roads (`#4a4a4a`, was light tan), richer saturated garden/tree greens, and a
+  new plot-status palette (available=green `#4caf50`, booked=blue `#3b82f6`,
+  registered=orange `#e67e22`, replacing the old muted green/amber/gray). Owner
+  explicitly chose the reference's saturated palette over keeping the original colours
+  when asked (booked=blue was the material change; ambiguous otherwise). No dashed road
+  centerline — the fixture's `.road` paths are filled polygons with no separate
+  centerline element, so that needs a pipeline/geometry change, not a theme one.
+- Next: owner to look at it in a browser (`pnpm dev`) and confirm the palette reads
+  well; still no dashed lane markings if that mattered more than the color repaint did.
+- Surprises: the freshness indicator's offline "amber" (spec/05 criterion 3, fixed via
+  `/review` last session) was silently coupled to `--colony-status-booked` — repainting
+  booked to blue would have broken it invisibly. Caught by grepping every consumer of
+  the status colour variables before changing them, not by a test (none exists for
+  this). Split it into its own `--colony-warning-amber` token so a future status-colour
+  change can't do this again.
+- Verified: `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` — 44/44
+  tests, clean build. `subscribePlots.test.ts` flaked once on this run (Docker/WAL
+  jitter, same known class as last session, unrelated to the CSS change — confirmed by
+  re-running it 3x clean immediately after) then passed clean on the full-gate re-run.
 
 ### 2026-08-13 — M5: realtime sync + freshness indicator, /review's 5 findings fixed
 - Done: `docs/plans/04.md` planned and built — new `lib/sync/{subscribePlots,freshness,
