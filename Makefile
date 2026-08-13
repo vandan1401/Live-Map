@@ -1,12 +1,25 @@
 # Root dispatcher. Targets are the interface — found by name, never by searching.
 # Real implementations land in M1; these are the names the skills and CLAUDE.md rely on.
 
-.PHONY: verify verify-map verify-pipe gate contract inspect serve db-start
+.PHONY: verify verify-map verify-pipe gate contract inspect serve db-start db-up
 
 verify: verify-map verify-pipe
 
 db-start:  ## local Supabase stack (Docker must already be running); excludes services M2/M3 don't need
 	cd apps/map && npx -y supabase start --exclude realtime,storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+
+db-up:  ## start Docker Desktop if it isn't running, wait for it, then db-start. Used by /db-up skill
+	@docker info >/dev/null 2>&1 || { \
+	  echo "Docker Desktop not running — launching it..."; \
+	  "/c/Program Files/Docker/Docker/Docker Desktop.exe" >/dev/null 2>&1 & \
+	  for i in $$(seq 1 40); do \
+	    docker info >/dev/null 2>&1 && break; \
+	    printf "."; sleep 3; \
+	  done; \
+	  echo ""; \
+	}
+	@docker info >/dev/null 2>&1 || { echo "Docker did not come up within 120s — open Docker Desktop manually and retry."; exit 1; }
+	$(MAKE) db-start
 
 verify-map:
 	cd apps/map && pnpm typecheck && pnpm test

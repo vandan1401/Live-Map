@@ -7,9 +7,10 @@
   button, name prompt) is built and gate-clean. On top of that, this session the owner
   gave two direct product decisions that revise D-012/D-013 — `docs/plans/03.md` (Tier 1:
   contract + migration + `lib/plot-status/`) implements them, `/review`ed (6 findings,
-  all fixed and re-verified), gate-clean. `docs/plans/03.md` does **not** carry the
-  `Status: complete` marker — its criterion 6 (the sheet actually shows only length/
-  breadth/conditional-owner) has never been looked at in a browser, on purpose.
+  all fixed and re-verified), gate-clean, and now `docs/plans/03.md` carries the
+  `Status: complete` marker — criterion 6 (sheet shows only length/breadth + owner iff
+  `booked`) was confirmed live in a browser this session (2026-08-13, see below), the
+  last open item.
 - **D-013 revision (this session):** three statuses, not four — `available`, `booked`,
   `registered` (displayed as **"Registry done"**, stored word unchanged). `hold` is
   removed entirely; the 4 demo plots that were on hold are remapped to `available` in
@@ -33,13 +34,39 @@
   fewer pairs than the 4-status version, as expected). Fixture manifest hand-checked
   against the schema's new `required`/`additionalProperties: false` list — all 45 plots
   valid (no automated validator exists pre-M9).
-- **Next action:** a human opens a browser and looks at the plot detail sheet — confirm
-  it shows only length/breadth (+ owner name iff booked), that "Registry done" reads
-  right, and that the Save/Undo buttons work with the new 3-status set. Once confirmed,
-  `docs/plans/03.md` gets its `Status: complete` marker.
+- **Next action:** the Save/Undo buttons themselves (working, confirmed built in the
+  2026-08-14 Tier 2 log entry below) still haven't been clicked live by a human in a
+  browser — worth a real click-through, though nothing about it is currently blocked.
+  Otherwise pick the next milestone (M6 colony #2, or the D-107/verified-flag gap noted
+  in Deferred).
+- **2026-08-13 attempt blocked, then unblocked same day:** first attempt started
+  `pnpm dev` (http://localhost:5173/) but Docker Desktop / the local Supabase stack
+  wasn't running, so no plot data loaded at all. Fixed via new `make db-up` +
+  `.claude/skills/db-up/` (see Deferred) — booted Docker, ran `db-start`, then `pnpm dev`
+  (came up on :5174, :5173 was in use) and drove a real browser against it: the map
+  renders live status colours (green/gold/grey across all 45 plots, not the flat single
+  colour the down-DB state produces), clicking `A-03` (`available`) shows Length 35ft /
+  Breadth 35ft and **no** Owner field, clicking `A-01` (`booked`) shows the same plus
+  **Owner: Deepak Chouhan**. Criterion 6 confirmed both ways in one session — `docs/plans/
+  03.md` now carries `Status: complete`.
 
 ## Deferred
 
+- New `make db-up` target + `.claude/skills/db-up/` (2026-08-13): automates the
+  "Docker Desktop / local Supabase stack not running" blocker noted below and in the
+  2026-08-13 Current entry above — checks `docker info`, launches Docker Desktop if
+  needed, polls up to ~120s, then runs `db-start`. Verified for real this session: ran
+  cold (Docker was down), stack came up, `API_URL`/`ANON_KEY` in the output matched
+  `apps/map/.env`. On-demand only (invoke `/db-up`), not wired into session start.
+  Two things discovered while building it, both workarounds already in the Makefile
+  target and skill, not fixed at the root: (1) bare `make` is not on `PATH` in this
+  machine's Bash-tool shell — only `mingw32-make.exe` (`C:\MinGW\bin`) resolves; every
+  other `make *` command in this repo's skills/CLAUDE.md has this same exposure, worth
+  a proper PATH fix if it keeps biting. (2) `cmd.exe /c start "" "<exe>"` silently does
+  not launch a GUI app (Docker Desktop) from this shell/session — no error, no window,
+  process never appears in `tasklist`. Spawning the `.exe` directly in the background
+  (`"<path>.exe" &`) works reliably; that's what `db-up` does. Root cause not
+  investigated (likely no interactive desktop/window-station attached to this shell).
 - D-012's field list and D-013's status words were **partially** confirmed this session
   (the owner gave a direct, explicit decision on both) — but this doesn't mean either is
   fully settled against the family's real WhatsApp PDF. `owner_phone`/`broker_name`/
@@ -83,6 +110,29 @@
 ## Log
 
 <!-- Append-only. Four lines per entry: Done / Next / Surprises / Verified. -->
+
+### 2026-08-13 — db-up automation, then live-verified docs/plans/03.md criterion 6
+- Done: built `make db-up` + `.claude/skills/db-up/` to remove the "Docker/Supabase not
+  running" blocker noted in the prior 2026-08-13 entry (see Deferred for the two
+  environment quirks found and worked around: bare `make` not on `PATH`, `cmd.exe /c
+  start` silently failing to launch GUI apps here). Ran it cold, then `pnpm dev`, then
+  drove a real Chrome tab against `http://localhost:5174/` end to end: full-colour map
+  (not the flat/empty fallback), clicked an `available` plot (A-03: length/breadth only,
+  no owner field) and a `booked` plot (A-01: same plus Owner "Deepak Chouhan"). This is
+  `docs/plans/03.md`'s criterion 6, the one item blocking its `Status: complete` marker
+  since the 2026-08-14 wrap entry — now added.
+- Next: no open blocker on M2/M3/M4. Save/Undo buttons are built (Tier 2 log below) but
+  not yet clicked live by a human — worth doing, not urgent. Otherwise next milestone.
+- Surprises: `cmd.exe /c start "" "<exe>"` produced no error and no window — Docker
+  Desktop never appeared in `tasklist` after it — but spawning the `.exe` directly in the
+  background worked on the first try. Root cause not chased (likely no interactive
+  window-station attached to this shell); worth remembering if any future automation
+  needs to launch a Windows GUI app from here.
+- Verified: `mingw32-make db-up` real output — Docker launched cold, daemon detected
+  ~3s after direct-spawn, `db-start` returned `API_URL: http://127.0.0.1:55321`,
+  `ANON_KEY` matching `apps/map/.env`'s `VITE_SUPABASE_ANON_KEY` byte-for-byte. Browser
+  check above was a real Chrome session (claude-in-chrome), not a description of expected
+  behaviour — two real screenshots, one per plot status branch.
 
 ### 2026-08-14 — wrap: D-012/D-013 revision closed pending one manual check
 - Done: ran the full gate post-`/review` fixes, updated `PROGRESS.md`'s `## Current`
