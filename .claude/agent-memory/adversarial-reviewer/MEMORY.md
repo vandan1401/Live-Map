@@ -6,4 +6,5 @@
 - [Fixture geometry unchecked](review-fixture-geometry-unchecked.md) — 3x: nothing checks overlap, viewBox drift, or derived `facing`/`is_corner`; recompute them from `colony.svg` yourself.
 - [Fixture plot-count drift](review-fixture-plot-count-drift.md) — the fixture's plot count is a literal in ~8 spec/README files; grep the old count on any fixture change.
 - [Comments assert what code doesn't do](review-comment-asserts-unimplemented.md) — 2x: long intent comments (esp. CSS cascade claims) that the adjacent lines don't deliver.
-- [Optimistic defaults](review-optimistic-defaults.md) — initial state that claims "synced"/"connected"/an actor it never verified. Ask what the screen says if the first fetch fails.
+- [Optimistic defaults](review-optimistic-defaults.md) — 3x: initial state (or a `catch`) that claims "synced"/an actor/an empty list it never verified.
+- [Scratch rows leak into UI](review-scratch-rows-leak-into-ui.md) — tests insert permanent DB rows (no DELETE grant); any new list query will show them to the owner.

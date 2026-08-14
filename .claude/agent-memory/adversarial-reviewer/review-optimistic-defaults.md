@@ -27,6 +27,15 @@ Occurrences so far:
    from mount time on data that never arrived, and made the offline→online reconnect refetch
    unreachable.
 
+3. 2026-08-14 (plan 06 colony picker) — `App.tsx`'s `loadVerifiedColonies(...).catch(() =>
+   setColonies([]))`. The *mirror image* of the same bug: a fetch failure is written into
+   state as a legitimate empty result, so a dead DB renders "No colonies yet." — the app
+   states as fact that the family owns no colonies. The repo already fixed this exact shape
+   twice in `PlotSearch.tsx` (`indexLoaded` distinguishes "never got data" from "zero
+   matches") and in `ColonyMap.tsx`'s `setClient` mirror comment. **So also check the catch
+   block, not just the initial value:** any `catch` that sets a valid-looking empty/zero
+   value is the same finding.
+
 **How to apply:** the fix is a nullable initial value plus an explicit "not yet" render
 ("Not synced yet"), or deriving initial state from the real signal at effect start rather
 than a hopeful literal. Related: [[review-vacuous-acceptance-tests]].

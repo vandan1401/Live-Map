@@ -38,15 +38,49 @@
   to booked, confirmed via the resulting share-summary "Recent changes" text; both writes
   landed with the right plot, right status, right actor name. That deferred item is now
   closed too.
-- **Next action, first thing next session:** `/plan` a multi-colony home screen — owner's
-  original design has a list of colonies on open, tapping one opens its map, but the app
-  currently hardcodes `COLONY_ID = "shree-vatika-2"` in `ColonyMap.tsx` and `App.tsx` goes
-  straight from the name prompt to the map with no picker. Before building it, close the
-  gap already on this list below (`colonies.verified` only checked at import, never at
-  render) — a second, unverified colony would otherwise render silently instead of being
-  hidden. Owner explicitly asked for the plan to be deferred to next session to save
-  credits this session — not planned yet, no `docs/plans/06.md` exists.
-  `tools/pipeline` still
+- **`colonies.verified` render-time gap closed (2026-08-14, Tier 2, no plan needed):**
+  `loadPlotStatuses`/`loadPlotDetail` (`lib/colony/{plotStatus,plotDetail}.ts`) now check
+  `colonies.verified` via `fetchColonyById` before returning data — an unverified colony
+  now returns `{}`/`null` at render time too, not just refused at import
+  (`import-seed.ts`). Two new live-integration test files (`plotStatus.test.ts`,
+  `plotDetail.test.ts`, scratch-colony pattern matching `applyPlotTransition.test.ts`)
+  prove both branches against the real local DB. Closed the Deferred item that used to
+  block the home-screen picker below.
+- **`docs/plans/06.md` built and `/review`-fixed this session (Tier 1):** multi-colony
+  home screen — `lib/db/colonies.ts` gained `fetchVerifiedColonies`, new
+  `lib/colony/listColonies.ts` wraps it (`loadVerifiedColonies`, D-108 applied at the
+  list level, not just per-colony), new `features/colony-picker/ColonyPicker.tsx` renders
+  the list, `App.tsx` fetches it once after the actor gate and owns `selectedColonyId`,
+  `ColonyMap.tsx`'s hardcoded `COLONY_ID` module constant is gone — `colonyId` is now a
+  required prop threaded through all 5 of its former usages. `/review` found and fixed
+  four real issues: (1) the new live-integration tests inserted `verified: true` scratch
+  colonies with no DELETE grant on `colonies` — these leaked into the **real** picker UI
+  once anything queried `verified = true`, not just into the test's own assertion; fixed
+  with a `revokeVerification` teardown (`update ... verified = false` after each
+  assertion, bypassing the TS wrapper on purpose, same precedent as
+  `applyPlotTransition.test.ts`'s forced-failure test) in all three affected test files,
+  then a `supabase db reset` + `pnpm import:seed` to clear the residue that had already
+  leaked from pre-fix runs — verified after via `psql`: only `shree-vatika-2` is
+  `verified: true` now. (2) `App.tsx`'s colony-list fetch failure silently rendered as
+  "No colonies yet." — the same no-data-vs-no-results confusion `PlotSearch.tsx` and
+  `ColonyMap.tsx` had already been fixed for once each — now a separate `loadError` state
+  shows a distinct message instead. (3) This file's own `## Current` entry was stale
+  mid-session (claimed no plan existed while the plan and build were already on disk) —
+  fixed. (4) `NAVIGATION.md`'s reusable-functions table and Feature index were missing
+  `fetchVerifiedColonies`/`loadVerifiedColonies`/the colony-picker feature row — added.
+- **`docs/plans/06.md` closed this session** — acceptance criterion 5 (the app opens to
+  the colony picker, lists exactly the one real verified colony, tapping it opens the map
+  exactly as before) verified live via a Claude-driven real Chrome session
+  (`mcp__claude-in-chrome`), not the owner's own eyes — same precedent as the 2026-08-13
+  `db-up` session's criterion 6 check. Confirmed twice on separate page loads: picker
+  shows only "Shree Vatika Phase 2" (no test-residue junk, matching the DB cleanup from
+  the `/review` fix pass), tapping it opens the full 26-plot map with search/legend/share/
+  freshness all present, clicking a plot (A-33) opened the detail sheet with real data, no
+  console errors either load. All six §5 acceptance criteria now have real verification;
+  `**Status:** complete` appended. Worth a quick owner glance next time they're on the
+  app, since this was Claude's own browser, not theirs — nothing found wrong to fix if
+  they don't.
+- **Next action:** pick the next milestone. `tools/pipeline` still
   doesn't exist — expected pre-M9; `make gate` fails at `contract` until then, use
   `verify-map` plus the map-only `pnpm typecheck && pnpm lint && pnpm test -- --run &&
   pnpm build` slice instead. Note: the pipeline's own docs (`spec/02`, `spec/10-13`,
@@ -84,12 +118,6 @@
 
 ## Deferred
 
-- **From the real-colony fixture swap (2026-08-14):** `colonies.verified` is only
-  checked at import time (`scripts/import-seed.ts`), never at render time
-  (`lib/colony/plotStatus.ts`, `lib/colony/plotDetail.ts` read plots directly, no
-  colony-level check). Noted before, now sharper: this must close before a multi-colony
-  home screen ships, or an unverified second colony would render silently instead of
-  being hidden. Blocks the planned M6.5-ish home-screen work (see Current).
 - **From the real-colony fixture swap (2026-08-14):** the pipeline's own docs
   (`spec/02-map-schema.md`, `spec/10-13-pipe-*.md`, `README.md`, `NAVIGATION.md`) still
   describe and depend on a 45-plot golden fixture reproduced from
@@ -171,12 +199,6 @@
   this machine — see Current). One warning: `[inbucket]` is deprecated in favour of
   `[local_smtp]` in this CLI version — harmless today (M2/M3 don't touch email), fix
   before it's actually needed.
-- Invariant 2 ("no colony is a deliverable until a human verified it... the app refuses
-  `false`") is enforced only in `scripts/import-seed.ts`. Neither `lib/colony/plotStatus.ts`
-  nor the new `lib/colony/plotDetail.ts` (M3) ever check `colonies.verified` before
-  reading — found during `/review` of the M3 diff. Low risk today (only one colony, and
-  it's verified), but a second colony added un-verified would render/display silently.
-  Close this before M6 (colony #2) if not sooner.
 - `pnpm`/`wrangler` (D-014), Python toolchain (D-117), read-only offline (D-008), and
   no-photos-in-v1 (D-015) were proposed and not explicitly confirmed. All reversible.
 - Whether their real PDFs are vector or raster is unknown. If raster, M17's fallback stops
@@ -186,6 +208,43 @@
 ## Log
 
 <!-- Append-only. Four lines per entry: Done / Next / Surprises / Verified. -->
+
+### 2026-08-14 — docs/plans/06.md: multi-colony home screen, plan closed
+- Done: closed the `colonies.verified` render-time gap (`lib/colony/{plotStatus,
+  plotDetail}.ts` now refuse an unverified colony's data, not just at import), then
+  planned and built `docs/plans/06.md` — a home-screen colony picker between the name
+  prompt and the map. New `fetchVerifiedColonies`/`loadVerifiedColonies` (D-108 applied
+  at the list level), `features/colony-picker/ColonyPicker.tsx`, `App.tsx` wiring, and
+  `ColonyMap.tsx`'s hardcoded `COLONY_ID` constant replaced with a required `colonyId`
+  prop. `/review` found four real issues, all fixed: live-integration tests were leaking
+  permanent `verified: true` scratch colonies into the real picker (no DELETE grant on
+  `colonies`) — added `revokeVerification` teardowns and reset the DB to clear the
+  pre-fix residue; a failed colony-list fetch silently read as "no colonies" — added a
+  distinct `loadError` state; this file's own `## Current` was stale mid-session; and
+  `NAVIGATION.md` was missing the new functions/feature row. Then verified acceptance
+  criterion 5 live via a Claude-driven Chrome session (see Surprises) and appended
+  `**Status:** complete` to the plan.
+- Next: pick the next milestone.
+- Surprises: the `/review` finding about scratch colonies leaking into the UI was a
+  genuinely new failure class for this repo — every prior live-integration test used
+  `verified: false` scratch rows specifically to stay invisible to the app, and this
+  session's tests were the first to need `verified: true`, which turned "harmless
+  residue" into "visible junk in a real UI list." Also: `mcp__claude-in-chrome` browser
+  tools were available this session (not assumed from CLAUDE.md's "Claude has no browser"
+  caveat, which predates that tooling) — reused the exact precedent already set by the
+  2026-08-13 `db-up` session's live click-through to verify criterion 5 directly instead
+  of leaving it to the owner, flagged in `## Current` as Claude's own browser, not
+  theirs, so the owner can still glance at it themselves.
+- Verified: `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` from
+  `apps/map` — 59/59 tests (up from 56 pre-session), clean build, run three times across
+  the build/review-fix/wrap steps (one `subscribePlots.test.ts` timeout right after a
+  fresh `supabase db reset`, the documented cold-connection warm-up flake, passed clean
+  on immediate retry). `supabase db reset` + `pnpm import:seed` — "imported 26 plots for
+  shree-vatika-2, 0 unmatched". `psql -c "SELECT id, verified FROM colonies"` — only
+  `shree-vatika-2` verified after the fixed tests ran. Live Chrome session: picker showed
+  exactly one colony, tapping it opened the real map (search/legend/share/freshness all
+  present), clicking plot A-33 opened its detail sheet with real data, zero console
+  errors across two full page loads.
 
 ### 2026-08-14 — M6 fully closed, first live M4 Save/Undo click-through
 - Done: closed spec/06's two remaining manual acceptance criteria (legend filter dimming

@@ -1,0 +1,41 @@
+/* Home-screen colony picker (M6.5 follow-up). Its own file, not folded into
+ * name-prompt.css — a different screen, shown after identity, before the map. */
+.colony-picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--colony-ground);
+  padding: 1.5rem;
+}
+
+.colony-picker-list {
+  width: 100%;
+  max-width: 22rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.colony-picker-item {
+  width: 100%;
+  font-size: 1rem;
+  font-weight: 600;
+  text-align: left;
+  color: #1a1a1a;
+  background: #ffffff;
+  border: 1px solid var(--colony-plot-stroke);
+  border-radius: 0.75rem;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.12);
+  padding: 1rem 1.25rem;
+}
+
+.colony-picker-empty {
+  font-size: 0.9rem;
+  color: var(--colony-site-boundary);
+}

@@ -27,3 +27,11 @@ export async function fetchColonyById(
   if (error) throw new Error(`fetchColonyById failed: ${error.message}`);
   return (data as ColonyRow | null) ?? null;
 }
+
+// The home-screen picker's list — D-108 applies here too: an unverified colony must be
+// invisible in the list, not just refused once opened (see lib/colony/listColonies.ts).
+export async function fetchVerifiedColonies(client: SupabaseClient): Promise<ColonyRow[]> {
+  const { data, error } = await client.from("colonies").select("*").eq("verified", true);
+  if (error) throw new Error(`fetchVerifiedColonies failed: ${error.message}`);
+  return (data as ColonyRow[] | null) ?? [];
+}

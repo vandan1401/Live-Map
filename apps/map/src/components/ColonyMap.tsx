@@ -15,7 +15,6 @@ import { StatusLegend } from "./StatusLegend.tsx";
 import { buildDimensionArrowMarker } from "./plotDimensionOverlay.ts";
 import { useSelectedPlotOverlay } from "./useSelectedPlotOverlay.ts";
 
-const COLONY_ID = "shree-vatika-2";
 const ALL_STATUSES: PlotStatus[] = ["available", "booked", "registered"];
 // Margin below the fit-to-bounds zoom, not an absolute zoom level — a hardcoded
 // absolute threshold (spec/06: "hide tree canopies and plot labels below a zoom
@@ -39,9 +38,12 @@ interface Props {
   // there is exactly one place a missing identity can produce a fallback value, and
   // App.tsx's gate means it never has to.
   actor: string;
+  // From App.tsx's ColonyPicker selection — the picker only offers verified colonies
+  // (D-108), so this is always a colony this component is allowed to read.
+  colonyId: string;
 }
 
-export function ColonyMap({ actor }: Props) {
+export function ColonyMap({ actor, colonyId }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -113,7 +115,7 @@ export function ColonyMap({ actor }: Props) {
       const dbClient = getBrowserDbClient();
       clientRef.current = dbClient;
       setClient(dbClient);
-      detachSync = attachSync(dbClient, COLONY_ID, {
+      detachSync = attachSync(dbClient, colonyId, {
         applyStatuses: (statuses) => {
           for (const [svgId, status] of Object.entries(statuses)) {
             svgEl.querySelector(`#${svgId}`)?.setAttribute("data-status", status);
@@ -135,7 +137,7 @@ export function ColonyMap({ actor }: Props) {
       mapRef.current = null;
       map.remove();
     };
-  }, []);
+  }, [colonyId]);
 
   // Legend filter (spec/06) — classes on the SVG root, not per-plot writes, so the
   // dimming stays correct even when a realtime status change (M5) alters which plots
@@ -153,7 +155,7 @@ export function ColonyMap({ actor }: Props) {
   // dimension callout all live in this hook — see useSelectedPlotOverlay.ts for why
   // they're split out of this file. One effect for every way a plot gets selected
   // (map click, search) rather than each caller repeating its own pan/zoom math.
-  useSelectedPlotOverlay(svgRef, mapRef, clientRef, COLONY_ID, selectedId);
+  useSelectedPlotOverlay(svgRef, mapRef, clientRef, colonyId, selectedId);
 
   // Called by PlotDetailSheet after a successful write (M4) — same direct-DOM pattern
   // as the initial data-status load above, so a status change repaints immediately
@@ -195,20 +197,20 @@ export function ColonyMap({ actor }: Props) {
       />
       <p className="colony-scale-note">Indicative layout — not to scale</p>
       <FreshnessIndicator label={freshnessLabel} offline={offline} />
-      <PlotSearch client={client} colonyId={COLONY_ID} onSelect={setSelectedId} />
+      <PlotSearch client={client} colonyId={colonyId} onSelect={setSelectedId} />
       <div className="colony-bottom-toolbar">
         <StatusLegend
           active={activeStatuses}
           onToggle={handleToggleStatusFilter}
           onClear={() => setActiveStatuses(new Set())}
         />
-        <ShareSummary client={client} colonyId={COLONY_ID} />
+        <ShareSummary client={client} colonyId={colonyId} />
       </div>
       <AnimatePresence>
         {selectedId && (
           <PlotDetailSheet
             client={client}
-            colonyId={COLONY_ID}
+            colonyId={colonyId}
             svgId={selectedId}
             onDismiss={() => setSelectedId(null)}
             onPlotStatusChange={handlePlotStatusChange}
