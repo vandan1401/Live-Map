@@ -5,10 +5,21 @@
   inset: 0;
   z-index: 2000;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 1rem;
   background: var(--colony-ground);
   padding: 1.5rem;
+}
+
+/* Offline colony-list fallback (docs/plans/07.md, /review finding #3) — same
+ * amber-on-offline convention as .colony-freshness-indicator.is-offline (M5). */
+.colony-picker-freshness {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--colony-warning-amber);
+  margin: 0;
 }
 
 .colony-picker-list {

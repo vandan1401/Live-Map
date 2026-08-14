@@ -1,4 +1,5 @@
 import "@testing-library/jest-dom/vitest";
+import "fake-indexeddb/auto";
 
 // jsdom implements no SVG layout, so SVGGraphicsElement.getBBox() is missing entirely
 // (throws "not a function") rather than returning zeroes the way a real browser would

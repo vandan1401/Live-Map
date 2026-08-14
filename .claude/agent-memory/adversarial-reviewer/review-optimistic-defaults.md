@@ -36,6 +36,56 @@ Occurrences so far:
    block, not just the initial value:** any `catch` that sets a valid-looking empty/zero
    value is the same finding.
 
+4. 2026-08-14 (plan 07, M7 PWA) — the *third* shape of the same bug: cached data rendered
+   with **no age at all**. `offlineCache.ts` stores `ColonyListSnapshot.savedAt`, and
+   `App.tsx`'s offline fallback does `setColonies(snapshot.colonies)` while `savedAt` is
+   never read anywhere in `src/`. The colony picker looks byte-identical online and after
+   a week offline. Plan 07 §3 had pinned "cached data must never render without its age"
+   and §6.5 had claimed no dead computation — both false in the same two lines.
+   **Check: for every persisted snapshot, grep whether its timestamp field is ever read.**
+
+5. 2026-08-14 (plan 07, second pass) — the *frozen* freshness label. `App.tsx` now renders
+   the cached colony list's age, but computes it inline during render with `online`
+   hardcoded `false`, in a component whose only effect depends on `[actor]`. Nothing ticks
+   it and nothing refetches on reconnect, so the picker keeps asserting "Offline — last
+   synced 3h ago" hours later and while genuinely online. `attachSync.ts` gets this right
+   (`setInterval(recomputeFreshnessLabel)` + `online`/`offline` listeners + reconnect
+   refetch) — **any second freshness surface must copy that trio, not just call
+   `formatFreshnessLabel` once.** A label that was honest at first paint and never updates
+   is the same lie as one that was never true.
+
+6. 2026-08-14 (plan 07, third pass) — the *inverse*: a terminal error flag nothing can clear.
+   `App.tsx`'s `loadError` is only ever `setLoadError(true)`, and the render checks it before
+   `colonies`. The same diff added a `window.addEventListener("online", fetchColonies)` whose
+   comment promises "drop back to live data the moment 'online' fires" — but a successful
+   refetch sets `colonies` under an error screen that never goes away. **Check: for every
+   boolean error/empty/loading flag, grep for its `set…(false)`. If a diff adds a retry,
+   reconnect, or refetch path, that path must clear every flag the failure set.** A retry
+   that cannot repaint is dead computation dressed as resilience.
+
+7. 2026-08-14 (plan 07, fourth pass) — the rule held on the *main* path and was dropped on
+   the *branches*. Two shapes in one diff: (a) `ColonyPicker.tsx`'s `colonies.length === 0`
+   early return renders "No colonies yet." and never renders the `freshnessLabel` prop the
+   same component renders below it — a cached empty list (realistic here: D-108 means the
+   verified list is legitimately empty until a human verifies a colony) shows with no age;
+   (b) `attachSync.ts` calls `saveSnapshot` on the initial fetch and the reconnect refetch
+   but **not** in the realtime `onChange` handler, so every status change after mount —
+   including the user's own Save, echoed back via `postgres_changes` — is absent from the
+   offline snapshot. **Check both directions: for every early-return/alternate render
+   branch, does it still show the age? And for every path that mutates the data, does it
+   also write the cache?** A guarantee enforced on one of three write paths is not enforced.
+
+8. 2026-08-14 (plan 07, fifth pass) — the *fix for #6 created its mirror*. `setLoadError(false)`
+   now runs on success, but the failure path still runs `setLoadError(true)` unconditionally,
+   and `App.tsx` renders `if (loadError)` **before** `if (!colonies)`. So when the reconnect
+   `online` listener fires and that refetch fails transiently (`navigator.onLine` is true, so
+   no offline fallback), a working cached colony list is replaced by a terminal
+   "Could not load colonies" screen with no further retry — reconnecting makes the app
+   strictly worse than staying offline. **Check: when a refetch fails, does the failure path
+   discard data the user could still be shown? Render errors only when there is nothing
+   cached (`loadError && !colonies`), and re-check any `online`-hardcoded freshness argument
+   once cached data can render while online.**
+
 **How to apply:** the fix is a nullable initial value plus an explicit "not yet" render
 ("Not synced yet"), or deriving initial state from the real signal at effect start rather
 than a hopeful literal. Related: [[review-vacuous-acceptance-tests]].

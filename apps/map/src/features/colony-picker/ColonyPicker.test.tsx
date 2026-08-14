@@ -41,4 +41,29 @@ describe("ColonyPicker", () => {
 
     expect(screen.getByText("No colonies yet.")).toBeTruthy();
   });
+
+  it("shows the freshness label when the list came from the offline cache", () => {
+    render(
+      <ColonyPicker
+        colonies={[colonyRow({})]}
+        onSelect={vi.fn()}
+        freshnessLabel="Offline — last synced 3h ago"
+      />,
+    );
+
+    expect(screen.getByText("Offline — last synced 3h ago")).toBeTruthy();
+  });
+
+  it("renders no freshness label for a live (non-cached) list", () => {
+    render(<ColonyPicker colonies={[colonyRow({})]} onSelect={vi.fn()} />);
+
+    expect(screen.queryByText(/last synced/)).toBeNull();
+  });
+
+  it("shows the freshness label alongside the empty state (/review finding #3)", () => {
+    render(<ColonyPicker colonies={[]} onSelect={vi.fn()} freshnessLabel="Offline — last synced 3h ago" />);
+
+    expect(screen.getByText("No colonies yet.")).toBeTruthy();
+    expect(screen.getByText("Offline — last synced 3h ago")).toBeTruthy();
+  });
 });

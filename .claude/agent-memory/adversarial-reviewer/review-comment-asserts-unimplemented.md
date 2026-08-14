@@ -22,6 +22,14 @@ Occurrences:
    which side of its block faces a road … documented per block in the generator script, not
    hand-guessed per plot". `facing` held up; `is_corner` in the same sentence did not.
    See [[review-fixture-geometry-unchecked]].
+3. 2026-08-14 (plan 07, M7) — `apps/map/public/sw.js:3-4` header: "the activate handler
+   deletes every cache that isn't the current name, which is what makes a deploy actually
+   replace the old worker instead of leaving stale assets." Line 48-49 of the *same file*
+   states the opposite and is correct: `sw.js`'s bytes don't change on an app-code deploy,
+   so neither `install` nor `activate` ever re-runs, and nothing ever prunes
+   `/assets/<hash>` entries. Two comments in one file contradicting each other is the
+   cheapest possible tell — **when a file's header claims a mechanism, grep the same file
+   for a later comment admitting it doesn't fire.**
 
 **How to apply:** for CSS especially, do the specificity/cascade arithmetic yourself rather
 than accepting a comment's claim about which rule wins — `!important` scoped to one selector

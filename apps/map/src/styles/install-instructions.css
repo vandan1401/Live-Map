@@ -1,0 +1,64 @@
+/* One-time "add to home screen" screen (spec/07). Its own file, styled on the same
+ * overlay-card convention as name-prompt.css — a different screen, shown after identity,
+ * before the colony picker. */
+.install-instructions-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--colony-ground);
+  padding: 1.5rem;
+}
+
+.install-instructions-card {
+  width: 100%;
+  max-width: 22rem;
+  background: #ffffff;
+  border-radius: 1rem;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.18);
+  padding: 1.5rem;
+  text-align: left;
+}
+
+.install-instructions-card h1 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 0.75rem;
+}
+
+.install-instructions-illustration {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 0 0 0.75rem;
+}
+
+.install-instructions-card p {
+  font-size: 0.85rem;
+  color: var(--colony-site-boundary);
+  margin: 0 0 0.5rem;
+}
+
+.install-instructions-card ol {
+  font-size: 0.85rem;
+  color: #1a1a1a;
+  margin: 0 0 1rem;
+  padding-left: 1.25rem;
+}
+
+.install-instructions-card li {
+  margin-bottom: 0.25rem;
+}
+
+.install-instructions-dismiss {
+  width: 100%;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: var(--colony-status-booked);
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.6rem;
+}

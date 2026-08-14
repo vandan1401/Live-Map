@@ -29,6 +29,16 @@ migration works on an empty DB.** To prove the pre-existing-data path, apply the
 migration file to a populated copy (`docker exec ... psql -f`), or check the assertion by hand
 in a transaction with `rollback`.
 
+**3rd recurrence, 2026-08-14 (plan 07, M7).** A different shape: the *runner's exit code*,
+not the test body. `pnpm test -- --run` in `apps/map` prints `Tests 66 passed (66)` and
+then `Errors 3 errors` / `ELIFECYCLE Test failed` — vitest exits **1** on unhandled errors
+outside a test (here undici-vs-jsdom `Event` realm mismatch from supabase realtime's
+WebSocket in `ColonyMap.test.tsx`, reproducible on every full run, absent when that file
+runs alone). Any criterion worded "the full gate passes" is false on that tree even though
+the green summary line reads as success. **Rule: read vitest's exit code and the `Errors`
+line, never just `Tests N passed`.** The same run also failed one real test 1 time in ~6 —
+run the suite at least twice before calling it green.
+
 **How to apply:** the local Supabase Docker stack is usually up
 (`docker exec supabase_db_colony-map psql -U postgres -d postgres -c "..."`). Postgres's
 `CONTEXT:` line names the exact failing SQL statement — one command settles it. For a

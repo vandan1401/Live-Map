@@ -1,10 +1,11 @@
 - [Autonomous skill loop](project-autonomous-loop.md) — approval gates removed on purpose; flag the fallout, not the decision.
 - [Review diff blind spots](review-diff-blind-spots.md) — `diff-head` hides untracked files; run `git status --short` first, every review.
 - [Docs vs enforcement drift](review-docs-vs-enforcement-drift.md) — 4x recurrence: prose relaxed, `guard.sh`/`_json.sh` too broad or failing open. Check both, every pass.
-- [Vacuous acceptance tests](review-vacuous-acceptance-tests.md) — negative/forced-failure tests that pass for the wrong reason; `db reset` never proves migration-vs-existing-data.
+- [Vacuous acceptance tests](review-vacuous-acceptance-tests.md) — 3x: tests passing for the wrong reason; also read vitest's *exit code*, not the green `Tests N passed` line.
 - [Attribution fallbacks](review-attribution-fallbacks.md) — 4x: actor `??` fallbacks, a `confidence` for a match that never ran, and `import` seed rows shown as real changes. Grep every diff.
 - [Fixture geometry unchecked](review-fixture-geometry-unchecked.md) — 3x: nothing checks overlap, viewBox drift, or derived `facing`/`is_corner`; recompute them from `colony.svg` yourself.
 - [Fixture plot-count drift](review-fixture-plot-count-drift.md) — the fixture's plot count is a literal in ~8 spec/README files; grep the old count on any fixture change.
-- [Comments assert what code doesn't do](review-comment-asserts-unimplemented.md) — 2x: long intent comments (esp. CSS cascade claims) that the adjacent lines don't deliver.
-- [Optimistic defaults](review-optimistic-defaults.md) — 3x: initial state (or a `catch`) that claims "synced"/an actor/an empty list it never verified.
+- [Comments assert what code doesn't do](review-comment-asserts-unimplemented.md) — 3x: intent comments (CSS cascade, SW cache-versioning) the adjacent lines don't deliver; check for a later comment in the same file contradicting the header.
+- [Optimistic defaults](review-optimistic-defaults.md) — 8x: initial state, a `catch`, cached data with no age, a frozen age, an error flag that won't clear *or* that discards good cached data.
+- [Unstyled new components](review-unstyled-new-components.md) — grep every new `className` against `src/styles/*.css` + the `index.css` imports; nothing else catches it.
 - [Scratch rows leak into UI](review-scratch-rows-leak-into-ui.md) — tests insert permanent DB rows (no DELETE grant); any new list query will show them to the owner.
