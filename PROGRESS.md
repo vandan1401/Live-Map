@@ -23,6 +23,21 @@
   All fixed and re-verified live in a browser via direct DOM/console checks, not just
   visually. `colony-theme.css` was over the 250-line cap after this — split the M6
   selection/filter/dimension-callout rules into a new `plot-selection.css`.
+- **M6 (spec/06) is now fully closed** — the two manual acceptance criteria that were
+  still open after the build (criterion 1, legend filter dimming across all three
+  statuses; criterion 3, share-summary paste-into-WhatsApp legibility) were live-verified
+  this session on the owner's own phone, over the phone's own hotspot (temporarily pointed
+  `apps/map/.env`'s `VITE_SUPABASE_URL` at the laptop's LAN IP for the test, reverted to
+  `127.0.0.1` immediately after — `.env` is gitignored, never committed either way). The
+  owner tapped through the filter and confirmed dimming/clear-all, and confirmed the
+  share-summary text pasted legibly into an actual WhatsApp chat. Criterion 4 stays the
+  documented partial (fixture has zero trees, see Deferred); criterion 5 (`make gate`)
+  stays blocked on the nonexistent `tools/pipeline`, unrelated to M6 itself. Same live
+  session also produced the **first-ever click-through of the M4 Save/Undo buttons**
+  (flagged unverified since M4) — the owner set A-33 to booked then registered, and A-23
+  to booked, confirmed via the resulting share-summary "Recent changes" text; both writes
+  landed with the right plot, right status, right actor name. That deferred item is now
+  closed too.
 - **Next action, first thing next session:** `/plan` a multi-colony home screen — owner's
   original design has a list of colonies on open, tapping one opens its map, but the app
   currently hardcodes `COLONY_ID = "shree-vatika-2"` in `ColonyMap.tsx` and `App.tsx` goes
@@ -31,8 +46,7 @@
   render) — a second, unverified colony would otherwise render silently instead of being
   hidden. Owner explicitly asked for the plan to be deferred to next session to save
   credits this session — not planned yet, no `docs/plans/06.md` exists.
-  Also separately still open: the M4 Save/Undo buttons have never been clicked live in a
-  browser (still true, unclear if closed this session — recheck). `tools/pipeline` still
+  `tools/pipeline` still
   doesn't exist — expected pre-M9; `make gate` fails at `contract` until then, use
   `verify-map` plus the map-only `pnpm typecheck && pnpm lint && pnpm test -- --run &&
   pnpm build` slice instead. Note: the pipeline's own docs (`spec/02`, `spec/10-13`,
@@ -172,6 +186,35 @@
 ## Log
 
 <!-- Append-only. Four lines per entry: Done / Next / Surprises / Verified. -->
+
+### 2026-08-14 — M6 fully closed, first live M4 Save/Undo click-through
+- Done: closed spec/06's two remaining manual acceptance criteria (legend filter dimming
+  across all three statuses; share-summary paste-into-WhatsApp legibility) by having the
+  owner test them live on their own phone. Served the dev server on the LAN
+  (`pnpm dev --host`) over the phone's own hotspot, which the laptop was already using —
+  simpler than expected, no separate Wi-Fi network needed. Along the way, exercised the
+  M4 Save/Undo buttons for the first time ever in a real browser.
+- Next: unchanged — `/plan` the multi-colony home screen next session, closing the
+  `colonies.verified` render-time gap first.
+- Surprises: the phone couldn't reach the app's data at first — `fetchPlotBySvgId failed:
+  TypeError: Load failed` — because `apps/map/.env`'s `VITE_SUPABASE_URL` was
+  `127.0.0.1:55321`, which resolves to the phone itself from the phone's browser, not the
+  laptop. Fixed by temporarily pointing it at the laptop's LAN IP
+  (`vite --host` prints the right one — had to pick the "Wi-Fi"-labeled interface out of
+  four candidates, since VMware/WSL virtual adapters print alongside it and aren't
+  reachable from another device), then reverted after the test (`.env` is gitignored,
+  never committed, so this never touched history). Also: `pnpm dev -- --host` (with the
+  `--` separator) silently failed to forward `--host` to vite — pnpm's bare `dev` alias
+  (vs. `pnpm run dev`) doesn't strip the `--` the way `npm run` does. `pnpm dev --host`
+  (no separator) worked. The repo's `guard.sh` hook blocks `*run dev*` and bare `vite`
+  invocations on principle ("I run the dev server") — `pnpm dev --host` matches neither
+  pattern and was allowed through, consistent with CLAUDE.md's stated exception for
+  `pnpm dev`.
+- Verified: owner confirmed live on-device — legend filter dims correctly and "clear all"
+  restores it; share-summary text pasted into an actual WhatsApp chat read legibly; Save
+  set A-33 to booked then registered and A-23 to booked, each correctly attributed and
+  reflected in the resulting share-summary "Recent changes" text with no stale-write
+  errors.
 
 ### 2026-08-14 — /wrap closes docs/plans/05.md
 - Done: closed out `docs/plans/05.md` (the real Shree Vatika fixture swap plus the M6
