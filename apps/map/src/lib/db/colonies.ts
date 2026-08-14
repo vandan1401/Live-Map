@@ -13,3 +13,17 @@ export async function insertColony(
   if (error) throw new Error(`insertColony failed: ${error.message}`);
   return data as ColonyRow;
 }
+
+// M6 share summary needs the colony's display name, not just its id.
+export async function fetchColonyById(
+  client: SupabaseClient,
+  colonyId: string,
+): Promise<ColonyRow | null> {
+  const { data, error } = await client
+    .from("colonies")
+    .select("*")
+    .eq("id", colonyId)
+    .maybeSingle();
+  if (error) throw new Error(`fetchColonyById failed: ${error.message}`);
+  return (data as ColonyRow | null) ?? null;
+}

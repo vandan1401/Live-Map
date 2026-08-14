@@ -29,6 +29,19 @@ export async function fetchPlotStatuses(
   return statuses;
 }
 
+// Full rows for a colony (M6) — search (owner/broker/number) and the share summary
+// (status counts, recent-changes labels) both need more than just status, and the
+// colony is only a few hundred rows, so one in-memory fetch beats a bespoke query per
+// feature.
+export async function fetchPlotsByColony(
+  client: SupabaseClient,
+  colonyId: string,
+): Promise<PlotRow[]> {
+  const { data, error } = await client.from("plots").select("*").eq("colony_id", colonyId);
+  if (error) throw new Error(`fetchPlotsByColony failed: ${error.message}`);
+  return (data as PlotRow[] | null) ?? [];
+}
+
 // Full row for the plot detail sheet (M3) — every D-012 field, not just status.
 export async function fetchPlotBySvgId(
   client: SupabaseClient,

@@ -2,28 +2,64 @@
 
 ## Current
 
-- **Task:** M2, M3, M4, M5, and the D-012/D-013 revision are all closed (`docs/plans/01.md`
-  through `04.md` all carry `Status: complete`; detail in `## Log` below). M5 — realtime
-  plot-status sync plus the always-visible freshness indicator (spec/05-map-realtime.md,
-  `docs/plans/04.md`) — owner live-verified spec/05 §5's four manual acceptance criteria
-  (propagation under 2s, freshness tick over 5 minutes, DevTools offline mode, reconnect
-  refetch) in a real browser this session; plan closed.
-- **Next action:** pick the next milestone (M6+, see spec/ for numbering). Separately
-  still open: the M4 Save/Undo buttons have never been clicked live in a browser either
-  (noted in the 2026-08-13 log entry below) — worth a quick manual pass alongside
-  whatever's next. `tools/pipeline` still doesn't exist — expected pre-M9 (see
-  Makefile/`make gate` comment and the 2026-08-12 log entry below); `make gate` will keep
-  failing at `contract` until then, use `verify-map` plus the map-only
-  `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` slice instead.
+- **Task:** `docs/plans/05.md` is closed — `**Status:** complete` appended this session
+  after re-running its full §5 acceptance table for real: SVG has no `fill`/`stroke`/
+  `style` (grep, 0 matches), manifest validates against `contract/colony.schema.json`
+  (ajv, `valid: true`), `supabase db reset` + `pnpm import:seed` from a cold DB imported
+  cleanly ("imported 26 plots for shree-vatika-2, 0 unmatched"), and the map-only gate
+  (`typecheck && lint && test && build`) passed clean, 52/52 tests. Criterion 5 (visual
+  render) rests on the owner's own live-browser verification logged earlier this session
+  (see prior Log entry) — this wrap didn't re-open a browser. M2 through M5, the
+  D-012/D-013 revision, and M6 (legend filter, search, share summary — `docs/plans/05.md`'s
+  scope grew to include it) are all built and gate-clean. Separately, and bigger:
+  `fixtures/shree-vatika-2/` was replaced this session with the owner's **real** Shree
+  Vatika layout, hand-traced from a site-plan photo — 26 confirmed plots (block "A" only,
+  contract-shape necessity — the real plan has no lettered blocks), ~8 unread interior
+  plots and the LIG/EWS strip deliberately left out. Went through three `/review` passes;
+  each caught real bugs (overlapping plot geometry, wrong `facing`/`is_corner` on saleable
+  plots, a bug that would have shown fabricated "recent changes" — seed-import bookkeeping
+  rows — in the family's WhatsApp share text, a stale zoom constant, an off-canvas
+  dimension label, a CSS specificity bug hiding a selected plot under an active filter).
+  All fixed and re-verified live in a browser via direct DOM/console checks, not just
+  visually. `colony-theme.css` was over the 250-line cap after this — split the M6
+  selection/filter/dimension-callout rules into a new `plot-selection.css`.
+- **Next action, first thing next session:** `/plan` a multi-colony home screen — owner's
+  original design has a list of colonies on open, tapping one opens its map, but the app
+  currently hardcodes `COLONY_ID = "shree-vatika-2"` in `ColonyMap.tsx` and `App.tsx` goes
+  straight from the name prompt to the map with no picker. Before building it, close the
+  gap already on this list below (`colonies.verified` only checked at import, never at
+  render) — a second, unverified colony would otherwise render silently instead of being
+  hidden. Owner explicitly asked for the plan to be deferred to next session to save
+  credits this session — not planned yet, no `docs/plans/06.md` exists.
+  Also separately still open: the M4 Save/Undo buttons have never been clicked live in a
+  browser (still true, unclear if closed this session — recheck). `tools/pipeline` still
+  doesn't exist — expected pre-M9; `make gate` fails at `contract` until then, use
+  `verify-map` plus the map-only `pnpm typecheck && pnpm lint && pnpm test -- --run &&
+  pnpm build` slice instead. Note: the pipeline's own docs (`spec/02`, `spec/10-13`,
+  `README.md`, `NAVIGATION.md`) still describe a 45-plot golden fixture reproduced from
+  `fixtures/demo-plan.pdf` — that target is gone now that the real 26-plot layout replaced
+  the shared fixture; needs a real decision (regenerate the golden PDF to match, or accept
+  a two-copy split between "pipeline's golden fixture" and "app's real fixture") before
+  `tools/pipeline` is built.
+- **Owner feedback this session, not yet acted on:**
+  1. Plot shapes are rectangles-only right now — a fixture limitation (hand-traced from
+     the photo, which showed only rectangular plots readably), not a contract or app
+     limitation; `class="plot"` works on any SVG path shape.
+  2. Current road rendering (solid grey band + dashed centerline + width label, matching
+     the reference plan) still doesn't look right to the owner. Explicitly told not to
+     touch it this session — "think something else for rendering" is a real open
+     question for a future session, not a small tweak.
 - **Local Supabase stack now runs `realtime`** (`Makefile`'s `db-start` used to exclude
   it — M5 needed it). If a future milestone needs another currently-excluded service
   (`storage-api`, etc.), remember: a plain `supabase start` restart silently keeps the
   old exclusion — `supabase stop` fully first, then `start` with the new flags.
 - **Theme repainted this session, live-verified in a browser by the owner** (Tier 3,
   `colony-theme.css`, owner-requested): roads dark asphalt gray, gardens/trees more
-  saturated green, plot status colours changed to available=green/booked=blue/
+  saturated green, plot status colours changed to available=wheat/booked=blue/
   registered=orange (owner chose "adopt reference's saturated palette" over keeping the
-  original amber-for-booked scheme). New `--colony-warning-amber` token decouples the
+  original amber-for-booked scheme; available was later changed from green to wheat this
+  session — see Log — because it visually merged with the garden feature's green).
+  New `--colony-warning-amber` token decouples the
   freshness indicator's offline colour (spec/05 criterion 3, "turns amber") from
   `--colony-status-booked` — that variable had been reused for both, and repainting
   `booked` to blue would have silently broken the offline indicator's colour if left
@@ -34,6 +70,31 @@
 
 ## Deferred
 
+- **From the real-colony fixture swap (2026-08-14):** `colonies.verified` is only
+  checked at import time (`scripts/import-seed.ts`), never at render time
+  (`lib/colony/plotStatus.ts`, `lib/colony/plotDetail.ts` read plots directly, no
+  colony-level check). Noted before, now sharper: this must close before a multi-colony
+  home screen ships, or an unverified second colony would render silently instead of
+  being hidden. Blocks the planned M6.5-ish home-screen work (see Current).
+- **From the real-colony fixture swap (2026-08-14):** the pipeline's own docs
+  (`spec/02-map-schema.md`, `spec/10-13-pipe-*.md`, `README.md`, `NAVIGATION.md`) still
+  describe and depend on a 45-plot golden fixture reproduced from
+  `fixtures/demo-plan.pdf`. That target no longer exists — the real 26-plot Shree Vatika
+  layout replaced the shared fixture those docs point at. `/review` flagged this
+  explicitly; not fixed this session (out of scope for a Tier 1 fixture-data task).
+  Needs a real decision before `tools/pipeline` gets built: either regenerate
+  `demo-plan.pdf` to match the real layout, or accept that the pipeline's golden
+  fixture and the app's real fixture are now two deliberately different things.
+- **From the real-colony fixture swap (2026-08-14):** spec/06 acceptance criterion 4
+  ("Labels and trees hide below the zoom threshold") is only half-testable against this
+  fixture — the real colony.svg has zero `<use class="tree">` elements (plan 05 §4
+  non-goal: the source photo doesn't show individual tree positions). The `.tree` CSS
+  rule in `plot-selection.css` is correct but dead for this colony.
+- **Owner feedback, not yet acted on (2026-08-14):** plot shapes in the real fixture are
+  rectangles only (photo only showed rectangular plots readably — a fixture limit, not
+  a contract limit). Road rendering (solid band + dashed centerline + width label) still
+  doesn't look right to the owner; explicitly told not to touch it this session — a real
+  redesign question for later, see Current.
 - **From M5 (2026-08-13):** `ColonyMap.tsx` imports directly from `lib/db` and
   `lib/colony`, which NAVIGATION.md's stated layer table says Components may not do
   (only `src/shared`). This predates M5. During the `/review` fix pass, `lib/sync/
@@ -111,6 +172,64 @@
 ## Log
 
 <!-- Append-only. Four lines per entry: Done / Next / Surprises / Verified. -->
+
+### 2026-08-14 — /wrap closes docs/plans/05.md
+- Done: closed out `docs/plans/05.md` (the real Shree Vatika fixture swap plus the M6
+  scope it grew to include) — re-ran every scripted §5 acceptance criterion instead of
+  trusting the prior session's narrative, then appended `**Status:** complete`.
+- Next: unchanged from the entry above — `/plan` the multi-colony home screen, closing
+  the `colonies.verified` render-time gap first.
+- Surprises: none in the app code, but the local gate needed two DB-dependent detours the
+  plan's own criterion 6 note flagged as possible: (1) 5 live-integration tests failed
+  with `fetch failed` until `make db-up` started the stack (it had gone down since the
+  last session); (2) the realtime subscription test then timed out once on a cold
+  connection and passed clean on immediate retry — a warm-up flake, not a regression,
+  worth remembering before treating a lone `subscribePlots.test.ts` failure as real.
+- Verified: `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` from
+  `apps/map` — 52/52 tests, clean build. `grep -E 'fill=|stroke=|style='
+  fixtures/shree-vatika-2/colony.svg` — no matches. ajv (draft-2020, scratch install)
+  against `contract/colony.schema.json` — `valid: true`. `npx supabase db reset` then
+  `pnpm import:seed` — "imported 26 plots for shree-vatika-2, 0 unmatched".
+
+### 2026-08-14 — M6 built, real colony fixture replaces the demo, three review rounds
+- Done: built M6 (spec/06 — legend filter with a dedicated `StatusLegend`, in-memory
+  search via `PlotSearch`/`lib/colony/searchPlots.ts`, `ShareSummary`'s WhatsApp text
+  block, zoom-dependent label/tree hiding). Then, per owner request, replaced
+  `fixtures/shree-vatika-2/` entirely with a hand-traced rendering of the owner's real
+  site-plan photo (`docs/plans/05.md`) — 26 confirmed plots, block "A" only (no lettered
+  blocks on the real plan), ~8 unread interior plots and the LIG/EWS strip left out
+  rather than guessed. Also, on request: removed the black selected-plot border, added
+  architectural length/breadth dimension arrows on selection, made selection raise the
+  plot and its label above everything else while dimming the rest, added click-to-zoom
+  on selection, and changed available's colour from green to wheat (green collided with
+  the garden feature). Went through three `/review` passes on the fixture + supporting
+  code; every pass found and fixed real bugs — see Surprises.
+- Next: first thing next session, `/plan` a multi-colony home screen (owner's original
+  design, not yet built — see `## Current` and `## Deferred` for the `colonies.verified`
+  gap that should close first). Also open: the pipeline-docs-vs-real-fixture drift noted
+  in Deferred, and the two pieces of owner feedback not yet acted on (rectangle-only
+  plot shapes, road rendering redesign).
+- Surprises: every `/review` pass on this diff found something real, which is the
+  point of running it three times rather than one — (1) hand-authoring plot Y-coordinates
+  by typing them produced 10 plot/plot and 12 plot/road overlaps invisible until a real
+  geometry cross-check ran; fixed by rewriting the generator to compute every Y from a
+  running layout cursor plus a programmatic overlap self-check that now runs before any
+  file is written. (2) `is_corner` computed from column position over the *reduced*
+  26-plot set silently promoted interior plots (next to an excluded unread cell) to false
+  corners — fixed by computing it from actual road adjacency instead. (3) the share
+  summary's "recent changes" was about to show the seed import's own bookkeeping rows
+  (`changed_by: "import"`) as real status changes in the family's WhatsApp text — exactly
+  the fabricated-evidence failure invariant 5 exists to prevent. (4) a CSS `!important`
+  meant to keep a selected plot "in focus" instead applied to every non-selected plot too
+  once a legend filter was also active, silently disabling the filter's own dimming.
+  None of these were guessable from reading the code once; each needed either a live
+  browser check or an independent geometry re-derivation to surface.
+- Verified: `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` — clean,
+  52/52 (up from 44 pre-M6). `supabase db reset && pnpm import:seed` — "imported 26 plots
+  for shree-vatika-2, 0 unmatched", re-run after every fixture fix. Every fix this session
+  re-verified live in a real browser via direct DOM/console instrumentation (plot
+  selection, label focus, search results, share-summary text, filter+selection opacity
+  interaction) — not just visual screenshots, and not just "tests pass".
 
 ### 2026-08-13 — M5 closed: spec/05 live-verified, plan marked complete
 - Done: owner live-verified spec/05 §5's four manual acceptance criteria (propagation

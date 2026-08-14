@@ -1,182 +1,70 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 720" data-colony="shree-vatika-2">
-  <defs>
-    <symbol id="tree-canopy" viewBox="0 0 24 24">
-      <circle class="tree-shadow" cx="13" cy="13" r="9"/>
-      <circle class="tree-crown" cx="12" cy="12" r="9"/>
-    </symbol>
-  </defs>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1390" data-colony="shree-vatika-2">
   <g class="site">
-  <path class="site-boundary" d="M20 20 H980 V680 H20 Z"/>
-  <path class="road" d="M483 90 H517 V680 H483 Z M60 187 H940 V213 H60 Z M60 377 H940 V403 H60 Z M60 567 H940 V593 H60 Z"/>
-  <path class="garden" data-kind="park" id="garden-central" d="M540 420 C640 400 800 402 900 424 C936 434 940 500 906 542 C870 566 700 572 600 560 C540 552 522 500 528 460 C531 438 528 424 540 420 Z"/>
-  <path class="amenity" data-kind="clubhouse" id="amenity-clubhouse" d="M520 596 H730 V676 H520 Z"/>
-  <path class="amenity" data-kind="temple" id="amenity-temple" d="M750 596 H870 V676 H750 Z"/>
-  <path class="amenity" data-kind="tank" id="amenity-tank" d="M890 596 H936 V676 H890 Z"/>
-  <path class="plot" id="plot-A-01" data-block="A" data-area-sqft="1237" d="M60 70 H140 V180 H60 Z"/>
-  <path class="plot" id="plot-A-02" data-block="A" data-area-sqft="1237" d="M144 70 H224 V180 H144 Z"/>
-  <path class="plot" id="plot-A-03" data-block="A" data-area-sqft="1237" d="M228 70 H308 V180 H228 Z"/>
-  <path class="plot" id="plot-A-04" data-block="A" data-area-sqft="1237" d="M312 70 H392 V180 H312 Z"/>
-  <path class="plot" id="plot-A-05" data-block="A" data-area-sqft="1237" d="M396 70 H476 V180 H396 Z"/>
-  <path class="plot" id="plot-A-06" data-block="A" data-area-sqft="900" d="M60 216 H140 V296 H60 Z"/>
-  <path class="plot" id="plot-A-07" data-block="A" data-area-sqft="900" d="M144 216 H224 V296 H144 Z"/>
-  <path class="plot" id="plot-A-08" data-block="A" data-area-sqft="900" d="M228 216 H308 V296 H228 Z"/>
-  <path class="plot" id="plot-A-09" data-block="A" data-area-sqft="900" d="M312 216 H392 V296 H312 Z"/>
-  <path class="plot" id="plot-A-10" data-block="A" data-area-sqft="900" d="M396 216 H476 V296 H396 Z"/>
-  <path class="plot" id="plot-A-11" data-block="A" data-area-sqft="900" d="M60 296 H140 V376 H60 Z"/>
-  <path class="plot" id="plot-A-12" data-block="A" data-area-sqft="900" d="M144 296 H224 V376 H144 Z"/>
-  <path class="plot" id="plot-A-13" data-block="A" data-area-sqft="900" d="M228 296 H308 V376 H228 Z"/>
-  <path class="plot" id="plot-A-14" data-block="A" data-area-sqft="900" d="M312 296 H392 V376 H312 Z"/>
-  <path class="plot" id="plot-A-15" data-block="A" data-area-sqft="900" d="M396 296 H476 V376 H396 Z"/>
-  <path class="plot" id="plot-A-16" data-block="A" data-area-sqft="900" d="M60 406 H140 V486 H60 Z"/>
-  <path class="plot" id="plot-A-17" data-block="A" data-area-sqft="900" d="M144 406 H224 V486 H144 Z"/>
-  <path class="plot" id="plot-A-18" data-block="A" data-area-sqft="900" d="M228 406 H308 V486 H228 Z"/>
-  <path class="plot" id="plot-A-19" data-block="A" data-area-sqft="900" d="M312 406 H392 V486 H312 Z"/>
-  <path class="plot" id="plot-A-20" data-block="A" data-area-sqft="900" d="M396 406 H476 V486 H396 Z"/>
-  <path class="plot" id="plot-A-21" data-block="A" data-area-sqft="900" d="M60 486 H140 V566 H60 Z"/>
-  <path class="plot" id="plot-A-22" data-block="A" data-area-sqft="900" d="M144 486 H224 V566 H144 Z"/>
-  <path class="plot" id="plot-A-23" data-block="A" data-area-sqft="900" d="M228 486 H308 V566 H228 Z"/>
-  <path class="plot" id="plot-A-24" data-block="A" data-area-sqft="900" d="M312 486 H392 V566 H312 Z"/>
-  <path class="plot" id="plot-A-25" data-block="A" data-area-sqft="900" d="M396 486 H476 V566 H396 Z"/>
-  <path class="plot" id="plot-A-26" data-block="A" data-area-sqft="900" d="M60 596 H140 V676 H60 Z"/>
-  <path class="plot" id="plot-A-27" data-block="A" data-area-sqft="900" d="M144 596 H224 V676 H144 Z"/>
-  <path class="plot" id="plot-A-28" data-block="A" data-area-sqft="900" d="M228 596 H308 V676 H228 Z"/>
-  <path class="plot" id="plot-A-29" data-block="A" data-area-sqft="900" d="M312 596 H392 V676 H312 Z"/>
-  <path class="plot" id="plot-A-30" data-block="A" data-area-sqft="900" d="M396 596 H476 V676 H396 Z"/>
-  <path class="plot" id="plot-B-01" data-block="B" data-area-sqft="1237" d="M520 70 H600 V180 H520 Z"/>
-  <path class="plot" id="plot-B-02" data-block="B" data-area-sqft="1237" d="M604 70 H684 V180 H604 Z"/>
-  <path class="plot" id="plot-B-03" data-block="B" data-area-sqft="1237" d="M688 70 H768 V180 H688 Z"/>
-  <path class="plot" id="plot-B-04" data-block="B" data-area-sqft="1237" d="M772 70 H852 V180 H772 Z"/>
-  <path class="plot" id="plot-B-05" data-block="B" data-area-sqft="1237" d="M856 70 H936 V180 H856 Z"/>
-  <path class="plot" id="plot-B-06" data-block="B" data-area-sqft="900" d="M520 216 H600 V296 H520 Z"/>
-  <path class="plot" id="plot-B-07" data-block="B" data-area-sqft="900" d="M604 216 H684 V296 H604 Z"/>
-  <path class="plot" id="plot-B-08" data-block="B" data-area-sqft="900" d="M688 216 H768 V296 H688 Z"/>
-  <path class="plot" id="plot-B-09" data-block="B" data-area-sqft="900" d="M772 216 H852 V296 H772 Z"/>
-  <path class="plot" id="plot-B-10" data-block="B" data-area-sqft="900" d="M856 216 H936 V296 H856 Z"/>
-  <path class="plot" id="plot-B-11" data-block="B" data-area-sqft="900" d="M520 296 H600 V376 H520 Z"/>
-  <path class="plot" id="plot-B-12" data-block="B" data-area-sqft="900" d="M604 296 H684 V376 H604 Z"/>
-  <path class="plot" id="plot-B-13" data-block="B" data-area-sqft="900" d="M688 296 H768 V376 H688 Z"/>
-  <path class="plot" id="plot-B-14" data-block="B" data-area-sqft="900" d="M772 296 H852 V376 H772 Z"/>
-  <path class="plot" id="plot-B-15" data-block="B" data-area-sqft="900" d="M856 296 H936 V376 H856 Z"/>
-  <use class="tree" href="#tree-canopy" x="67" y="185" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="119" y="187" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="182" y="188" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="234" y="185" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="293" y="189" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="358" y="187" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="413" y="185" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="532" y="185" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="589" y="188" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="645" y="191" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="707" y="191" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="762" y="191" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="823" y="187" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="876" y="185" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="60" y="375" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="120" y="379" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="185" y="378" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="238" y="379" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="300" y="376" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="351" y="380" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="417" y="375" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="524" y="376" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="587" y="378" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="645" y="377" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="697" y="378" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="761" y="375" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="814" y="378" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="878" y="378" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="67" y="568" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="122" y="569" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="185" y="569" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="240" y="568" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="300" y="568" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="349" y="569" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="412" y="569" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="525" y="568" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="587" y="566" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="647" y="568" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="707" y="568" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="763" y="567" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="822" y="571" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="880" y="565" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="486" y="102" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="486" y="159" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="491" y="219" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="491" y="276" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="487" y="330" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="487" y="445" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="485" y="503" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="489" y="623" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="718" y="504" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="639" y="484" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="584" y="491" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="740" y="513" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="711" y="528" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="713" y="503" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="774" y="437" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="816" y="424" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="618" y="495" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="738" y="462" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="616" y="494" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="797" y="443" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="735" y="422" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="762" y="488" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="849" y="506" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="576" y="473" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="610" y="497" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="672" y="494" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="740" y="425" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="839" y="464" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="618" y="463" width="24" height="24"/>
-  <use class="tree" href="#tree-canopy" x="646" y="524" width="24" height="24"/>
-  <text class="plot-label" x="100" y="129">A-01</text>
-  <text class="plot-label" x="184" y="129">A-02</text>
-  <text class="plot-label" x="268" y="129">A-03</text>
-  <text class="plot-label" x="352" y="129">A-04</text>
-  <text class="plot-label" x="436" y="129">A-05</text>
-  <text class="plot-label" x="100" y="260">A-06</text>
-  <text class="plot-label" x="184" y="260">A-07</text>
-  <text class="plot-label" x="268" y="260">A-08</text>
-  <text class="plot-label" x="352" y="260">A-09</text>
-  <text class="plot-label" x="436" y="260">A-10</text>
-  <text class="plot-label" x="100" y="340">A-11</text>
-  <text class="plot-label" x="184" y="340">A-12</text>
-  <text class="plot-label" x="268" y="340">A-13</text>
-  <text class="plot-label" x="352" y="340">A-14</text>
-  <text class="plot-label" x="436" y="340">A-15</text>
-  <text class="plot-label" x="100" y="450">A-16</text>
-  <text class="plot-label" x="184" y="450">A-17</text>
-  <text class="plot-label" x="268" y="450">A-18</text>
-  <text class="plot-label" x="352" y="450">A-19</text>
-  <text class="plot-label" x="436" y="450">A-20</text>
-  <text class="plot-label" x="100" y="530">A-21</text>
-  <text class="plot-label" x="184" y="530">A-22</text>
-  <text class="plot-label" x="268" y="530">A-23</text>
-  <text class="plot-label" x="352" y="530">A-24</text>
-  <text class="plot-label" x="436" y="530">A-25</text>
-  <text class="plot-label" x="100" y="640">A-26</text>
-  <text class="plot-label" x="184" y="640">A-27</text>
-  <text class="plot-label" x="268" y="640">A-28</text>
-  <text class="plot-label" x="352" y="640">A-29</text>
-  <text class="plot-label" x="436" y="640">A-30</text>
-  <text class="plot-label" x="560" y="129">B-01</text>
-  <text class="plot-label" x="644" y="129">B-02</text>
-  <text class="plot-label" x="728" y="129">B-03</text>
-  <text class="plot-label" x="812" y="129">B-04</text>
-  <text class="plot-label" x="896" y="129">B-05</text>
-  <text class="plot-label" x="560" y="260">B-06</text>
-  <text class="plot-label" x="644" y="260">B-07</text>
-  <text class="plot-label" x="728" y="260">B-08</text>
-  <text class="plot-label" x="812" y="260">B-09</text>
-  <text class="plot-label" x="896" y="260">B-10</text>
-  <text class="plot-label" x="560" y="340">B-11</text>
-  <text class="plot-label" x="644" y="340">B-12</text>
-  <text class="plot-label" x="728" y="340">B-13</text>
-  <text class="plot-label" x="812" y="340">B-14</text>
-  <text class="plot-label" x="896" y="340">B-15</text>
-  <text class="feature-label" x="625" y="642">Clubhouse</text>
-  <text class="feature-label" x="810" y="642">Temple</text>
-  <text class="feature-label" x="715" y="490">Central park</text>
-  <text class="entrance-label" x="500" y="702">Main entrance</text>
+  <path class="site-boundary" d="M20 10 H912 V1382 H20 Z"/>
+  <path class="road" d="M0 153.33 H418.75 V218.93 H0 Z M0 565.61 H418.75 V631.21 H0 Z M0 924.55 H418.75 V990.15 H0 Z M0 1283.49 H900 V1362.24 H0 Z M471.28 153.34 H711.28 V232.09 H471.28 Z M418.75 552.09 H738.75 V630.84 H418.75 Z M418.75 153.34 H471.28 V552.09 H418.75 Z M340 153.33 H418.75 V1362.24 H340 Z M801.28 20 H891.9499999999999 V1362.24 H801.28 Z"/>
+  <path class="garden" data-kind="park" id="garden-central" d="M631 698 a45 32 0 1 0 90 0 a45 32 0 1 0 -90 0 Z"/>
+  <path class="plot" id="plot-A-01" data-block="A" data-area-sqft="1650" d="M100 1136.82 H180 V1283.49 H100 Z"/>
+  <path class="plot" id="plot-A-03" data-block="A" data-area-sqft="1650" d="M180 1136.82 H260 V1283.49 H180 Z"/>
+  <path class="plot" id="plot-A-06" data-block="A" data-area-sqft="1650" d="M260 1136.82 H340 V1283.49 H260 Z"/>
+  <path class="plot" id="plot-A-07" data-block="A" data-area-sqft="1650" d="M260 990.15 H340 V1136.82 H260 Z"/>
+  <path class="plot" id="plot-A-10" data-block="A" data-area-sqft="1650" d="M180 990.15 H260 V1136.82 H180 Z"/>
+  <path class="plot" id="plot-A-14" data-block="A" data-area-sqft="1650" d="M100 990.15 H180 V1136.82 H100 Z"/>
+  <path class="plot" id="plot-A-15" data-block="A" data-area-sqft="1925" d="M60.00999999999999 777.88 H153.33999999999997 V924.55 H60.00999999999999 Z"/>
+  <path class="plot" id="plot-A-18" data-block="A" data-area-sqft="1925" d="M153.33999999999997 777.88 H246.66999999999996 V924.55 H153.33999999999997 Z"/>
+  <path class="plot" id="plot-A-21" data-block="A" data-area-sqft="1925" d="M246.67 777.88 H340 V924.55 H246.67 Z"/>
+  <path class="plot" id="plot-A-22" data-block="A" data-area-sqft="1925" d="M246.67 631.21 H340 V777.88 H246.67 Z"/>
+  <path class="plot" id="plot-A-23" data-block="A" data-area-sqft="1950" d="M260 392.27 H340 V565.61 H260 Z"/>
+  <path class="plot" id="plot-A-24" data-block="A" data-area-sqft="1925" d="M153.33999999999997 631.21 H246.66999999999996 V777.88 H153.33999999999997 Z"/>
+  <path class="plot" id="plot-A-26" data-block="A" data-area-sqft="1925" d="M60.00999999999999 631.21 H153.33999999999997 V777.88 H60.00999999999999 Z"/>
+  <path class="plot" id="plot-A-32" data-block="A" data-area-sqft="1950" d="M180 392.27 H260 V565.61 H180 Z"/>
+  <path class="plot" id="plot-A-33" data-block="A" data-area-sqft="1950" d="M180 218.93 H260 V392.27 H180 Z"/>
+  <path class="plot" id="plot-A-36" data-block="A" data-area-sqft="1950" d="M260 218.93 H340 V392.27 H260 Z"/>
+  <path class="plot" id="plot-A-37" data-block="A" data-area-sqft="1500" d="M471.28 630.84 H551.28 V764.1800000000001 H471.28 Z"/>
+  <path class="plot" id="plot-A-40" data-block="A" data-area-sqft="1500" d="M551.28 630.84 H631.28 V764.1800000000001 H551.28 Z"/>
+  <path class="plot" id="plot-A-41" data-block="A" data-area-sqft="1800" d="M631.28 392.09000000000003 H711.28 V552.09 H631.28 Z"/>
+  <path class="plot" id="plot-A-44" data-block="A" data-area-sqft="1800" d="M551.28 392.09000000000003 H631.28 V552.09 H551.28 Z"/>
+  <path class="plot" id="plot-A-47" data-block="A" data-area-sqft="1800" d="M471.28 392.09000000000003 H551.28 V552.09 H471.28 Z"/>
+  <path class="plot" id="plot-A-48" data-block="A" data-area-sqft="1800" d="M471.28 232.09 H551.28 V392.09000000000003 H471.28 Z"/>
+  <path class="plot" id="plot-A-51" data-block="A" data-area-sqft="1800" d="M551.28 232.09 H631.28 V392.09000000000003 H551.28 Z"/>
+  <path class="plot" id="plot-A-54" data-block="A" data-area-sqft="1800" d="M631.28 232.09 H711.28 V392.09000000000003 H631.28 Z"/>
+  <path class="plot" id="plot-A-55" data-block="A" data-area-sqft="1000" d="M524.61 20 H577.94 V153.34 H524.61 Z"/>
+  <path class="plot" id="plot-A-56" data-block="A" data-area-sqft="1000" d="M471.28 20 H524.61 V153.34 H471.28 Z"/>
+  <text class="plot-label" data-plot="plot-A-01" x="140" y="1210">1</text>
+  <text class="plot-label" data-plot="plot-A-03" x="220" y="1210">3</text>
+  <text class="plot-label" data-plot="plot-A-06" x="300" y="1210">6</text>
+  <text class="plot-label" data-plot="plot-A-07" x="300" y="1063">7</text>
+  <text class="plot-label" data-plot="plot-A-10" x="220" y="1063">10</text>
+  <text class="plot-label" data-plot="plot-A-14" x="140" y="1063">14</text>
+  <text class="plot-label" data-plot="plot-A-15" x="107" y="851">15</text>
+  <text class="plot-label" data-plot="plot-A-18" x="200" y="851">18</text>
+  <text class="plot-label" data-plot="plot-A-21" x="293" y="851">21</text>
+  <text class="plot-label" data-plot="plot-A-22" x="293" y="705">22</text>
+  <text class="plot-label" data-plot="plot-A-23" x="300" y="479">23</text>
+  <text class="plot-label" data-plot="plot-A-24" x="200" y="705">24</text>
+  <text class="plot-label" data-plot="plot-A-26" x="107" y="705">26</text>
+  <text class="plot-label" data-plot="plot-A-32" x="220" y="479">32</text>
+  <text class="plot-label" data-plot="plot-A-33" x="220" y="306">33</text>
+  <text class="plot-label" data-plot="plot-A-36" x="300" y="306">36</text>
+  <text class="plot-label" data-plot="plot-A-37" x="511" y="698">37</text>
+  <text class="plot-label" data-plot="plot-A-40" x="591" y="698">40</text>
+  <text class="plot-label" data-plot="plot-A-41" x="671" y="472">41</text>
+  <text class="plot-label" data-plot="plot-A-44" x="591" y="472">44</text>
+  <text class="plot-label" data-plot="plot-A-47" x="511" y="472">47</text>
+  <text class="plot-label" data-plot="plot-A-48" x="511" y="312">48</text>
+  <text class="plot-label" data-plot="plot-A-51" x="591" y="312">51</text>
+  <text class="plot-label" data-plot="plot-A-54" x="671" y="312">54</text>
+  <text class="plot-label" data-plot="plot-A-55" x="551" y="87">55</text>
+  <text class="plot-label" data-plot="plot-A-56" x="498" y="87">56</text>
+  <text class="feature-label" x="200" y="778">35'0" X 55'0"</text>
+  <text class="feature-label" x="220" y="1137">30'0" X 55'0"</text>
+  <text class="feature-label" x="591" y="392">30'0" X 60'0"</text>
+  <text class="feature-label" x="209" y="186">9.0 M W ROAD</text>
+  <text class="feature-label" x="209" y="598">9.0 M W ROAD</text>
+  <text class="feature-label" x="209" y="957">9.0 M W ROAD</text>
+  <text class="feature-label" x="450" y="1323">9.0 M W ROAD</text>
+  <text class="feature-label" x="591" y="193">9.0 M W ROAD</text>
+  <text class="feature-label" x="579" y="591">9.0 M W ROAD</text>
+  <text class="feature-label" x="445" y="353" transform="rotate(-90 445 353)">6.0 M W PATHWAY</text>
+  <text class="feature-label" x="379" y="758" transform="rotate(-90 379 758)">9.0 M W ROAD</text>
   </g>
 </svg>

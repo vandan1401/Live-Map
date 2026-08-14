@@ -37,7 +37,14 @@ Three checks that have each caught a real defect:
    `.tool_input.command`, `Edit|Write` → `.tool_input.file_path`), so empty is *always* a
    reader failure and should block. Re-check this exact line on any hook diff.
 
+4. **The 250-line cap (invariant 7) is narrower than its prose.** `filesize.sh:25` is
+   `case "$FILE" in *.ts|*.tsx|*.js|*.jsx|*.py) ;; *) exit 0 ;; esac` — `.css`, `.sql`,
+   `.md`, `.json` are all unchecked. 2026-08-14 (M6): `apps/map/src/styles/colony-theme.css`
+   went 179 → 263 lines in one diff and nothing objected. **Run `wc -l` on every non-TS
+   source file a diff touches**; the hook will not do it for you.
+
 **How to apply:** on any review that touches `CLAUDE.md`, `.claude/settings.json`, or a
 skill file, open `.claude/hooks/guard.sh` and `_json.sh` and check the greps in the same
-pass. This has now recurred three times — worth a CLAUDE.md line or a guard.sh self-test.
-Related: [[project-autonomous-loop]], [[review-diff-blind-spots]].
+pass. This has now recurred five times — worth a CLAUDE.md line or a guard.sh self-test.
+Related: [[project-autonomous-loop]], [[review-diff-blind-spots]],
+[[review-fixture-plot-count-drift]].

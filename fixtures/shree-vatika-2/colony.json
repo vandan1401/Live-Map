@@ -6,652 +6,413 @@
       0,
       0,
       1000,
-      720
+      1390
     ],
     "scale": {
       "px_per_ft": 2.6667
     },
     "north_deg": 0,
-    "generated": "2026-08-11",
-    "source": {
-      "file": "hand-authored",
-      "revision": "demo",
-      "plan_date": "2026-08-11",
-      "method": "hand-authored fixture"
-    },
+    "generated": "2026-08-14",
     "verified": true,
-    "note": "Hand-authored demo. Not a real layout."
+    "note": "Traced from the owner's real site-plan photo (2026-08-14). Every plot uses block \"A\" — the source photo has no lettered blocks, just bare numbers; the letter exists only to satisfy the contract's svg_id shape. Dimensions read directly off the plan: 30x60 for 41/44/47/48/51/54, 35x55 for 15/18/21/22/24/26, 30x55 for 01/03/06/07/10/14 (from the plan's own plot-10 label). Estimated from the plan's tick marks, not explicitly labelled: 30x50 for 37/40, 30x65 for 23/32/33/36, 20x50 for 55/56 (all confidence: manual). ~8 interior plots (inside the 33-36 and 32-23 rows, and two cells between 37 and 40) were left out — their circled numbers were not legible at photo resolution. LIG/EWS allocation also left out (not individually-numbered saleable plots on this plan).",
+    "source": {
+      "file": "owner-provided site plan photo",
+      "revision": "1",
+      "plan_date": "2026-08-14",
+      "method": "traced",
+      "note": "Hand-traced from a phone photo, not pipeline-generated (tools/pipeline is pre-M9)."
+    }
   },
   "plots": [
     {
       "svg_id": "plot-A-01",
       "block": "A",
       "number": "01",
-      "area_sqft": 1237,
-      "length_ft": 35,
-      "breadth_ft": 35,
+      "area_sqft": 1650,
+      "length_ft": 30,
+      "breadth_ft": 55,
       "centroid": [
-        100,
-        125
+        140,
+        1210
       ],
       "facing": "south",
-      "is_corner": false
-    },
-    {
-      "svg_id": "plot-A-02",
-      "block": "A",
-      "number": "02",
-      "area_sqft": 1237,
-      "length_ft": 35,
-      "breadth_ft": 35,
-      "centroid": [
-        184,
-        125
-      ],
-      "facing": "south",
-      "is_corner": false
+      "is_corner": false,
+      "confidence": "manual"
     },
     {
       "svg_id": "plot-A-03",
       "block": "A",
       "number": "03",
-      "area_sqft": 1237,
-      "length_ft": 35,
-      "breadth_ft": 35,
+      "area_sqft": 1650,
+      "length_ft": 30,
+      "breadth_ft": 55,
       "centroid": [
-        268,
-        125
+        220,
+        1210
       ],
       "facing": "south",
-      "is_corner": false
-    },
-    {
-      "svg_id": "plot-A-04",
-      "block": "A",
-      "number": "04",
-      "area_sqft": 1237,
-      "length_ft": 35,
-      "breadth_ft": 35,
-      "centroid": [
-        352,
-        125
-      ],
-      "facing": "south",
-      "is_corner": false
-    },
-    {
-      "svg_id": "plot-A-05",
-      "block": "A",
-      "number": "05",
-      "area_sqft": 1237,
-      "length_ft": 35,
-      "breadth_ft": 35,
-      "centroid": [
-        436,
-        125
-      ],
-      "facing": "south",
-      "is_corner": true
+      "is_corner": false,
+      "confidence": "manual"
     },
     {
       "svg_id": "plot-A-06",
       "block": "A",
       "number": "06",
-      "area_sqft": 900,
+      "area_sqft": 1650,
       "length_ft": 30,
-      "breadth_ft": 30,
+      "breadth_ft": 55,
       "centroid": [
-        100,
-        256
+        300,
+        1210
       ],
-      "facing": "north",
-      "is_corner": false
+      "facing": "south",
+      "is_corner": true,
+      "confidence": "manual"
     },
     {
       "svg_id": "plot-A-07",
       "block": "A",
       "number": "07",
-      "area_sqft": 900,
+      "area_sqft": 1650,
       "length_ft": 30,
-      "breadth_ft": 30,
+      "breadth_ft": 55,
       "centroid": [
-        184,
-        256
+        300,
+        1063
       ],
       "facing": "north",
-      "is_corner": false
-    },
-    {
-      "svg_id": "plot-A-08",
-      "block": "A",
-      "number": "08",
-      "area_sqft": 900,
-      "length_ft": 30,
-      "breadth_ft": 30,
-      "centroid": [
-        268,
-        256
-      ],
-      "facing": "north",
-      "is_corner": false
-    },
-    {
-      "svg_id": "plot-A-09",
-      "block": "A",
-      "number": "09",
-      "area_sqft": 900,
-      "length_ft": 30,
-      "breadth_ft": 30,
-      "centroid": [
-        352,
-        256
-      ],
-      "facing": "north",
-      "is_corner": false
+      "is_corner": true,
+      "confidence": "manual"
     },
     {
       "svg_id": "plot-A-10",
       "block": "A",
       "number": "10",
-      "area_sqft": 900,
+      "area_sqft": 1650,
       "length_ft": 30,
-      "breadth_ft": 30,
+      "breadth_ft": 55,
       "centroid": [
-        436,
-        256
+        220,
+        1063
       ],
       "facing": "north",
-      "is_corner": true
-    },
-    {
-      "svg_id": "plot-A-11",
-      "block": "A",
-      "number": "11",
-      "area_sqft": 900,
-      "length_ft": 30,
-      "breadth_ft": 30,
-      "centroid": [
-        100,
-        336
-      ],
-      "facing": "south",
-      "is_corner": false
-    },
-    {
-      "svg_id": "plot-A-12",
-      "block": "A",
-      "number": "12",
-      "area_sqft": 900,
-      "length_ft": 30,
-      "breadth_ft": 30,
-      "centroid": [
-        184,
-        336
-      ],
-      "facing": "south",
-      "is_corner": false
-    },
-    {
-      "svg_id": "plot-A-13",
-      "block": "A",
-      "number": "13",
-      "area_sqft": 900,
-      "length_ft": 30,
-      "breadth_ft": 30,
-      "centroid": [
-        268,
-        336
-      ],
-      "facing": "south",
-      "is_corner": false
+      "is_corner": false,
+      "confidence": "manual"
     },
     {
       "svg_id": "plot-A-14",
       "block": "A",
       "number": "14",
-      "area_sqft": 900,
+      "area_sqft": 1650,
       "length_ft": 30,
-      "breadth_ft": 30,
+      "breadth_ft": 55,
       "centroid": [
-        352,
-        336
+        140,
+        1063
       ],
-      "facing": "south",
-      "is_corner": false
+      "facing": "north",
+      "is_corner": false,
+      "confidence": "manual"
     },
     {
       "svg_id": "plot-A-15",
       "block": "A",
       "number": "15",
-      "area_sqft": 900,
-      "length_ft": 30,
-      "breadth_ft": 30,
+      "area_sqft": 1925,
+      "length_ft": 35,
+      "breadth_ft": 55,
       "centroid": [
-        436,
-        336
+        107,
+        851
       ],
       "facing": "south",
-      "is_corner": true
-    },
-    {
-      "svg_id": "plot-A-16",
-      "block": "A",
-      "number": "16",
-      "area_sqft": 900,
-      "length_ft": 30,
-      "breadth_ft": 30,
-      "centroid": [
-        100,
-        446
-      ],
-      "facing": "north",
-      "is_corner": false
-    },
-    {
-      "svg_id": "plot-A-17",
-      "block": "A",
-      "number": "17",
-      "area_sqft": 900,
-      "length_ft": 30,
-      "breadth_ft": 30,
-      "centroid": [
-        184,
-        446
-      ],
-      "facing": "north",
-      "is_corner": false
+      "is_corner": false,
+      "confidence": "manual"
     },
     {
       "svg_id": "plot-A-18",
       "block": "A",
       "number": "18",
-      "area_sqft": 900,
-      "length_ft": 30,
-      "breadth_ft": 30,
+      "area_sqft": 1925,
+      "length_ft": 35,
+      "breadth_ft": 55,
       "centroid": [
-        268,
-        446
+        200,
+        851
       ],
-      "facing": "north",
-      "is_corner": false
-    },
-    {
-      "svg_id": "plot-A-19",
-      "block": "A",
-      "number": "19",
-      "area_sqft": 900,
-      "length_ft": 30,
-      "breadth_ft": 30,
-      "centroid": [
-        352,
-        446
-      ],
-      "facing": "north",
-      "is_corner": false
-    },
-    {
-      "svg_id": "plot-A-20",
-      "block": "A",
-      "number": "20",
-      "area_sqft": 900,
-      "length_ft": 30,
-      "breadth_ft": 30,
-      "centroid": [
-        436,
-        446
-      ],
-      "facing": "north",
-      "is_corner": true
+      "facing": "south",
+      "is_corner": false,
+      "confidence": "manual"
     },
     {
       "svg_id": "plot-A-21",
       "block": "A",
       "number": "21",
-      "area_sqft": 900,
-      "length_ft": 30,
-      "breadth_ft": 30,
+      "area_sqft": 1925,
+      "length_ft": 35,
+      "breadth_ft": 55,
       "centroid": [
-        100,
-        526
+        293,
+        851
       ],
       "facing": "south",
-      "is_corner": false
+      "is_corner": true,
+      "confidence": "manual"
     },
     {
       "svg_id": "plot-A-22",
       "block": "A",
       "number": "22",
-      "area_sqft": 900,
-      "length_ft": 30,
-      "breadth_ft": 30,
+      "area_sqft": 1925,
+      "length_ft": 35,
+      "breadth_ft": 55,
       "centroid": [
-        184,
-        526
+        293,
+        705
       ],
-      "facing": "south",
-      "is_corner": false
+      "facing": "north",
+      "is_corner": true,
+      "confidence": "manual"
     },
     {
       "svg_id": "plot-A-23",
       "block": "A",
       "number": "23",
-      "area_sqft": 900,
+      "area_sqft": 1950,
       "length_ft": 30,
-      "breadth_ft": 30,
+      "breadth_ft": 65,
       "centroid": [
-        268,
-        526
+        300,
+        479
       ],
       "facing": "south",
-      "is_corner": false
+      "is_corner": true,
+      "confidence": "manual"
     },
     {
       "svg_id": "plot-A-24",
       "block": "A",
       "number": "24",
-      "area_sqft": 900,
-      "length_ft": 30,
-      "breadth_ft": 30,
+      "area_sqft": 1925,
+      "length_ft": 35,
+      "breadth_ft": 55,
       "centroid": [
-        352,
-        526
+        200,
+        705
       ],
-      "facing": "south",
-      "is_corner": false
-    },
-    {
-      "svg_id": "plot-A-25",
-      "block": "A",
-      "number": "25",
-      "area_sqft": 900,
-      "length_ft": 30,
-      "breadth_ft": 30,
-      "centroid": [
-        436,
-        526
-      ],
-      "facing": "south",
-      "is_corner": true
+      "facing": "north",
+      "is_corner": false,
+      "confidence": "manual"
     },
     {
       "svg_id": "plot-A-26",
       "block": "A",
       "number": "26",
-      "area_sqft": 900,
-      "length_ft": 30,
-      "breadth_ft": 30,
+      "area_sqft": 1925,
+      "length_ft": 35,
+      "breadth_ft": 55,
       "centroid": [
-        100,
-        636
+        107,
+        705
       ],
       "facing": "north",
-      "is_corner": false
+      "is_corner": false,
+      "confidence": "manual"
     },
     {
-      "svg_id": "plot-A-27",
+      "svg_id": "plot-A-32",
       "block": "A",
-      "number": "27",
-      "area_sqft": 900,
+      "number": "32",
+      "area_sqft": 1950,
       "length_ft": 30,
-      "breadth_ft": 30,
+      "breadth_ft": 65,
       "centroid": [
-        184,
-        636
+        220,
+        479
       ],
-      "facing": "north",
-      "is_corner": false
+      "facing": "south",
+      "is_corner": false,
+      "confidence": "manual"
     },
     {
-      "svg_id": "plot-A-28",
+      "svg_id": "plot-A-33",
       "block": "A",
-      "number": "28",
-      "area_sqft": 900,
+      "number": "33",
+      "area_sqft": 1950,
       "length_ft": 30,
-      "breadth_ft": 30,
+      "breadth_ft": 65,
       "centroid": [
-        268,
-        636
+        220,
+        306
       ],
       "facing": "north",
-      "is_corner": false
+      "is_corner": false,
+      "confidence": "manual"
     },
     {
-      "svg_id": "plot-A-29",
+      "svg_id": "plot-A-36",
       "block": "A",
-      "number": "29",
-      "area_sqft": 900,
+      "number": "36",
+      "area_sqft": 1950,
       "length_ft": 30,
-      "breadth_ft": 30,
+      "breadth_ft": 65,
       "centroid": [
-        352,
-        636
+        300,
+        306
       ],
       "facing": "north",
-      "is_corner": false
+      "is_corner": true,
+      "confidence": "manual"
     },
     {
-      "svg_id": "plot-A-30",
+      "svg_id": "plot-A-37",
       "block": "A",
-      "number": "30",
-      "area_sqft": 900,
+      "number": "37",
+      "area_sqft": 1500,
       "length_ft": 30,
-      "breadth_ft": 30,
+      "breadth_ft": 50,
       "centroid": [
-        436,
-        636
+        511,
+        698
       ],
       "facing": "north",
-      "is_corner": true
+      "is_corner": false,
+      "confidence": "manual"
     },
     {
-      "svg_id": "plot-B-01",
-      "block": "B",
-      "number": "01",
-      "area_sqft": 1237,
-      "length_ft": 35,
-      "breadth_ft": 35,
-      "centroid": [
-        560,
-        125
-      ],
-      "facing": "south",
-      "is_corner": true
-    },
-    {
-      "svg_id": "plot-B-02",
-      "block": "B",
-      "number": "02",
-      "area_sqft": 1237,
-      "length_ft": 35,
-      "breadth_ft": 35,
-      "centroid": [
-        644,
-        125
-      ],
-      "facing": "south",
-      "is_corner": false
-    },
-    {
-      "svg_id": "plot-B-03",
-      "block": "B",
-      "number": "03",
-      "area_sqft": 1237,
-      "length_ft": 35,
-      "breadth_ft": 35,
-      "centroid": [
-        728,
-        125
-      ],
-      "facing": "south",
-      "is_corner": false
-    },
-    {
-      "svg_id": "plot-B-04",
-      "block": "B",
-      "number": "04",
-      "area_sqft": 1237,
-      "length_ft": 35,
-      "breadth_ft": 35,
-      "centroid": [
-        812,
-        125
-      ],
-      "facing": "south",
-      "is_corner": false
-    },
-    {
-      "svg_id": "plot-B-05",
-      "block": "B",
-      "number": "05",
-      "area_sqft": 1237,
-      "length_ft": 35,
-      "breadth_ft": 35,
-      "centroid": [
-        896,
-        125
-      ],
-      "facing": "south",
-      "is_corner": false
-    },
-    {
-      "svg_id": "plot-B-06",
-      "block": "B",
-      "number": "06",
-      "area_sqft": 900,
+      "svg_id": "plot-A-40",
+      "block": "A",
+      "number": "40",
+      "area_sqft": 1500,
       "length_ft": 30,
-      "breadth_ft": 30,
+      "breadth_ft": 50,
       "centroid": [
-        560,
-        256
+        591,
+        698
       ],
       "facing": "north",
-      "is_corner": true
+      "is_corner": false,
+      "confidence": "manual"
     },
     {
-      "svg_id": "plot-B-07",
-      "block": "B",
-      "number": "07",
-      "area_sqft": 900,
+      "svg_id": "plot-A-41",
+      "block": "A",
+      "number": "41",
+      "area_sqft": 1800,
       "length_ft": 30,
-      "breadth_ft": 30,
+      "breadth_ft": 60,
       "centroid": [
-        644,
-        256
+        671,
+        472
+      ],
+      "facing": "south",
+      "is_corner": false,
+      "confidence": "manual"
+    },
+    {
+      "svg_id": "plot-A-44",
+      "block": "A",
+      "number": "44",
+      "area_sqft": 1800,
+      "length_ft": 30,
+      "breadth_ft": 60,
+      "centroid": [
+        591,
+        472
+      ],
+      "facing": "south",
+      "is_corner": false,
+      "confidence": "manual"
+    },
+    {
+      "svg_id": "plot-A-47",
+      "block": "A",
+      "number": "47",
+      "area_sqft": 1800,
+      "length_ft": 30,
+      "breadth_ft": 60,
+      "centroid": [
+        511,
+        472
+      ],
+      "facing": "south",
+      "is_corner": true,
+      "confidence": "manual"
+    },
+    {
+      "svg_id": "plot-A-48",
+      "block": "A",
+      "number": "48",
+      "area_sqft": 1800,
+      "length_ft": 30,
+      "breadth_ft": 60,
+      "centroid": [
+        511,
+        312
       ],
       "facing": "north",
-      "is_corner": false
+      "is_corner": true,
+      "confidence": "manual"
     },
     {
-      "svg_id": "plot-B-08",
-      "block": "B",
-      "number": "08",
-      "area_sqft": 900,
+      "svg_id": "plot-A-51",
+      "block": "A",
+      "number": "51",
+      "area_sqft": 1800,
       "length_ft": 30,
-      "breadth_ft": 30,
+      "breadth_ft": 60,
       "centroid": [
-        728,
-        256
+        591,
+        312
       ],
       "facing": "north",
-      "is_corner": false
+      "is_corner": false,
+      "confidence": "manual"
     },
     {
-      "svg_id": "plot-B-09",
-      "block": "B",
-      "number": "09",
-      "area_sqft": 900,
+      "svg_id": "plot-A-54",
+      "block": "A",
+      "number": "54",
+      "area_sqft": 1800,
       "length_ft": 30,
-      "breadth_ft": 30,
+      "breadth_ft": 60,
       "centroid": [
-        812,
-        256
+        671,
+        312
       ],
       "facing": "north",
-      "is_corner": false
+      "is_corner": false,
+      "confidence": "manual"
     },
     {
-      "svg_id": "plot-B-10",
-      "block": "B",
-      "number": "10",
-      "area_sqft": 900,
-      "length_ft": 30,
-      "breadth_ft": 30,
+      "svg_id": "plot-A-55",
+      "block": "A",
+      "number": "55",
+      "area_sqft": 1000,
+      "length_ft": 20,
+      "breadth_ft": 50,
       "centroid": [
-        896,
-        256
-      ],
-      "facing": "north",
-      "is_corner": false
-    },
-    {
-      "svg_id": "plot-B-11",
-      "block": "B",
-      "number": "11",
-      "area_sqft": 900,
-      "length_ft": 30,
-      "breadth_ft": 30,
-      "centroid": [
-        560,
-        336
+        551,
+        87
       ],
       "facing": "south",
-      "is_corner": true
+      "is_corner": false,
+      "confidence": "manual"
     },
     {
-      "svg_id": "plot-B-12",
-      "block": "B",
-      "number": "12",
-      "area_sqft": 900,
-      "length_ft": 30,
-      "breadth_ft": 30,
+      "svg_id": "plot-A-56",
+      "block": "A",
+      "number": "56",
+      "area_sqft": 1000,
+      "length_ft": 20,
+      "breadth_ft": 50,
       "centroid": [
-        644,
-        336
+        498,
+        87
       ],
       "facing": "south",
-      "is_corner": false
-    },
-    {
-      "svg_id": "plot-B-13",
-      "block": "B",
-      "number": "13",
-      "area_sqft": 900,
-      "length_ft": 30,
-      "breadth_ft": 30,
-      "centroid": [
-        728,
-        336
-      ],
-      "facing": "south",
-      "is_corner": false
-    },
-    {
-      "svg_id": "plot-B-14",
-      "block": "B",
-      "number": "14",
-      "area_sqft": 900,
-      "length_ft": 30,
-      "breadth_ft": 30,
-      "centroid": [
-        812,
-        336
-      ],
-      "facing": "south",
-      "is_corner": false
-    },
-    {
-      "svg_id": "plot-B-15",
-      "block": "B",
-      "number": "15",
-      "area_sqft": 900,
-      "length_ft": 30,
-      "breadth_ft": 30,
-      "centroid": [
-        896,
-        336
-      ],
-      "facing": "south",
-      "is_corner": false
+      "is_corner": false,
+      "confidence": "manual"
     }
   ],
   "features": [
@@ -659,45 +420,12 @@
       "svg_id": "garden-central",
       "class": "garden",
       "kind": "park",
-      "label": "Central park",
+      "label": "Garden",
       "centroid": [
-        715,
-        485
+        676,
+        698
       ],
       "area_sqft": 0
-    },
-    {
-      "svg_id": "amenity-clubhouse",
-      "class": "amenity",
-      "kind": "clubhouse",
-      "label": "Clubhouse",
-      "centroid": [
-        625,
-        636
-      ],
-      "area_sqft": 2362
-    },
-    {
-      "svg_id": "amenity-temple",
-      "class": "amenity",
-      "kind": "temple",
-      "label": "Temple",
-      "centroid": [
-        810,
-        636
-      ],
-      "area_sqft": 1350
-    },
-    {
-      "svg_id": "amenity-tank",
-      "class": "amenity",
-      "kind": "tank",
-      "label": "Water tank",
-      "centroid": [
-        913,
-        636
-      ],
-      "area_sqft": 518
     }
   ]
 }

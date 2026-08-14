@@ -1,6 +1,6 @@
 ---
 name: review-attribution-fallbacks
-description: Recurring defect — a `?? "some-literal"` fallback for the actor/updated_by value papers over a missing identity and writes a fake name into the evidence trail. Flagged twice.
+description: Recurring defect — a fabricated or synthetic provenance value (actor fallback, a `confidence` claiming a match that never ran, or an `import` history row shown as a real change) writes a fake fact into the evidence trail. Flagged four times.
 metadata:
   type: feedback
 ---
@@ -21,6 +21,22 @@ Occurrences so far:
    `const UNKNOWN_ACTOR = "unknown"; const actor = getStoredActor() ?? UNKNOWN_ACTOR;`
    Same shape, now on the **write** side. `App.tsx` already guarantees a name exists, so the
    fallback is unreachable-by-design yet would silently forge a history row if reached.
+
+3. 2026-08-14 (plan 05, fixture rewrite) — `fixtures/shree-vatika-2/colony.json` gave 18 of
+   26 plots `"confidence": "contained"` while the same file's `source.method` is `traced`
+   and its note says "Hand-traced from a phone photo". No containment match ever ran;
+   `manual` is the only honest value (the other 8 plots already used it). tier-1.md:
+   "A match recorded as `contained` when it was really `nearest` defeats the entire
+   verification step." **Generalise the rule: any provenance/confidence/method field is an
+   assertion about a process — check that process actually ran in this diff.**
+
+4. 2026-08-14 (M6 share summary) — nothing forged the value this time; the *reader* did.
+   `import-seed.ts:172` legitimately writes one `plot_history` row per plot with
+   `changed_by: "import"`, `note: "initial load"`. `lib/colony/shareSummary.ts` then took the
+   5 newest history rows with no filter, so the WhatsApp text the family sends out opened
+   with five "changed by import" entries for changes nobody made. **Whenever a diff reads
+   `plot_history` for display, ask which rows the importer wrote** — the seed rows are the
+   newest rows in a freshly reset DB, so they win every `order by changed_at desc`.
 
 **How to apply:** the fix is always the same — make the guarantee structural (pass the actor
 as a required prop from the component that already enforces it) or refuse the write. Related:

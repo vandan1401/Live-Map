@@ -1,0 +1,99 @@
+/* Selection state, the legend filter, zoom-dependent detail, and the dimension
+ * callout (M6, spec/06) — split out of colony-theme.css to keep that file under the
+ * 250-line cap (CLAUDE.md invariant 7). colony-theme.css stays the one place status/
+ * map *colours* live (D-004); this file is the SVG-internal presentation logic built
+ * on top of them — a separate concern from map-toolbar.css's HTML overlay chrome
+ * (search bar, legend buttons, share panel). */
+
+/* Selected state uses scale, never fill — fill belongs to status. No stroke override
+ * (owner: "remove the black border") — the plot keeps its ordinary thin outline
+ * (`.plot`'s own stroke) even while selected. The "comes above everything" feel is
+ * paint order, not z-index (SVG has none worth relying on) — ColonyMap.tsx's
+ * selectedId effect reparents the node to the end of its <g> so it's drawn last, over
+ * every road/garden/tree/label, then this scales it up on top of that. No drop-shadow
+ * filter (tier-3.md: no SVG filters, they force a repaint on every zoom step) — the
+ * scale plus the dimming below and the dimension callout carry the effect instead. */
+.plot.is-selected {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(1.05);
+}
+
+/* Every other plot dims when one is selected — deliberately opacity only, not
+ * `filter: saturate()`, for the same no-SVG-filters reason as the shadow above; a
+ * washed-out low-opacity plot against the muted road/ground colours already reads as
+ * desaturated. Scoped to :not(.filter-active) (/review finding: an unscoped
+ * !important here beat the legend filter's own opacity outright whenever anything was
+ * selected, making filtered-in and filtered-out plots indistinguishable — spec/06's
+ * "dims everything else to 20%" silently stopped applying). When both a filter and a
+ * selection are active, the filter-active branch below (with its own is-selected
+ * override) governs instead. */
+.colony-svg-root.has-selection:not(.filter-active) .plot:not(.is-selected) {
+  opacity: 0.35 !important;
+  transition: opacity 200ms ease-out;
+}
+
+/* Legend filter (M6, spec/06) — classes toggled on .colony-svg-root by ColonyMap.tsx,
+ * not per-plot writes, so a realtime status change (M5) after the filter is set still
+ * dims/highlights correctly since these are plain attribute selectors, re-evaluated by
+ * the browser whenever data-status changes. 20% opacity per spec; only one status
+ * filter class need match for a plot to stay at full opacity (multi-select). */
+.colony-svg-root.filter-active .plot {
+  opacity: 0.2;
+  transition: opacity 200ms ease-out, fill 400ms ease-out;
+}
+.colony-svg-root.filter-active.filter-available .plot[data-status="available"],
+.colony-svg-root.filter-active.filter-booked .plot[data-status="booked"],
+.colony-svg-root.filter-active.filter-registered .plot[data-status="registered"] {
+  opacity: 1;
+}
+/* The is-selected dimming rule above only ever targeted OTHER plots
+ * (`:not(.is-selected)`) — nothing lifted the selected plot itself back out of the
+ * filter's base 0.2 opacity, so selecting a filtered-out plot (via search, or a tap —
+ * dimmed plots keep pointer-events: auto) made it the faintest shape on screen, the
+ * opposite of "in focus" (/review finding). Four classes beats filter-active's three,
+ * no !important needed here either. */
+.colony-svg-root.filter-active .plot.is-selected {
+  opacity: 1;
+}
+
+/* Zoom-dependent detail (spec/06) — see ColonyMap.tsx's ZOOM_DETAIL_MARGIN. */
+.colony-svg-root.is-zoomed-out .tree,
+.colony-svg-root.is-zoomed-out .plot-label {
+  display: none;
+}
+
+/* Selecting a plot focuses labels too (owner ask): every other plot's label hides,
+ * only the selected plot's stays — and stays even while zoomed out, since a label the
+ * user deliberately selected shouldn't disappear (see useSelectedPlotOverlay.ts for
+ * how the matching label is found and reparented above the raised plot). Four class
+ * selectors beats the zoomed-out rule's three on specificity alone, no !important
+ * needed. */
+.colony-svg-root.has-selection .plot-label {
+  display: none;
+}
+.colony-svg-root.has-selection .plot-label.is-focused-label {
+  display: inline;
+}
+
+/* Length/breadth dimension callout for the selected plot (ColonyMap.tsx +
+ * plotDimensionOverlay.ts) — architectural-style arrows and text, static decoration
+ * so it's never hit-tested, same rule as every other non-.plot element. Reuses
+ * --colony-plot-selected-stroke as its "ink" colour now that .plot.is-selected no
+ * longer draws a border with it. */
+.plot-dimensions {
+  pointer-events: none;
+}
+.plot-dim-line {
+  stroke: var(--colony-plot-selected-stroke);
+  stroke-width: 1.5;
+  fill: none;
+}
+.plot-dim-arrowhead {
+  fill: var(--colony-plot-selected-stroke);
+}
+.plot-dim-label {
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--colony-plot-selected-stroke);
+}

@@ -55,6 +55,8 @@ what makes it cheap to test, and every other module depends on it.
 | Cache expiry, the freshness indicator | `apps/map/src/lib/sync/` | 1 |
 | Database schema, RLS policies | `apps/map/supabase/migrations/` | 1 |
 | Status colours, map theme | `apps/map/src/styles/colony-theme.css` | 3 |
+| Selection/filter/dimension-callout styling on the SVG | `apps/map/src/styles/plot-selection.css` | 3 |
+| Search/legend/share toolbar chrome (HTML overlay, not SVG) | `apps/map/src/styles/map-toolbar.css` | 3 |
 | Plot detail sheet fields | `apps/map/src/features/plot-detail/` | 2 |
 | How a plot number is matched to a polygon | `tools/pipeline/pipeline/matching/assign.py` | 1 |
 | Plot vs garden vs amenity classification | `tools/pipeline/pipeline/matching/classify.py` | 1 |
@@ -82,6 +84,8 @@ what makes it cheap to test, and every other module depends on it.
 | Plot detail sheet (M3) | `apps/map/src/lib/colony/plotDetail.ts` | `apps/map/src/lib/db/` | `apps/map/src/features/plot-detail/{PlotDetailSheet,PlotDetailContent}.tsx`, opened from `ColonyMap.tsx`'s `selectedId` | `plots`, `plot_history` (read-only) |
 | Status writes/transitions (M4) | `apps/map/src/lib/plot-status/{transitions,recentEdit,applyPlotTransition}.ts` | `apps/map/src/lib/db/plotTransitions.ts` → `apply_plot_transition()` (Postgres function, one transaction, row-locked) | `features/plot-detail/PlotStatusActions.tsx` (Save/Undo buttons, called from `PlotDetailSheet.tsx`); `features/identity/NamePrompt.tsx` (one-time actor prompt, gates `App.tsx`) | `plots`, `plot_history` (write) |
 | Realtime sync + freshness indicator (M5) | `apps/map/src/lib/sync/{attachSync,subscribePlots,freshness}.ts` | `attachSync` reuses `loadPlotStatuses` (`lib/colony/plotStatus.ts`) for the initial load and reconnect refetch — `plots` added to the `supabase_realtime` publication in `20260815000000_m5_realtime_publication.sql` | `ColonyMap.tsx` calls `attachSync` once per mount, supplying DOM-write callbacks and React state setters; `components/FreshnessIndicator.tsx` is presentational only | `plots` (read via subscription, no new writes) |
+| Legend filter, search, share summary (M6) | `apps/map/src/lib/colony/{searchPlots,shareSummary}.ts` | `searchPlots.ts`/`shareSummary.ts` reuse `fetchPlotsByColony`/`fetchColonyById`/`fetchRecentHistoryForPlots` (`lib/db/{plots,colonies,plotHistory}.ts`) | `components/StatusLegend.tsx` (filter buttons, `ColonyMap.tsx` owns `activeStatuses` state and applies `filter-*` classes to the SVG root); `features/search/PlotSearch.tsx` (loads its own index, calls back into `ColonyMap.tsx` to select+pan); `features/share-summary/ShareSummary.tsx` (loads on demand, copy-to-clipboard) | `plots`, `plot_history` (read-only; `fetchRecentHistoryForPlots` excludes `changed_by: "import"` rows) |
+| Selected-plot overlay: raise, dimension arrows, auto pan/zoom (M6, owner-requested) | none — DOM-only presentation | none | `components/useSelectedPlotOverlay.ts` (hook, called once from `ColonyMap.tsx`), `components/plotDimensionOverlay.ts` (SVG-building helpers for the length/breadth arrows) | none |
 
 ## Reusable functions
 
@@ -89,8 +93,8 @@ what makes it cheap to test, and every other module depends on it.
 |---|---|---|
 | `createDbClient(url, anonKey)` | `apps/map/src/lib/db/client.ts` | Pure Supabase client factory — no `import.meta`/`process.env` reads. Safe from both Vite and tsx contexts. |
 | `getBrowserDbClient()` | `apps/map/src/lib/db/browserClient.ts` | Reads `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` and calls `createDbClient`. Vite-only — never import this from `scripts/`. |
-| `insertColony`, `insertPlots`, `fetchPlotStatuses`, `fetchPlotBySvgId` | `apps/map/src/lib/db/{colonies,plots}.ts` | The only place `supabase.from()` appears. |
-| `insertPlotHistory`, `fetchPlotHistory` | `apps/map/src/lib/db/plotHistory.ts` | Appends/reads history rows; the table itself rejects UPDATE/DELETE via a DB trigger, and the migration grants it no update/delete privilege either. |
+| `insertColony`, `fetchColonyById`, `insertPlots`, `fetchPlotStatuses`, `fetchPlotBySvgId`, `fetchPlotsByColony` | `apps/map/src/lib/db/{colonies,plots}.ts` | The only place `supabase.from()` appears. `fetchPlotsByColony` (M6) fetches every field for a colony in one call — search and the share summary both need more than status. |
+| `insertPlotHistory`, `fetchPlotHistory`, `fetchRecentHistoryForPlots` | `apps/map/src/lib/db/plotHistory.ts` | Appends/reads history rows; the table itself rejects UPDATE/DELETE via a DB trigger, and the migration grants it no update/delete privilege either. `fetchRecentHistoryForPlots` (M6) excludes `changed_by: "import"` rows — those are `scripts/import-seed.ts`'s own bookkeeping, not a real change; the share summary must never present them as one (invariant 5). |
 | `loadPlotStatuses(client, colonyId)` | `apps/map/src/lib/colony/plotStatus.ts` | Domain-shaped `{ svg_id: status }`. DOM-free by design — callers apply `data-status` themselves. |
 | `loadPlotDetail(client, colonyId, svgId)` | `apps/map/src/lib/colony/plotDetail.ts` | Full plot row + its history, DOM-free — `PlotDetailSheet.tsx` owns rendering. |
 | `formatRupees`, `formatDate`, `formatRelativeTime`, `formatStatusLabel` | `apps/map/src/shared/format.ts` | The "Pure" layer (imports nothing). Rupees exist only here (D-010); `formatRelativeTime` is pinned to `Asia/Kolkata` regardless of viewer's device timezone. Unit-tested in `format.test.ts`. |
@@ -102,6 +106,8 @@ what makes it cheap to test, and every other module depends on it.
 | `isRecentlyEdited(updatedAt, now)`, `RECENT_EDIT_WARNING_MINUTES` | `apps/map/src/lib/plot-status/recentEdit.ts` | Pinned at 5 minutes (spec/04) — not yet wired into any UI warning banner. |
 | `callApplyPlotTransition(client, args)` | `apps/map/src/lib/db/plotTransitions.ts` | The only place `apply_plot_transition` is called via `.rpc()`. |
 | `getStoredActor()`, `setStoredActor(name)` | `apps/map/src/lib/identity/actor.ts` | `localStorage`-backed actor identity (D-016). One name per device, collected once by `NamePrompt.tsx`. |
+| `buildSearchIndex(plots)`, `searchPlots(index, query)`, `loadSearchIndex(client, colonyId)` | `apps/map/src/lib/colony/searchPlots.ts` | `buildSearchIndex`/`searchPlots` are pure and unit-tested (`searchPlots.test.ts`); the whole colony is loaded into memory once, every keystroke after that is a pure filter, no server round trip. |
+| `loadShareSummaryData(client, colonyId)`, `formatShareSummary(data, now?)` | `apps/map/src/lib/colony/shareSummary.ts` | `formatShareSummary` is pure and unit-tested (`shareSummary.test.ts`) — the literal WhatsApp text block, sentence case, no product-marketing tone. |
 
 ## Scripts
 

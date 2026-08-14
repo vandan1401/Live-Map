@@ -7,9 +7,9 @@ afterEach(() => {
 });
 
 describe("ColonyMap", () => {
-  it("renders all 45 plots from the shared fixture", () => {
+  it("renders all 26 plots from the shared fixture", () => {
     const { container } = render(<ColonyMap actor="test-actor" />);
-    expect(container.querySelectorAll(".plot")).toHaveLength(45);
+    expect(container.querySelectorAll(".plot")).toHaveLength(26);
   });
 
   it("logs a plot's id when clicked", () => {

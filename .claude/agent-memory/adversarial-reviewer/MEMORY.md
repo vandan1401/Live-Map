@@ -2,5 +2,8 @@
 - [Review diff blind spots](review-diff-blind-spots.md) — `diff-head` hides untracked files; run `git status --short` first, every review.
 - [Docs vs enforcement drift](review-docs-vs-enforcement-drift.md) — 4x recurrence: prose relaxed, `guard.sh`/`_json.sh` too broad or failing open. Check both, every pass.
 - [Vacuous acceptance tests](review-vacuous-acceptance-tests.md) — negative/forced-failure tests that pass for the wrong reason; `db reset` never proves migration-vs-existing-data.
-- [Attribution fallbacks](review-attribution-fallbacks.md) — 2x: `?? "unknown"` / `?? "import"` on actor fields forges evidence in `plot_history`. Grep every diff.
+- [Attribution fallbacks](review-attribution-fallbacks.md) — 4x: actor `??` fallbacks, a `confidence` for a match that never ran, and `import` seed rows shown as real changes. Grep every diff.
+- [Fixture geometry unchecked](review-fixture-geometry-unchecked.md) — 3x: nothing checks overlap, viewBox drift, or derived `facing`/`is_corner`; recompute them from `colony.svg` yourself.
+- [Fixture plot-count drift](review-fixture-plot-count-drift.md) — the fixture's plot count is a literal in ~8 spec/README files; grep the old count on any fixture change.
+- [Comments assert what code doesn't do](review-comment-asserts-unimplemented.md) — 2x: long intent comments (esp. CSS cascade claims) that the adjacent lines don't deliver.
 - [Optimistic defaults](review-optimistic-defaults.md) — initial state that claims "synced"/"connected"/an actor it never verified. Ask what the screen says if the first fetch fails.

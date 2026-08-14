@@ -1,0 +1,186 @@
+/* M6 (spec/06) chrome — legend filter, search, share summary. Split out of
+ * colony-theme.css to keep that file the one place status/map colours live (D-004);
+ * this file is feature chrome, same split as plot-detail-sheet.css. */
+
+.colony-search {
+  position: absolute;
+  top: 0.75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1100;
+  width: min(20rem, 85vw);
+}
+
+.colony-search-input {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 0.9rem;
+  border: 1px solid var(--colony-plot-stroke);
+  border-radius: 999px;
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.colony-search-results {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0.25rem;
+  background: #ffffff;
+  border-radius: 0.75rem;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.colony-search-results button {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  width: 100%;
+  border: none;
+  background: none;
+  font: inherit;
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.5rem;
+}
+
+.colony-search-result-label {
+  font-weight: 600;
+}
+
+.colony-search-result-detail {
+  font-size: 0.8rem;
+  color: var(--colony-site-boundary);
+}
+
+.colony-search-empty {
+  font-size: 0.85rem;
+  color: var(--colony-site-boundary);
+  padding: 0.5rem 0.6rem;
+}
+
+.colony-bottom-toolbar {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.colony-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.4rem;
+}
+
+.colony-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  border: 1px solid var(--colony-plot-stroke);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0.3rem 0.6rem;
+}
+
+.colony-legend-item.is-active {
+  border-color: var(--colony-plot-selected-stroke);
+  font-weight: 600;
+}
+
+.colony-legend-swatch {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+}
+
+.colony-legend-available .colony-legend-swatch {
+  background: var(--colony-status-available);
+}
+.colony-legend-booked .colony-legend-swatch {
+  background: var(--colony-status-booked);
+}
+.colony-legend-registered .colony-legend-swatch {
+  background: var(--colony-status-registered);
+}
+
+.colony-legend-clear {
+  font-size: 0.75rem;
+  border: none;
+  background: none;
+  color: var(--colony-site-boundary);
+  text-decoration: underline;
+  padding: 0.3rem 0.2rem;
+}
+
+.colony-share-trigger {
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid var(--colony-plot-stroke);
+  border-radius: 999px;
+  background: #ffffff;
+  padding: 0.4rem 0.9rem;
+}
+
+.colony-share-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  background: rgba(8, 6, 13, 0.4);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.colony-share-panel {
+  position: relative;
+  width: min(28rem, 100%);
+  max-height: 70vh;
+  overflow-y: auto;
+  background: #ffffff;
+  border-radius: 1rem 1rem 0 0;
+  padding: 1.5rem 1.25rem 1.25rem;
+}
+
+.colony-share-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.75rem;
+  border: none;
+  background: none;
+  font-size: 1.4rem;
+  line-height: 1;
+  padding: 0.25rem;
+}
+
+.colony-share-text {
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 0.9rem;
+  background: var(--colony-ground);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  margin: 0 0 0.75rem;
+}
+
+.colony-share-copy {
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid var(--colony-plot-stroke);
+  border-radius: 999px;
+  background: #ffffff;
+  padding: 0.4rem 0.9rem;
+}
+
+.colony-share-error,
+.colony-share-loading {
+  font-size: 0.9rem;
+  color: var(--colony-site-boundary);
+}

@@ -23,9 +23,12 @@
   --colony-plot-stroke-width: 1.5;
   --colony-plot-selected-stroke: #08060d;
 
-  /* Legend: available=green, booked=blue, registered=orange — a saturated palette
-   * chosen to read clearly against the darker road/garden colours above. */
-  --colony-status-available: #4caf50;
+  /* Legend: available=wheat, booked=blue, registered=orange — a saturated palette
+   * chosen to read clearly against the darker road/garden colours above. Available is
+   * deliberately NOT green (owner feedback, 2026-08-14): --colony-garden is also green,
+   * and an available plot sitting next to a garden feature visually merged into one
+   * blob at a glance — exactly the failure this map exists to prevent. */
+  --colony-status-available: #e8b84b;
   --colony-status-booked: #3b82f6;
   --colony-status-registered: #e67e22;
   --colony-status-hold: #c0392b;
@@ -107,15 +110,6 @@
   pointer-events: auto;
 }
 
-/* Selected state uses stroke and scale, never fill — fill belongs to status. */
-.plot.is-selected {
-  stroke: var(--colony-plot-selected-stroke);
-  stroke-width: 3;
-  transform-box: fill-box;
-  transform-origin: center;
-  transform: scale(1.03);
-}
-
 .plot[data-status="available"] {
   fill: var(--colony-status-available);
 }
@@ -125,6 +119,12 @@
 .plot[data-status="registered"] {
   fill: var(--colony-status-registered);
 }
+
+/* Selection state (scale, dimming, label focus), the legend filter, zoom-dependent
+ * detail, and the dimension callout all live in map-toolbar.css (M6, spec/06) — moved
+ * out of this file to stay under the 250-line cap (CLAUDE.md invariant 7). This file
+ * stays the one place status/map *colours* live (D-004); map-toolbar.css is the M6
+ * interaction chrome built on top of them. */
 
 .colony-scale-note {
   position: absolute;
