@@ -99,7 +99,7 @@ export function PlotDetailSheet({
     setExpanded((value) => !value);
   };
 
-  const handleChangeStatus = async (toStatus: PlotStatus) => {
+  const handleChangeStatus = async (toStatus: PlotStatus, ownerName?: string) => {
     if (!client || !detail) return;
     setSaving(true);
     setConflictMessage(null);
@@ -110,6 +110,7 @@ export function PlotDetailSheet({
         toStatus,
         expectedVersion: detail.plot.version,
         actor,
+        ownerName,
       });
       if (result.ok) {
         const history = await fetchPlotHistory(client, detail.plot.id);
@@ -185,7 +186,7 @@ export function PlotDetailSheet({
             history={detail.history}
             actor={actor}
             saving={saving}
-            onChangeStatus={(status) => void handleChangeStatus(status)}
+            onChangeStatus={(status, ownerName) => void handleChangeStatus(status, ownerName)}
             onUndo={handleUndo}
           />
         </>

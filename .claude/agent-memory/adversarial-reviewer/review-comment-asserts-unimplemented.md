@@ -1,6 +1,6 @@
 ---
 name: review-comment-asserts-unimplemented
-description: This repo's code carries unusually long intent-stating comments; treat each one as a testable claim about the adjacent code, because twice the comment was right and the code did not deliver it.
+description: This repo's code carries unusually long intent-stating comments; treat each one as a testable claim about the adjacent code — four times the comment was right about intent and wrong about effect, including a CSS comment a later diff falsified.
 metadata:
   type: feedback
 ---
@@ -30,6 +30,16 @@ Occurrences:
    `/assets/<hash>` entries. Two comments in one file contradicting each other is the
    cheapest possible tell — **when a file's header claims a mechanism, grep the same file
    for a later comment admitting it doesn't fire.**
+
+4. 2026-08-15 (plan 08 diff) — `colony-theme.css:142-145`: "Top-left is the one corner not
+   already used by `.colony-scale-note` (bottom-left) or `.colony-dev-click-badge`
+   (top-right)" guarding `.colony-freshness-indicator` (`top/left: 0.75rem; z-index: 1000`).
+   The same diff added `.colony-back-button` at `top/left: 0.75rem; z-index: 1100` with an
+   opaque background in `map-toolbar.css`, burying the always-visible age label, and left the
+   comment claiming the corner is free. **The map container's absolutely-positioned chrome is
+   spread across three stylesheets — before accepting any new `position: absolute` overlay,
+   grep `src/styles/*.css` for `position: absolute` and compare top/left/right/bottom +
+   z-index yourself.**
 
 **How to apply:** for CSS especially, do the specificity/cascade arithmetic yourself rather
 than accepting a comment's claim about which rule wins — `!important` scoped to one selector

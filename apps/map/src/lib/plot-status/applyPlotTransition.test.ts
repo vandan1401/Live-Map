@@ -147,6 +147,68 @@ describe("applyPlotTransition — live integration", () => {
     expect(history).toHaveLength(1);
   });
 
+  it("a fresh booking writes owner_name; later transitions that omit it leave it untouched (docs/plans/08.md)", async () => {
+    const client = getBrowserDbClient();
+    const { plotId } = await createScratchPlot(client);
+
+    const booked = await applyPlotTransition(client, {
+      plotId,
+      fromStatus: "available",
+      toStatus: "booked",
+      expectedVersion: 1,
+      actor: "test-actor-a",
+      ownerName: "Rajesh Shah",
+    });
+    expect(booked.ok).toBe(true);
+    expect((booked as { ok: true; plot: PlotRow }).plot.owner_name).toBe("Rajesh Shah");
+
+    const registered = await applyPlotTransition(client, {
+      plotId,
+      fromStatus: "booked",
+      toStatus: "registered",
+      expectedVersion: 2,
+      actor: "test-actor-a",
+    });
+    expect(registered.ok).toBe(true);
+    expect((registered as { ok: true; plot: PlotRow }).plot.owner_name).toBe("Rajesh Shah");
+  });
+
+  it("undo-into-booked restores the correct prior buyer with no owner name supplied", async () => {
+    const client = getBrowserDbClient();
+    const { plotId } = await createScratchPlot(client);
+
+    await applyPlotTransition(client, {
+      plotId,
+      fromStatus: "available",
+      toStatus: "booked",
+      expectedVersion: 1,
+      actor: "test-actor-a",
+      ownerName: "Rajesh Shah",
+    });
+    // Accidental un-book — same as PlotStatusActions.tsx's "Mark Available" button,
+    // which never supplies an owner name.
+    await applyPlotTransition(client, {
+      plotId,
+      fromStatus: "booked",
+      toStatus: "available",
+      expectedVersion: 2,
+      actor: "test-actor-a",
+    });
+
+    // Undo (PlotStatusActions.tsx's onUndo call site): back into booked, no owner name
+    // supplied. owner_name was never cleared by the un-book step above, so the coalesce
+    // must land back on "Rajesh Shah" with no name prompt (docs/plans/08.md §3, criterion 4).
+    const undone = await applyPlotTransition(client, {
+      plotId,
+      fromStatus: "available",
+      toStatus: "booked",
+      expectedVersion: 3,
+      actor: "test-actor-a",
+    });
+    expect(undone.ok).toBe(true);
+    expect((undone as { ok: true; plot: PlotRow }).plot.owner_name).toBe("Rajesh Shah");
+  });
+
   it("forced mid-transaction failure: the plot update rolls back with the failed history insert", async () => {
     const client = getBrowserDbClient();
     const { plotId, colonyId, svgId } = await createScratchPlot(client);

@@ -28,6 +28,7 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-015 | No photos or documents per plot in v1 | provisional |
 | D-016 | Actor identity is a client-supplied free-text string until M8 | provisional |
 | D-017 | Shared fixture is a real, hand-traced colony — not pipeline-generated | provisional |
+| D-018 | `owner_name` is sticky — never cleared by a status transition, only overwritten by a fresh booking | provisional |
 
 ## tools/pipeline
 

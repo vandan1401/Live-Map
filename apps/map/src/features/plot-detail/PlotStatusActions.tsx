@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { isLegalTransition } from "../../lib/plot-status/transitions.ts";
 import { isRecentlyEdited } from "../../lib/plot-status/recentEdit.ts";
 import { formatStatusLabel } from "../../shared/format.ts";
@@ -10,7 +11,9 @@ interface Props {
   history: PlotHistoryRow[];
   actor: string;
   saving: boolean;
-  onChangeStatus: (toStatus: PlotStatus) => void;
+  // ownerName is set only for a fresh available -> booked transition (docs/plans/08.md)
+  // — every other status button omits it.
+  onChangeStatus: (toStatus: PlotStatus, ownerName?: string) => void;
   onUndo: () => void;
 }
 
@@ -28,9 +31,15 @@ function canUndo(plot: PlotRow, history: PlotHistoryRow[], actor: string): boole
 }
 
 export function PlotStatusActions({ plot, history, actor, saving, onChangeStatus, onUndo }: Props) {
+  const [ownerNameDraft, setOwnerNameDraft] = useState("");
   const nextStatuses = ALL_STATUSES.filter((status) => isLegalTransition(plot.status, status));
   const showRecentEditWarning =
     plot.updated_by !== actor && isRecentlyEdited(plot.updated_at, new Date());
+  // available is the only predecessor of booked (transitions.ts) — this is the one and
+  // only place a fresh booking is created, so it's the one place that needs a buyer name
+  // (docs/plans/08.md).
+  const canBook = nextStatuses.includes("booked");
+  const otherStatuses = nextStatuses.filter((status) => status !== "booked");
 
   return (
     <div className="plot-status-actions">
@@ -39,8 +48,28 @@ export function PlotStatusActions({ plot, history, actor, saving, onChangeStatus
           {plot.updated_by} edited this a few minutes ago — check before you save.
         </p>
       )}
+      {canBook && (
+        <div className="plot-status-owner-row">
+          <input
+            type="text"
+            className="plot-status-owner-input"
+            placeholder="Buyer name"
+            value={ownerNameDraft}
+            onChange={(event) => setOwnerNameDraft(event.target.value)}
+            disabled={saving}
+          />
+          <button
+            type="button"
+            className="plot-status-button"
+            disabled={saving || ownerNameDraft.trim() === ""}
+            onClick={() => onChangeStatus("booked", ownerNameDraft.trim())}
+          >
+            Mark Booked
+          </button>
+        </div>
+      )}
       <div className="plot-status-buttons">
-        {nextStatuses.map((status) => (
+        {otherStatuses.map((status) => (
           <button
             key={status}
             type="button"

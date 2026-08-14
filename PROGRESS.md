@@ -2,36 +2,38 @@
 
 ## Current
 
-- **`docs/plans/07.md` (M7: PWA install + offline reads) is closed — `**Status:**
-  complete` appended (2026-08-15).** Built and `/review`-fixed in a prior session (new
-  `public/manifest.webmanifest`, hand-written `public/sw.js` — versioned `colony-map-v1`
-  app-shell cache plus a `refreshShellCache` helper that keeps `/assets/*` in sync with
-  whatever `index.html` currently references, so a normal app-code deploy is picked up on
-  the next navigation without needing a `sw.js` byte change; never caches Supabase
-  responses per D-008 — `src/pwa/{offlineCache,registerServiceWorker,
-  installInstructionsSeen}.ts`, `features/pwa-install/InstallInstructions.tsx`, and
-  offline-fallback branches in `lib/sync/attachSync.ts`/`App.tsx`). This session: brought
-  the local Supabase stack back up (`make db-up`), ran the full gate for real
-  (`pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` — 69/69 tests, up
-  from the 59/59 baseline plan 07 cites; the exit code is still non-zero from the
-  pre-existing undici/`ColonyMap.test.tsx` flake in `## Deferred`, not a regression),
-  confirmed the `dist/` PWA artifacts, committed, then live-verified all four remaining
-  manual criteria: criteria 6–7 on the owner's own iPhone over the LAN (`pnpm build &&
-  pnpm preview --host`, `.env` temporarily repointed at the laptop's LAN IP
-  `192.168.0.177`, reverted after — same pattern as the M6 session) — installed to the
-  home screen, opened with no Safari chrome, rendered the cached colony with a visible
-  "Offline" age label under Airplane Mode; criteria 8–9 via a Claude-driven Chrome session
-  inspecting Cache Storage/IndexedDB/SW state directly (not eyeballing DevTools) — a real
-  app-code deploy's new asset hash was picked up on next navigation with the stale one
-  pruned, and a full clear of caches/IndexedDB/SW-registration/`localStorage` recovered
-  cleanly to the first-run name-prompt screen. All nine acceptance criteria now verified;
-  see `docs/plans/07.md`'s closing note for the exact method per criterion.
-- **Next action:** pick the next milestone. Three pieces of owner feedback surfaced during
-  this session's live iPhone testing are logged in `## Deferred` below, not yet
-  acted on: no way back from a colony's map to the picker home screen, the picker
-  screen's visual design (a branded list, e.g. "Nimantran Group Colonies"), and no input
-  for *who* booked a plot when marking it `booked` (currently display-only). Also open:
-  the `pnpm test` exit-code flake (Deferred) is worth a real fix at some point — it
+- **All three pieces of owner feedback from the 2026-08-15 iPhone session are now
+  resolved (this session), ahead of M8 per the user's explicit "deferred items first"
+  sequencing.** Two Tier 3 (no plan): a back-navigation button
+  (`ColonyMap.tsx`/`App.tsx`/`map-toolbar.css` — "← Colonies", returns to the picker) and
+  a branded picker heading (`ColonyPicker.tsx`/`colony-picker.css` — "Nimantran Group
+  Colonies", colour matches the PWA manifest's `theme_color` `#863bff`). One Tier 1,
+  `docs/plans/08.md` (booked-by name input, **Status: complete**, `/plan → /build →
+  /review` in full): `PlotStatusActions.tsx` now shows a required buyer-name field on the
+  only transition that creates a booking (`available → booked`); `apply_plot_transition()`
+  gained a `p_owner_name text default null` parameter, set via `coalesce(p_owner_name,
+  owner_name)` — the sole write path (D-006/D-013/invariant 4) writes it, no new write
+  path was added. `/review` found and fixed two real bugs: (1) the new back button was
+  drawn opaque on top of the always-visible freshness indicator (spec/05), same top-left
+  corner — moved the indicator to `top: 3rem`. (2) `owner_name` is deliberately sticky at
+  the DB layer (never cleared, so Undo restores it with no re-prompt) — but that made an
+  un-booked plot stay findable by, and display, its former buyer's name in
+  `PlotSearch.tsx`; `buildSearchIndex` now only surfaces `ownerName` while `status ===
+  "booked"`. `docs/plans/08.md`'s own acceptance criterion 4 was also reworded — as
+  originally written it asked for an unrecoverable guarantee (`plot_history` has no
+  `owner_name` column, so only the *last-written* name survives an un-book, not an
+  arbitrary "original" one). Plan numbering is sequential on disk, not milestone-aligned
+  from here: `docs/plans/08.md` is not `spec/08-map-auth.md`'s M8 — noted in the plan file
+  itself so a future session doesn't assume plan N = spec N.
+- **Next action: M8 — auth + RLS lockdown (`spec/08-map-auth.md`), Tier 1.** Deferred
+  earlier this session at the user's request until the three items above landed; now
+  queued. Needs `/plan` before `/build` — magic-link allowlist (likely a trigger on
+  `auth.users` plus a `family_members`-shaped table, since `plots.updated_by`/
+  `plot_history.changed_by` are plain `text`, not a foreign key, per D-016's blast-radius
+  note), replacing the permissive M2 RLS policies, and deciding the pinned cache-TTL
+  number for spec/08 criterion 5. Also open: the `pnpm test` exit-code flake (Deferred)
+  is worth a real fix at some point — a realtime-subscription test that times out on the
+  first run right after a fresh `supabase db reset` but passes clean on retry; it
   currently means a CI-style "did the suite pass" check can't trust the exit code alone,
   only the printed count.
 - **Task:** `docs/plans/05.md` is closed — `**Status:** complete` appended this session
@@ -150,19 +152,20 @@
 
 ## Deferred
 
-- **Owner feedback from live iPhone PWA testing (2026-08-15, not yet acted on):** (1) no
-  back button/way to return to the colony picker home screen once inside a colony's map —
-  currently one-way navigation once `App.tsx` sets `selectedColonyId`. (2) the colony
-  picker home screen should look more like a branded list, not a bare list of names — the
-  owner suggested a heading such as "Nimantran Group Colonies". (3) when a plot is marked
-  `booked`, there's no way to enter *who* booked it — `PlotStatusActions.tsx`'s Save flow
-  has no input field for the buyer's name; `PlotDetailContent.tsx` only ever *displays* an
-  existing `owner_name` while `status === "booked"` (D-012/D-013), it was never wired to a
-  write path. Worth checking `plots`' schema/`applyPlotTransition()`'s signature — it's
-  possible `owner_name` was designed to be set at import/seed time only, not by an app
-  user marking a plot booked, which would make this a real, not-yet-scoped feature gap.
-  All three are unrelated to M7's PWA scope — noted, not fixed, during the plan 07
-  criteria 6-9 device test session.
+- **Owner feedback from live iPhone PWA testing (2026-08-15) — all three resolved this
+  session, see `## Current`.** Kept here for the history: (1) no back button/way to return
+  to the colony picker home screen once inside a colony's map. (2) the colony picker home
+  screen should look more like a branded list. (3) no way to enter *who* booked a plot.
+  All three were unrelated to M7's PWA scope — originally noted, not fixed, during the
+  plan 07 criteria 6-9 device test session; built as `docs/plans/08.md` plus two
+  unplanned Tier 3 changes this session.
+- **`owner_name`/`owner_phone`/`broker_name`/`rate_paise`/`booking_amount_paise`/
+  `booking_date` still have no write path beyond `owner_name` on a fresh booking**
+  (`docs/plans/08.md` §4 non-goals). A fuller "booking details" form is a real,
+  not-yet-scoped feature gap if the family wants to record price/broker/phone from the
+  app rather than only at CSV import time — probably its own spec entry, not a quick
+  follow-up, since it touches money fields (D-010) and would need its own write-path
+  decision the way `owner_name` just got one.
 - **From M7 PWA (2026-08-14):** manual acceptance criteria 6–9 in `docs/plans/07.md` §5
   (install to home screen, airplane-mode render, upgrade-replaces-old-worker, clear-site-
   data) must be exercised against `pnpm build && pnpm preview --host` from `apps/map`, not
@@ -292,6 +295,30 @@
 ## Log
 
 <!-- Append-only. Four lines per entry: Done / Next / Surprises / Verified. -->
+
+### 2026-08-15 — Three deferred owner-feedback items closed: back nav, branded picker, booked-by name (docs/plans/08.md)
+- Done: asked the user to sequence three items flagged last session against the queued
+  M8 milestone; user chose "deferred items first." Built the two Tier 3 UI items directly
+  (back-navigation button, branded "Nimantran Group Colonies" picker heading), then wrote
+  and built `docs/plans/08.md` (Tier 1 — extends `apply_plot_transition()`, the sole
+  plot-status write path, with a coalesced `owner_name` param), ran `/review`, fixed both
+  real findings, closed the plan.
+- Next: M8 — auth + RLS lockdown (`spec/08-map-auth.md`), needs `/plan`.
+- Surprises: `/review` caught that the new back button silently covered the
+  always-visible freshness indicator (same top-left corner, opaque, higher z-index) —
+  spec/05's "always visible" guarantee would have broken with zero test signal, since no
+  existing test asserts both are visible at once. Also caught that making `owner_name`
+  sticky (required for Undo to work with no extra UI) had a real side effect nothing in
+  the plan anticipated: an un-booked plot stayed searchable by, and displayed, its former
+  buyer's name in `PlotSearch.tsx` — the plan's own §1 context claim ("only displayed
+  while booked") was true of `PlotDetailContent.tsx` alone, not of search.
+- Verified: `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` from
+  `apps/map`, stack up via `mingw32-make db-up` then `supabase db reset` +
+  `pnpm import:seed` to apply the new migration — 17/17 test files, 75/75 tests (one
+  transient realtime-subscription timeout on the first post-reset run, clean on retry,
+  pre-existing flake), clean build. `docker exec supabase_db_colony-map psql ... \df
+  apply_plot_transition` — exactly one signature, 6 args, confirming the old overload was
+  dropped.
 
 ### 2026-08-15 — docs/plans/07.md (M7 PWA) closed: gate-verified, then all 4 manual criteria live-tested
 - Done: picked up a prior session's already-built and `/review`-fixed M7 PWA diff

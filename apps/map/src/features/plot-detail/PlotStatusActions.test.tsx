@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { PlotStatusActions } from "./PlotStatusActions.tsx";
 import type { PlotHistoryRow, PlotRow } from "../../lib/db/types.ts";
 
@@ -151,5 +151,44 @@ describe("PlotStatusActions", () => {
       />,
     );
     expect(screen.queryByText(/edited this a few minutes ago/)).not.toBeInTheDocument();
+  });
+
+  it("disables Mark Booked until a buyer name is entered, and calls onChangeStatus with the trimmed name", () => {
+    const onChangeStatus = vi.fn();
+    render(
+      <PlotStatusActions
+        plot={basePlot}
+        history={[historyRow({})]}
+        actor="test-actor-a"
+        saving={false}
+        onChangeStatus={onChangeStatus}
+        onUndo={vi.fn()}
+      />,
+    );
+    const button = screen.getByText("Mark Booked");
+    expect(button).toBeDisabled();
+
+    fireEvent.change(screen.getByPlaceholderText("Buyer name"), {
+      target: { value: "  Rajesh Shah  " },
+    });
+    expect(button).not.toBeDisabled();
+
+    fireEvent.click(button);
+    expect(onChangeStatus).toHaveBeenCalledWith("booked", "Rajesh Shah");
+  });
+
+  it("does not show a buyer-name input for transitions other than booking", () => {
+    render(
+      <PlotStatusActions
+        plot={{ ...basePlot, status: "booked" }}
+        history={[historyRow({ status: "booked" })]}
+        actor="test-actor-a"
+        saving={false}
+        onChangeStatus={vi.fn()}
+        onUndo={vi.fn()}
+      />,
+    );
+    expect(screen.queryByPlaceholderText("Buyer name")).not.toBeInTheDocument();
+    expect(screen.getByText("Mark Registry done")).toBeInTheDocument();
   });
 });

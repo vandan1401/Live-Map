@@ -15,7 +15,11 @@ export function buildSearchIndex(plots: PlotRow[]): SearchEntry[] {
   return plots.map((plot) => ({
     svgId: plot.svg_id,
     label: `${plot.block}-${plot.number}`,
-    ownerName: plot.owner_name ?? null,
+    // owner_name is sticky at the DB layer (docs/plans/08.md §3 — it's never cleared on
+    // an un-book, so Undo can restore it) — search must not surface a buyer name for a
+    // plot that isn't currently booked, or an un-booked plot stays findable by, and
+    // reads as sold to, whoever booked it last.
+    ownerName: plot.status === "booked" ? (plot.owner_name ?? null) : null,
     brokerName: plot.broker_name ?? null,
   }));
 }

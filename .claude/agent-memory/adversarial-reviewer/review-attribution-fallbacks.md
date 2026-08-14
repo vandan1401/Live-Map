@@ -1,6 +1,6 @@
 ---
 name: review-attribution-fallbacks
-description: Recurring defect — a fabricated or synthetic provenance value (actor fallback, a `confidence` claiming a match that never ran, or an `import` history row shown as a real change) writes a fake fact into the evidence trail. Flagged four times.
+description: Recurring defect — a fabricated, synthetic, or stale provenance value (actor fallback, a `confidence` for a match that never ran, `import` rows shown as real changes, a sticky `owner_name` on an un-booked plot) writes a fake fact into the evidence trail. Flagged five times.
 metadata:
   type: feedback
 ---
@@ -37,6 +37,16 @@ Occurrences so far:
    with five "changed by import" entries for changes nobody made. **Whenever a diff reads
    `plot_history` for display, ask which rows the importer wrote** — the seed rows are the
    newest rows in a freshly reset DB, so they win every `order by changed_at desc`.
+
+5. 2026-08-15 (plan 08, buyer-name write path) — same "the reader did it" shape, one table
+   over. The migration makes `owner_name` **sticky** (`coalesce(p_owner_name, owner_name)`,
+   never cleared on un-book) and the plan justifies that with "`PlotDetailContent.tsx` only
+   ever displays `owner_name` while `status === "booked"`". True of that file; false of
+   `features/search/PlotSearch.tsx:75` + `lib/colony/searchPlots.ts:18`, which render and
+   match on it for every status. Net effect: a plot returned to `available` still shows —
+   and is findable by — the previous buyer's name. **When a plan defends "we never clear
+   field X" with "X is only shown when Y", grep every consumer of X yourself; the plan
+   author checked one.**
 
 **How to apply:** the fix is always the same — make the guarantee structural (pass the actor
 as a required prop from the component that already enforces it) or refuse the write. Related:

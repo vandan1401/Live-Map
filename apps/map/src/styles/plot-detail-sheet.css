@@ -147,6 +147,23 @@
   margin: 0 0 0.5rem;
 }
 
+/* Buyer name for a fresh booking (docs/plans/08.md) — only shown when available ->
+ * booked is a legal next transition; sizing/border matches .name-prompt-input. */
+.plot-status-owner-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.plot-status-owner-input {
+  flex: 1 1 10rem;
+  font-size: 0.9rem;
+  border: 1px solid var(--colony-plot-stroke);
+  border-radius: 0.5rem;
+  padding: 0.4rem 0.6rem;
+}
+
 .plot-status-buttons {
   display: flex;
   flex-wrap: wrap;

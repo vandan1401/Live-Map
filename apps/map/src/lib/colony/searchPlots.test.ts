@@ -38,6 +38,7 @@ const index = buildSearchIndex([
     svg_id: "plot-A-02",
     block: "A",
     number: "02",
+    status: "booked",
     owner_name: "Rajesh Shah",
   }),
   plotRow({
@@ -46,6 +47,17 @@ const index = buildSearchIndex([
     block: "B",
     number: "05",
     broker_name: "Vikas Patel",
+  }),
+  // owner_name is sticky at the DB layer even after an un-book (docs/plans/08.md §3) —
+  // search must not surface or match on it once the plot is no longer booked (/review
+  // finding on docs/plans/08.md).
+  plotRow({
+    id: "4",
+    svg_id: "plot-A-03",
+    block: "A",
+    number: "03",
+    status: "available",
+    owner_name: "Vikas Mehta",
   }),
 ]);
 
@@ -73,5 +85,11 @@ describe("searchPlots", () => {
 
   it("does not throw when owner and broker are both null", () => {
     expect(searchPlots(index, "A-01").map((e) => e.svgId)).toEqual(["plot-A-01"]);
+  });
+
+  it("does not surface or match a sticky owner_name once the plot is no longer booked", () => {
+    const entry = index.find((e) => e.svgId === "plot-A-03");
+    expect(entry?.ownerName).toBeNull();
+    expect(searchPlots(index, "vikas mehta")).toEqual([]);
   });
 });

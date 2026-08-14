@@ -15,6 +15,9 @@ export interface ApplyPlotTransitionInput {
   expectedVersion: number;
   actor: string;
   note?: string | null;
+  // Fresh booking only (docs/plans/08.md) — omitted on every other transition, including
+  // Undo, so the RPC's coalesce leaves the existing owner_name in place.
+  ownerName?: string | null;
 }
 
 const CONFLICT_PREFIX = "version_conflict:";
@@ -39,6 +42,7 @@ export async function applyPlotTransition(
       newStatus: input.toStatus,
       actor: input.actor,
       note: input.note,
+      ownerName: input.ownerName,
     });
     return { ok: true, plot };
   } catch (error) {

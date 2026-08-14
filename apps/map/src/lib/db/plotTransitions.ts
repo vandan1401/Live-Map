@@ -7,6 +7,9 @@ export interface ApplyPlotTransitionArgs {
   newStatus: PlotStatus;
   actor: string;
   note?: string | null;
+  // Set only on a fresh available -> booked transition (docs/plans/08.md). Omitted on
+  // every other call so the RPC's coalesce leaves the existing owner_name untouched.
+  ownerName?: string | null;
 }
 
 // The only place apply_plot_transition() is called. Throws on any RPC error, including
@@ -23,6 +26,7 @@ export async function callApplyPlotTransition(
     p_new_status: args.newStatus,
     p_actor: args.actor,
     p_note: args.note ?? null,
+    p_owner_name: args.ownerName ?? null,
   });
   if (error) throw new Error(error.message);
   return data as PlotRow;
