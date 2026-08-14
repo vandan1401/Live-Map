@@ -140,13 +140,13 @@
 }
 
 /* Always visible (spec/05) — the failure this guards against is trusting stale data,
- * which is what sends the family back to WhatsApp. Top-left is the one corner not
- * already used by .colony-scale-note (bottom-left) or .colony-dev-click-badge
- * (top-right). */
+ * which is what sends the family back to WhatsApp. Top-left, stacked below
+ * .colony-back-button (map-toolbar.css) which now also lives in that corner — bottom-left
+ * is .colony-scale-note, top-right is .colony-dev-click-badge. */
 .colony-freshness-indicator {
   position: absolute;
   left: 0.75rem;
-  top: 0.75rem;
+  top: 3rem;
   z-index: 1000;
   pointer-events: none;
   font-size: 0.75rem;

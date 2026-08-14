@@ -140,7 +140,13 @@ function App() {
     );
   }
 
-  return <ColonyMap actor={actor} colonyId={selectedColonyId} />;
+  return (
+    <ColonyMap
+      actor={actor}
+      colonyId={selectedColonyId}
+      onBack={() => setSelectedColonyId(null)}
+    />
+  );
 }
 
 export default App;

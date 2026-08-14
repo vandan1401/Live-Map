@@ -13,6 +13,17 @@
   padding: 1.5rem;
 }
 
+/* Owner feedback, 2026-08-15 iPhone session: the picker read as a bare list of names.
+ * #863bff matches the PWA manifest's theme_color (public/manifest.webmanifest) so the
+ * brand mark is the same colour whether it's the iOS status bar or this heading. */
+.colony-picker-heading {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #863bff;
+  margin: 0;
+  text-align: center;
+}
+
 /* Offline colony-list fallback (docs/plans/07.md, /review finding #3) — same
  * amber-on-offline convention as .colony-freshness-indicator.is-offline (M5). */
 .colony-picker-freshness {

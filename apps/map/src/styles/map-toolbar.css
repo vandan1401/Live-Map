@@ -2,6 +2,19 @@
  * colony-theme.css to keep that file the one place status/map colours live (D-004);
  * this file is feature chrome, same split as plot-detail-sheet.css. */
 
+.colony-back-button {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 1100;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid var(--colony-plot-stroke);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 0.4rem 0.9rem;
+}
+
 .colony-search {
   position: absolute;
   top: 0.75rem;

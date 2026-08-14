@@ -41,9 +41,12 @@ interface Props {
   // From App.tsx's ColonyPicker selection — the picker only offers verified colonies
   // (D-108), so this is always a colony this component is allowed to read.
   colonyId: string;
+  // Returns to the colony picker (owner feedback, 2026-08-15 iPhone session: opening a
+  // colony was previously one-way). App.tsx owns selectedColonyId and clears it here.
+  onBack: () => void;
 }
 
-export function ColonyMap({ actor, colonyId }: Props) {
+export function ColonyMap({ actor, colonyId, onBack }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -195,6 +198,9 @@ export function ColonyMap({ actor, colonyId }: Props) {
         className="h-full w-full"
         onClick={handleClick}
       />
+      <button type="button" className="colony-back-button" onClick={onBack}>
+        ← Colonies
+      </button>
       <p className="colony-scale-note">Indicative layout — not to scale</p>
       <FreshnessIndicator label={freshnessLabel} offline={offline} />
       <PlotSearch client={client} colonyId={colonyId} onSelect={setSelectedId} />

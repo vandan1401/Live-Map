@@ -16,6 +16,7 @@ export function ColonyPicker({ colonies, onSelect, freshnessLabel }: Props) {
   if (colonies.length === 0) {
     return (
       <div className="colony-picker-overlay">
+        <h1 className="colony-picker-heading">Nimantran Group Colonies</h1>
         {freshnessLabel && <p className="colony-picker-freshness">{freshnessLabel}</p>}
         <p className="colony-picker-empty">No colonies yet.</p>
       </div>
@@ -24,6 +25,7 @@ export function ColonyPicker({ colonies, onSelect, freshnessLabel }: Props) {
 
   return (
     <div className="colony-picker-overlay">
+      <h1 className="colony-picker-heading">Nimantran Group Colonies</h1>
       {freshnessLabel && <p className="colony-picker-freshness">{freshnessLabel}</p>}
       <ul className="colony-picker-list">
         {colonies.map((colony) => (

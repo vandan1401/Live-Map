@@ -29,6 +29,7 @@ describe("ColonyPicker", () => {
 
     render(<ColonyPicker colonies={colonies} onSelect={onSelect} />);
 
+    expect(screen.getByText("Nimantran Group Colonies")).toBeTruthy();
     expect(screen.getByText("Shree Vatika Phase 2")).toBeTruthy();
     expect(screen.getByText("Another Colony")).toBeTruthy();
 
@@ -39,6 +40,7 @@ describe("ColonyPicker", () => {
   it("shows an empty-state message when there are no colonies", () => {
     render(<ColonyPicker colonies={[]} onSelect={vi.fn()} />);
 
+    expect(screen.getByText("Nimantran Group Colonies")).toBeTruthy();
     expect(screen.getByText("No colonies yet.")).toBeTruthy();
   });
 
