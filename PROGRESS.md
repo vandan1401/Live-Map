@@ -2,39 +2,38 @@
 
 ## Current
 
-- **`docs/plans/07.md` (M7: PWA install + offline reads) built, `/review`-fixed, and
-  gate-verified this session (Tier 1).** New `public/manifest.webmanifest`, hand-written
-  `public/sw.js` (versioned `colony-map-v1` cache, app-shell + `/assets/` runtime caching,
-  never caches Supabase responses per D-008), `src/pwa/{offlineCache,
-  registerServiceWorker,installInstructionsSeen}.ts`, `features/pwa-install/
-  InstallInstructions.tsx`, and offline-fallback branches in `lib/sync/attachSync.ts` and
-  `App.tsx` (read from the IndexedDB snapshot when the initial fetch fails while
-  `navigator.onLine === false`). `/review` found and fixed real issues from a prior
-  session in this same work (see `.claude/agent-memory/adversarial-reviewer/
-  review-unstyled-new-components.md`) — `InstallInstructions.tsx` originally shipped with
-  no matching CSS, so the first screen every user sees would have rendered unstyled; now
-  has `styles/install-instructions.css`, imported in `index.css`. This session picked the
-  work up unbuilt-on-top-of (no code changes), brought the local Supabase stack back up
-  (`make db-up`), and ran the full gate for real: `pnpm typecheck` clean, `pnpm lint`
-  clean, `pnpm test -- --run` **69/69 passing** (up from the 59/59 baseline plan 07 itself
-  cites), `pnpm build` clean, and confirmed `dist/manifest.webmanifest`, `dist/sw.js`,
-  `dist/icons/{apple-touch-icon,icon-192,icon-512}.png` all exist post-build — all five
-  automatable acceptance criteria (§5, criteria 1–5) met. The test run's exit code is
-  still non-zero (three uncaught undici WebSocket-teardown exceptions attributed to
-  `ColonyMap.test.tsx`) — reproduced twice this session, all 69 tests reported passing
-  both times; this is the exact pre-existing flake already logged in `## Deferred` below,
-  confirmed to predate this session's diff, not a regression. Criteria 6–9 (install to
-  home screen, airplane-mode render, upgrade replaces old worker, clear-site-data) remain
-  manual/real-device per the plan's own text — **not** marked complete; `**Status:**
-  complete` was deliberately **not** appended to `docs/plans/07.md`, matching the plan's
-  own instruction not to close it on 1–5 alone. Not yet committed — see Next.
-- **Next action:** commit this session's changes (README/PROGRESS/NAVIGATION updates plus
-  the full M7 diff), then hand plan 07 to the owner for criteria 6–9 on an actual iPhone
-  (`pnpm build && pnpm preview --host`, not `pnpm dev` — see the Deferred entry on why).
-  Once those four are confirmed, append `**Status:** complete` to `docs/plans/07.md` in a
-  follow-up session. Separately, the `pnpm test` exit-code flake (Deferred) is worth a
-  real fix at some point — it currently means CI-style "did the suite pass" checks can't
-  trust the exit code alone, only the printed count.
+- **`docs/plans/07.md` (M7: PWA install + offline reads) is closed — `**Status:**
+  complete` appended (2026-08-15).** Built and `/review`-fixed in a prior session (new
+  `public/manifest.webmanifest`, hand-written `public/sw.js` — versioned `colony-map-v1`
+  app-shell cache plus a `refreshShellCache` helper that keeps `/assets/*` in sync with
+  whatever `index.html` currently references, so a normal app-code deploy is picked up on
+  the next navigation without needing a `sw.js` byte change; never caches Supabase
+  responses per D-008 — `src/pwa/{offlineCache,registerServiceWorker,
+  installInstructionsSeen}.ts`, `features/pwa-install/InstallInstructions.tsx`, and
+  offline-fallback branches in `lib/sync/attachSync.ts`/`App.tsx`). This session: brought
+  the local Supabase stack back up (`make db-up`), ran the full gate for real
+  (`pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` — 69/69 tests, up
+  from the 59/59 baseline plan 07 cites; the exit code is still non-zero from the
+  pre-existing undici/`ColonyMap.test.tsx` flake in `## Deferred`, not a regression),
+  confirmed the `dist/` PWA artifacts, committed, then live-verified all four remaining
+  manual criteria: criteria 6–7 on the owner's own iPhone over the LAN (`pnpm build &&
+  pnpm preview --host`, `.env` temporarily repointed at the laptop's LAN IP
+  `192.168.0.177`, reverted after — same pattern as the M6 session) — installed to the
+  home screen, opened with no Safari chrome, rendered the cached colony with a visible
+  "Offline" age label under Airplane Mode; criteria 8–9 via a Claude-driven Chrome session
+  inspecting Cache Storage/IndexedDB/SW state directly (not eyeballing DevTools) — a real
+  app-code deploy's new asset hash was picked up on next navigation with the stale one
+  pruned, and a full clear of caches/IndexedDB/SW-registration/`localStorage` recovered
+  cleanly to the first-run name-prompt screen. All nine acceptance criteria now verified;
+  see `docs/plans/07.md`'s closing note for the exact method per criterion.
+- **Next action:** pick the next milestone. Three pieces of owner feedback surfaced during
+  this session's live iPhone testing are logged in `## Deferred` below, not yet
+  acted on: no way back from a colony's map to the picker home screen, the picker
+  screen's visual design (a branded list, e.g. "Nimantran Group Colonies"), and no input
+  for *who* booked a plot when marking it `booked` (currently display-only). Also open:
+  the `pnpm test` exit-code flake (Deferred) is worth a real fix at some point — it
+  currently means a CI-style "did the suite pass" check can't trust the exit code alone,
+  only the printed count.
 - **Task:** `docs/plans/05.md` is closed — `**Status:** complete` appended this session
   after re-running its full §5 acceptance table for real: SVG has no `fill`/`stroke`/
   `style` (grep, 0 matches), manifest validates against `contract/colony.schema.json`
@@ -151,6 +150,19 @@
 
 ## Deferred
 
+- **Owner feedback from live iPhone PWA testing (2026-08-15, not yet acted on):** (1) no
+  back button/way to return to the colony picker home screen once inside a colony's map —
+  currently one-way navigation once `App.tsx` sets `selectedColonyId`. (2) the colony
+  picker home screen should look more like a branded list, not a bare list of names — the
+  owner suggested a heading such as "Nimantran Group Colonies". (3) when a plot is marked
+  `booked`, there's no way to enter *who* booked it — `PlotStatusActions.tsx`'s Save flow
+  has no input field for the buyer's name; `PlotDetailContent.tsx` only ever *displays* an
+  existing `owner_name` while `status === "booked"` (D-012/D-013), it was never wired to a
+  write path. Worth checking `plots`' schema/`applyPlotTransition()`'s signature — it's
+  possible `owner_name` was designed to be set at import/seed time only, not by an app
+  user marking a plot booked, which would make this a real, not-yet-scoped feature gap.
+  All three are unrelated to M7's PWA scope — noted, not fixed, during the plan 07
+  criteria 6-9 device test session.
 - **From M7 PWA (2026-08-14):** manual acceptance criteria 6–9 in `docs/plans/07.md` §5
   (install to home screen, airplane-mode render, upgrade-replaces-old-worker, clear-site-
   data) must be exercised against `pnpm build && pnpm preview --host` from `apps/map`, not
@@ -281,21 +293,35 @@
 
 <!-- Append-only. Four lines per entry: Done / Next / Surprises / Verified. -->
 
-### 2026-08-15 — /wrap: docs/plans/07.md (M7 PWA) gate-verified, left open pending device checks
+### 2026-08-15 — docs/plans/07.md (M7 PWA) closed: gate-verified, then all 4 manual criteria live-tested
 - Done: picked up a prior session's already-built and `/review`-fixed M7 PWA diff
   (manifest, service worker, offline IndexedDB cache, install-instructions screen) with
-  no code changes needed. Brought the local Supabase stack back up (`make db-up`, it had
-  gone down since the last session) and ran the full gate for real.
-- Next: commit, then get the owner on a real iPhone for plan 07's criteria 6–9
-  (`pnpm build && pnpm preview --host`) before appending `**Status:** complete`.
-- Surprises: none — the diff was exactly what `git status`/`PROGRESS.md`'s prior Deferred
-  entries described, and the gate came back clean on the first real run once the DB was
-  up. The documented undici/`ColonyMap.test.tsx` exit-code flake reproduced again,
-  unchanged from its prior description.
+  no code changes needed, brought the local Supabase stack back up (`make db-up`), ran
+  the full gate for real, and committed. Then live-tested all four remaining manual
+  criteria: criteria 6–7 on the owner's iPhone over the LAN (temporarily repointed `.env`
+  at the laptop's Wi-Fi IP, reverted after); criteria 8–9 via a Claude-driven Chrome
+  session using `javascript_tool` to inspect Cache Storage/IndexedDB/SW state directly —
+  shipped a real trivial app-code change, rebuilt, confirmed the new hashed asset was
+  fetched and the stale one pruned on next navigation with no `sw.js` change needed, then
+  fully wiped caches/IndexedDB/SW-registration/`localStorage` and confirmed clean recovery
+  to the first-run screen. Appended `**Status:** complete` to `docs/plans/07.md`.
+- Next: pick the next milestone; three pieces of live-testing feedback are in `## Deferred`
+  (colony-picker back navigation, picker visual design, no input for who booked a plot).
+- Surprises: `sw.js`'s actual update mechanism (a `refreshShellCache` helper that syncs
+  `/assets/*` cache entries with whatever the current `index.html` references, run on
+  install *and* every successful navigation) is smarter than plan 07 §5 criterion 8's
+  literal framing ("deploying a new version replaces the old service worker") assumed —
+  `sw.js`'s own bytes deliberately don't change on a normal app deploy, so there's no
+  install/activate cycle to observe for that case; the file's own top comment explains
+  why. Tested the mechanism that actually ships (cache freshness via navigation-time
+  diffing) instead of the literal SW-replacement scenario, which only applies if `sw.js`
+  itself changes.
 - Verified: `pnpm typecheck && pnpm lint` clean; `pnpm test -- --run` — 69/69 tests
   passing across two consecutive runs (exit code 1 both times, the pre-existing flake,
   not a new failure); `pnpm build` clean; `ls dist/manifest.webmanifest dist/sw.js
-  dist/icons` — all present.
+  dist/icons` — all present. Criteria 6–7 — owner-confirmed live on their own iPhone.
+  Criteria 8–9 — Claude-driven Chrome session, real cache/IndexedDB state inspected via
+  `caches.keys()`/`indexedDB.databases()`, not simulated.
 
 ### 2026-08-14 — docs/plans/06.md: multi-colony home screen, plan closed
 - Done: closed the `colonies.verified` render-time gap (`lib/colony/{plotStatus,
