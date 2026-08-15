@@ -62,8 +62,10 @@
   `apps/map/.env` is gitignored — this is a local dev-machine value, not something
   that ships or needs undoing later, but it will need updating again if this
   machine's LAN IP changes (e.g. after a router reboot/DHCP lease renewal) or if
-  dev testing moves to a different network. Next: still not confirmed working from
-  the owner's own phone — waiting on their retry.
+  dev testing moves to a different network. **Owner-verified on their own phone
+  (2026-08-16): "worked everywhere"** — texture, labels, opacity, road grain, and
+  phone login all confirmed live on their own device. This closes out the map UI
+  rework's owner-verification loop across parts 1-5.
 - **Map UI rework, part 4 (2026-08-15, Tier 3): switched to the owner's own AI-
   generated ground photo, fixed zoom desync, chased a corrupted-asset bug to ground.**
   Owner rejected the procedural blob texture outright ("worst boring grass"), flagged
@@ -125,8 +127,7 @@
   retry), clean build. Verified live in Chrome, in total isolation before the app:
   a bare `<img>` at the target size, then the full pattern in a blank page, then the
   real app — texture now shows correctly at every step, whole viewport covered, zoom
-  keeps the backdrop and site moving together. Still not owner-verified on their own
-  device — this is the fourth live correction cycle in one session.
+  keeps the backdrop and site moving together. Owner-verified 2026-08-16 (see part 5).
 - **Map UI rework, part 3 (2026-08-15, Tier 3): owner corrected part 2 after seeing it
   live, plus DB residue cleanup.** Four fixes: (1) the ground rect from part 2 only
   covered the SVG's own bounds — at this aspect ratio Leaflet's fitBounds letterboxes,
@@ -187,7 +188,7 @@
   the first run, the documented DB warm-up flake, clean on immediate retry), clean
   build. Verified live in Chrome: the whole map reads as one grass field under the
   roads/plots, road bands have no internal grid lines, plot tint still shows grain
-  through it. Still not owner-verified on their own device.
+  through it. Owner-verified 2026-08-16 (see part 5).
 - **Map UI rework, part 1 (2026-08-15, Tier 3, no plan/review needed): road, plot,
   garden, and status rendering, plus a frosted-glass chrome pass.** Owner gave two
   reference images and asked for (1) realistic-looking plots/garden with status as "a
@@ -659,6 +660,17 @@
   (`Access-Control-Allow-Origin: *`) — not yet confirmed from the owner's actual phone.
   `supabase db reset` + reseed + `pnpm create-user` once this session to clear scratch
   colonies leaked by the flaky retry.
+
+### 2026-08-16 — Map UI rework: owner verification, closes the loop from parts 1-5
+- Done: nothing new built — the owner tested live on their own phone and confirmed
+  "it worked everywhere" (texture, labels, opacity, road grain, and the phone-login
+  fix all held up on their own device, not just this machine's Chrome). Updated
+  `## Current`'s parts 1, 3, 4, and 5 to replace their "still not owner-verified"
+  notes with this confirmation.
+- Next: no open item from this thread of work. Future texture/label feedback would
+  start a new round, not reopen this one.
+- Surprises: none.
+- Verified: owner's own device, owner's own words — no command run this entry.
 
 ### 2026-08-15 — Map UI rework, part 4: real photo texture, zoom-lockstep world layer, corrupted-asset bug hunt
 - Done: owner rejected the procedural blob texture, flagged the backdrop not scaling
