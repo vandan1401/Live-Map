@@ -9,6 +9,7 @@ import { createDbClient } from "../src/lib/db/client.ts";
 import { insertColony } from "../src/lib/db/colonies.ts";
 import { insertPlotHistory } from "../src/lib/db/plotHistory.ts";
 import { insertPlots } from "../src/lib/db/plots.ts";
+import { parseNullablePaise } from "../src/shared/parsePaise.ts";
 import type { Facing, PlotInsert, PlotStatus } from "../src/lib/db/types.ts";
 
 declare const process: NodeJS.Process & { loadEnvFile?: (path?: string) => void };
@@ -108,11 +109,13 @@ function nullableText(value: string): string | null {
   return value.trim() === "" ? null : value.trim();
 }
 
+// docs/plans/10.md — shared with the CSV/XLSX bulk-import RPC's client-side parser
+// (lib/colony/parseBulkImportFile.ts) so the two paths never quietly diverge on what
+// counts as a valid paise value.
 function nullablePaise(value: string): number | null {
-  if (value.trim() === "") return null;
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isInteger(parsed)) fail(`non-integer paise value: "${value}"`);
-  return parsed;
+  const result = parseNullablePaise(value);
+  if (!result.ok) fail(result.error);
+  return result.value;
 }
 
 const plotInserts: PlotInsert[] = manifest.plots.map((plot) => {

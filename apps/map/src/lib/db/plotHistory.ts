@@ -27,11 +27,12 @@ export async function fetchPlotHistory(
 // Colony-wide "recent changes" for the share summary (M6, spec/06) — filtered by an
 // already-fetched plot id list rather than a joined query, so this stays a plain `.in()`
 // in the same style as the rest of lib/db/ instead of relying on supabase-js's
-// relationship-embedding syntax. Excludes `changed_by: "import"` rows — those are
-// scripts/import-seed.ts's one-off bookkeeping (every plot gets one on initial load),
-// not a change anyone made; surfacing them in the WhatsApp share text as "changes" a
+// relationship-embedding syntax. Excludes `changed_by: "import"`/`"bulk_import"` rows —
+// both are one-off bookkeeping sentinels (scripts/import-seed.ts's initial load and
+// bulk_set_initial_plot_data's CSV/XLSX import, docs/plans/10.md), not a change anyone
+// made in the operational sense; surfacing them in the WhatsApp share text as "changes" a
 // family member could act on is exactly the fabricated-evidence failure invariant 5
-// exists to prevent (/review finding).
+// exists to prevent (originally a /review finding for "import" alone).
 export async function fetchRecentHistoryForPlots(
   client: SupabaseClient,
   plotIds: string[],
@@ -42,7 +43,7 @@ export async function fetchRecentHistoryForPlots(
     .from("plot_history")
     .select("*")
     .in("plot_id", plotIds)
-    .neq("changed_by", "import")
+    .not("changed_by", "in", "(import,bulk_import)")
     .order("changed_at", { ascending: false })
     .limit(limit);
   if (error) throw new Error(`fetchRecentHistoryForPlots failed: ${error.message}`);

@@ -33,6 +33,8 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-020 | Write attribution is derived server-side from the authenticated session, never a client parameter | accepted |
 | D-021 | Public deployment permitted; D-011's deploy block lifted | accepted |
 | D-022 | Ground texture is a mirror-tiled real photo, rendered as a second Leaflet SVG overlay | accepted |
+| D-023 | Initial CSV/XLSX import is a second, narrowly-scoped write path, gated by a sentinel eligibility window | accepted |
+| D-024 | `subscribePlotChanges` opens one realtime channel per call, not one per colony | accepted |
 
 ## tools/pipeline
 

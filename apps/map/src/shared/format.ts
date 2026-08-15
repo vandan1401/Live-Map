@@ -70,8 +70,12 @@ export function formatStatusLabel(status: string): string {
 }
 
 // scripts/import-seed.ts writes the literal "import" into updated_by/changed_by for
-// every M2 seed row (docs/plans/09.md's "system user" convention) — shown as a real
-// name otherwise.
+// every M2 seed row (docs/plans/09.md's "system user" convention); the RPC
+// bulk_set_initial_plot_data (docs/plans/10.md) writes the literal "bulk_import" for the
+// same reason — both are sentinels, never a real display name, so both need a label here
+// or the UI would show the raw sentinel string as if it were someone's name.
 export function formatActorName(actor: string): string {
-  return actor === "import" ? "Imported" : actor;
+  if (actor === "import") return "Imported";
+  if (actor === "bulk_import") return "Bulk import";
+  return actor;
 }

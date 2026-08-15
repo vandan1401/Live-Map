@@ -2,6 +2,83 @@
 
 ## Current
 
+- **`docs/plans/10.md` is now closed** — in-app plot-status table view + CSV initial-data
+  import (Tier 1, `/plan → /build → /review`, plus a live-browser fix after the owner
+  clicked through it themselves). Owner asked for "a google sheet import... so that plot
+  statuses get changed for the first time, and also a sheet ui for them to change plot
+  statuses after that"; scoped down (owner's explicit choice) to two in-app features
+  instead of real Google Sheets sync, keeping D-008 and avoiding new OAuth/API surface —
+  `spec/00-rules.md`'s existing named exception ("a one-off CSV import for the initial
+  data load only") is what the import half actually is.
+  **`bulk_set_initial_plot_data(p_colony_id, p_rows)`** (new migration
+  `20260816000000_bulk_initial_plot_import.sql`) is a second, deliberately narrow
+  `security definer` write path for `plots` — invariant 4 still governs the *operational*
+  transition path (`applyPlotTransition()`) unchanged. A plot is eligible only while every
+  existing `plot_history.changed_by` on it is the `'import'` or `'bulk_import'` sentinel;
+  the moment a real transition happens (a real display name, never those two strings), the
+  plot is permanently locked out of bulk-import — a deliberate "onboarding correction
+  window," not single-shot idempotency. An unexpected mid-batch error rolls back the whole
+  call; the three expected skip conditions (unknown `svg_id`, invalid status,
+  already-real-activity) are recorded in a returned `skipped` list, never raised.
+  **The table view** (`features/plot-table/PlotTableView.tsx` + `PlotTableRow.tsx`, opened
+  via a new "Table view" button in `ColonyMap.tsx`'s toolbar, rendered as a full-screen
+  overlay *on top of* the still-mounted map) lists every plot with an editable status
+  dropdown + owner-name field (identical `isLegalTransition`/buyer-name-required gating to
+  `PlotStatusActions.tsx`, reused not reimplemented) and read-only cells for everything
+  else; each row saves independently through `applyPlotTransition()`, no "save all"
+  batching. **The CSV import screen** (`features/bulk-import/BulkImportScreen.tsx`) parses
+  client-side (`lib/colony/parseBulkImportFile.ts`, pure/DOM-free, fixed
+  order-sensitive header contract, no column mapping) and rejects a malformed file outright
+  before ever calling the RPC — CSV only in this build, XLSX deferred (see `## Deferred`).
+  **Three real bugs found and fixed beyond the plan's own scope**, all in shared code this
+  session was already touching: (1) `scripts/import-seed.ts`'s inline paise parser only
+  checked `Number.isInteger(Number.parseInt(value))`, which silently accepted `"12.5"` as
+  `12` paise — extracting it into shared `shared/parsePaise.ts` (so the CSV-import path
+  can't diverge from the seed script) surfaced this D-010 gap; tightened to a regex gate
+  for both callers. (2) `fetchRecentHistoryForPlots` excluded only `changed_by: "import"`
+  from the share summary's "recent changes" — extended to also exclude the new
+  `"bulk_import"` sentinel (same fabricated-evidence risk, invariant 5, a past `/review`
+  already caught once for `"import"` alone). (3) **found live in a real browser, after
+  `/review`, when the owner clicked into the new Table view and got a plain white
+  screen** — no mocked-client unit test could have caught this. `subscribePlotChanges`
+  (`lib/sync/subscribePlots.ts`) keyed its realtime channel topic on `colonyId` alone,
+  which was safe while only `ColonyMap`'s `attachSync` ever subscribed to a colony; the
+  table view overlays the map rather than unmounting it, so both are now subscribed to the
+  same colony at once, and supabase-js's `client.channel(topic)` returns the *same*
+  already-`.subscribe()`'d object for a repeated topic — calling `.on()` on it throws
+  synchronously, and with no error boundary anywhere in the tree, React unmounts the whole
+  app. Fixed by suffixing the topic with a random id per call; `attachSync.ts`'s own
+  behavior is unaffected. Reproduced and re-verified fixed live via `mcp__claude-in-chrome`
+  (table opens cleanly, 26 correctly-sorted rows, zero console errors; map's own
+  sync/detail-sheet flow unaffected), plus a new fast regression test in
+  `subscribePlots.test.ts` (two simultaneous subscriptions to one colony must not throw).
+  **`/review` separately found and fixed 5 more issues** (full blow-by-blow in
+  `docs/plans/10.md`'s Log): a critical scratch-colony `verified: true` leak into the real
+  picker (15 fake colonies, cleaned up via `db reset` + reseed); `PlotTableView.handleSave`
+  had no `try/catch` so a thrown error locked a row's Save button forever with no message
+  (fixed, which also surfaced a self-inflicted stale-closure bug in `patchDraft`); the
+  table's realtime handler discarded the channel-status signal, so a reconnect never
+  refetched (fixed to match `attachSync.ts`'s existing rule); `fetchPlotsByColony` had no
+  `ORDER BY`, so the table's promised "manifest order" wasn't real (fixed with
+  `.order("svg_id")`); the CSV parser didn't reject a duplicate `svg_id`, which would
+  silently double-apply (fixed with a dedupe check).
+  Verified, final state: `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build`
+  from `apps/map` — 24/24 test files, **130/130** tests (up from 96/96 at session start;
+  one `applyPlotTransition.test.ts`/`listColonies.test.ts` timeout on an occasional run —
+  the documented DB warm-up flake, unrelated, clean on immediate retry), clean build.
+  Live-integration tests (`bulkImportInitialPlotData.test.ts`, 6 cases) exercise the RPC
+  against the real local DB. Grants verified via `psql`: `bulk_set_initial_plot_data` has
+  `execute` for `authenticated` only, same shape `docs/plans/09.md`'s wrap used to verify
+  `apply_plot_transition`. `docs/plans/10.md`'s acceptance criterion 6 (a status change
+  made in the table view is reflected on the map without a manual refresh, and vice versa)
+  was not separately re-verified after the realtime-collision fix — logically covered by
+  the fix itself (both now hold independent, non-colliding subscriptions) but worth a
+  quick owner glance next time they're in the app. `**Status:** complete` not yet appended
+  to `docs/plans/10.md` for exactly this reason.
+- **Next action:** get the owner's reaction to the table view + CSV import on their own
+  device (they were mid-testing when this session ended), then either fold in any feedback
+  or append `**Status:** complete` to `docs/plans/10.md` and move to XLSX support or the
+  next milestone.
 - **Test-suite flake investigated and partly fixed (2026-08-16, Tier 2, `lib/colony/**`)
   — full detail in `## Deferred`'s updated entry.** Root cause: full-parallel vitest run
   (up to 12 workers, 19 files) contends with the local Docker Supabase stack —
@@ -546,6 +623,24 @@
 
 ## Deferred
 
+- **Owner feedback mid-session (2026-08-16), not yet clarified or acted on:** "one
+  important change area is no where visible — make sure to keep the area also in view or
+  popup or info." Said while looking at the new table view (docs/plans/10.md). Best guess,
+  **unconfirmed**: `PlotTableRow` shows block/number/status/owner/phone/broker/rate/
+  booking-amount/dates/notes/updated-by/updated-at but omits the plot's physical
+  dimensions — `area_sqft`, `length_ft`, `breadth_ft` (all on `PlotRow`, already shown in
+  the map's own plot-detail sheet, `PlotDetailContent.tsx`) — which may be the "area" the
+  owner means (as in square footage), or they may mean something else entirely (a
+  geographic area/zone of the colony, a UI region, or "recent changes" visibility). Ask
+  before implementing — do not guess further and add a column on this interpretation
+  alone.
+- **XLSX support for the initial-data import (docs/plans/10.md).** The plan scoped
+  "CSV/XLSX file upload"; this build shipped CSV only. `lib/colony/parseBulkImportFile.ts`'s
+  `parseBulkImportRows(rows: string[][])` is already factored to accept an XLSX adapter's
+  output (pre-split cells, same validation as the CSV path) — adding one needs a
+  client-side parsing library (e.g. SheetJS/`xlsx`) plus wiring it into
+  `BulkImportScreen.tsx`'s `handleFile`. Not done this session: judged a separately-sizeable
+  chunk (new dependency, bundle-size tradeoff) rather than a quick follow-up.
 - **Real family usernames/passwords still not created (docs/plans/09.md).** The user
   explicitly deferred providing them this session ("i will add username later"). Only one
   placeholder/demo account exists locally (`demo` / `demo-pass-123`, display name "Demo
@@ -730,6 +825,26 @@
 ## Log
 
 <!-- Append-only. Four lines per entry: Done / Next / Surprises / Verified. -->
+
+### 2026-08-16 — In-app plot-status table view + CSV initial import (docs/plans/10.md, Tier 1)
+- Done: `bulk_set_initial_plot_data` RPC (a second, narrowly-scoped write path for the
+  one-time initial-data event only), a full table view for ongoing per-row status/owner
+  edits (reuses `applyPlotTransition()`, no new operational write path), and a CSV import
+  screen — all reachable from the map's toolbar. `/plan → /build → /review`, all `/review`
+  findings fixed, plus one more real bug found live in a browser after that (see Surprises).
+- Next: get the owner's reaction on their own device, then either fold in feedback or mark
+  the plan complete; XLSX support is deferred and open (see `## Deferred`).
+- Surprises: none of the mocked-client unit tests caught the realtime-channel collision
+  between the map's `attachSync` and the new table view's own subscription — both open at
+  once (the table overlays the map rather than unmounting it) and supabase-js silently
+  reuses a channel object for a repeated topic string, so the second `.on()` call threw
+  synchronously with no error boundary anywhere in the app to catch it. Only surfaced when
+  the owner actually clicked the button in a real browser ("plain white screen") — worth
+  remembering that a feature adding a second concurrent subscriber to an existing realtime
+  primitive needs a live click-through, not just a green test suite, before calling it done.
+- Verified: `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` — 24/24
+  files, 130/130 tests (96/96 at session start), clean build; grants and the realtime fix
+  both re-verified live (`psql`, `mcp__claude-in-chrome`), not just read back from code.
 
 ### 2026-08-16 — Test-suite flake investigated, D-108 gate tests fixed (Tier 2, lib/colony/**)
 - Done: root-caused the "subscribePlots.test.ts flake" to full-parallel-suite contention

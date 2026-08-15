@@ -117,4 +117,32 @@ describe("subscribePlotChanges — live integration", () => {
     // Test-level timeout below matches the internal 20s ceiling — vitest's own default
     // (5000ms) would otherwise fire first and misreport Docker/WAL jitter as a bug.
   }, 20_000);
+
+  // docs/plans/10.md — found live in the browser, not by any mocked-client test:
+  // ColonyMap's attachSync and PlotTableView both call subscribePlotChanges for the same
+  // colony while both are mounted (the table view overlays the map rather than
+  // unmounting it). The old topic (`plots-changes-${colonyId}` alone) made the second
+  // call's client.channel(topic) return the *same*, already-subscribed channel object as
+  // the first, and calling .on() on it threw synchronously — crashing the whole React
+  // tree with no error boundary (a white screen). No WAL/timing dependency here, so no
+  // long timeout needed: the throw (or lack of one) happens synchronously inside .on().
+  it("two simultaneous subscriptions to the same colony do not collide", async () => {
+    const { colonyId } = await createScratchPlot(serviceRoleClient());
+
+    let unsubscribeA: (() => void) | undefined;
+    let unsubscribeB: (() => void) | undefined;
+    expect(() => {
+      unsubscribeA = subscribePlotChanges(subscriber.client, colonyId, {
+        onChange: () => {},
+        onStatusChange: () => {},
+      });
+      unsubscribeB = subscribePlotChanges(subscriber.client, colonyId, {
+        onChange: () => {},
+        onStatusChange: () => {},
+      });
+    }).not.toThrow();
+
+    unsubscribeA?.();
+    unsubscribeB?.();
+  });
 });

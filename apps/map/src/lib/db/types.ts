@@ -65,3 +65,29 @@ export interface PlotHistoryRow extends PlotHistoryInsert {
   id: string;
   changed_at: string;
 }
+
+// bulk_set_initial_plot_data's row shape (docs/plans/10.md) — one CSV/XLSX row. Mirrors
+// PlotInsert's optional fields, minus geometry (svg_id is the join key against an
+// existing plots row, never used to create one).
+export interface BulkImportRow {
+  svg_id: string;
+  status: PlotStatus;
+  owner_name: string | null;
+  owner_phone: string | null;
+  broker_name: string | null;
+  rate_paise: number | null;
+  booking_amount_paise: number | null;
+  booking_date: string | null;
+  registry_date: string | null;
+  notes: string | null;
+}
+
+export interface BulkImportSkip {
+  svgId: string;
+  reason: string;
+}
+
+export interface BulkImportResult {
+  applied: string[];
+  skipped: BulkImportSkip[];
+}

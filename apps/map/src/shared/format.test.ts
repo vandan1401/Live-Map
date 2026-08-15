@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  formatActorName,
   formatDate,
   formatRelativeTime,
   formatRupees,
@@ -67,5 +68,19 @@ describe("formatStatusLabel", () => {
 
   it("renders registered as 'Registry done'", () => {
     expect(formatStatusLabel("registered")).toBe("Registry done");
+  });
+});
+
+describe("formatActorName", () => {
+  it("renders the import sentinel as 'Imported'", () => {
+    expect(formatActorName("import")).toBe("Imported");
+  });
+
+  it("renders the bulk_import sentinel as 'Bulk import' (docs/plans/10.md)", () => {
+    expect(formatActorName("bulk_import")).toBe("Bulk import");
+  });
+
+  it("passes through a real display name unchanged", () => {
+    expect(formatActorName("Rajesh Shah")).toBe("Rajesh Shah");
   });
 });

@@ -86,6 +86,18 @@ Occurrences so far:
    cached (`loadError && !colonies`), and re-check any `online`-hardcoded freshness argument
    once cached data can render while online.**
 
+9. 2026-08-16 (plan 10, table view) — the *ninth* shape: a **new component that mirrors an
+   existing one drops the original's error handling**. `features/plot-table/PlotTableView.tsx`
+   was explicitly specified as "mirror `PlotStatusActions.tsx`/`PlotDetailSheet.tsx`", but its
+   `handleSave` has no `try/catch/finally` (the original has all three) — `applyPlotTransition`
+   *throws* on network/unknown-Postgres errors, so the rejection is unhandled and
+   `saving: true` is never cleared: the row's select, input and Save button stay disabled with
+   no message. Same file, `onStatusChange: () => {}` stubs out the connection signal, so the
+   reconnect refetch `attachSync.ts` implements (tier-1.md "Cache and freshness") does not
+   exist for this second data surface. **Check: when a diff says "mirrors X", diff it against
+   X clause by clause — catch blocks, `finally`, and every callback the shared primitive
+   offers. A handler body of `() => {}` on a Tier-1 sync/error primitive is a finding.**
+
 **How to apply:** the fix is a nullable initial value plus an explicit "not yet" render
 ("Not synced yet"), or deriving initial state from the real signal at effect start rather
 than a hopeful literal. Related: [[review-vacuous-acceptance-tests]].

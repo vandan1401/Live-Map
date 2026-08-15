@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { PlotInsert, PlotRow, PlotStatus } from "./types.ts";
+import type { BulkImportResult, BulkImportRow, PlotInsert, PlotRow, PlotStatus } from "./types.ts";
 
 export async function insertPlots(
   client: SupabaseClient,
@@ -37,7 +37,16 @@ export async function fetchPlotsByColony(
   client: SupabaseClient,
   colonyId: string,
 ): Promise<PlotRow[]> {
-  const { data, error } = await client.from("plots").select("*").eq("colony_id", colonyId);
+  // Ordered (docs/plans/10.md /review finding) — svg_id is "plot-{BLOCK}-{NN}" with the
+  // number zero-padded to two digits, so lexical order is manifest order. Without this,
+  // Postgres gives no ordering guarantee and a heap UPDATE (every status save, every
+  // bulk_set_initial_plot_data run) can reshuffle the row on the next fetch — the table
+  // view has no other way to find a plot in a several-hundred-row list.
+  const { data, error } = await client
+    .from("plots")
+    .select("*")
+    .eq("colony_id", colonyId)
+    .order("svg_id");
   if (error) throw new Error(`fetchPlotsByColony failed: ${error.message}`);
   return (data as PlotRow[] | null) ?? [];
 }
@@ -56,4 +65,25 @@ export async function fetchPlotBySvgId(
     .maybeSingle();
   if (error) throw new Error(`fetchPlotBySvgId failed: ${error.message}`);
   return (data as PlotRow | null) ?? null;
+}
+
+// The only place bulk_set_initial_plot_data() is called (docs/plans/10.md,
+// NAVIGATION.md's "supabase.from/.rpc only in lib/db/" rule). Domain-shaped typing
+// (snake_case svgId -> svgId) happens one layer up in
+// lib/colony/bulkImportInitialPlotData.ts, same split as plotTransitions.ts / applyPlotTransition.ts.
+export async function callBulkSetInitialPlotData(
+  client: SupabaseClient,
+  colonyId: string,
+  rows: BulkImportRow[],
+): Promise<BulkImportResult> {
+  const { data, error } = await client.rpc("bulk_set_initial_plot_data", {
+    p_colony_id: colonyId,
+    p_rows: rows,
+  });
+  if (error) throw new Error(`callBulkSetInitialPlotData failed: ${error.message}`);
+  const result = data as { applied: string[]; skipped: { svg_id: string; reason: string }[] };
+  return {
+    applied: result.applied,
+    skipped: result.skipped.map((s) => ({ svgId: s.svg_id, reason: s.reason })),
+  };
 }

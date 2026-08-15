@@ -9,6 +9,7 @@ import type { PlotStatus } from "../lib/db/types.ts";
 import { PlotDetailSheet } from "../features/plot-detail/PlotDetailSheet.tsx";
 import { PlotSearch } from "../features/search/PlotSearch.tsx";
 import { ShareSummary } from "../features/share-summary/ShareSummary.tsx";
+import { PlotTableView } from "../features/plot-table/PlotTableView.tsx";
 import { FreshnessIndicator } from "./FreshnessIndicator.tsx";
 import { StatusLegend } from "./StatusLegend.tsx";
 import { buildDimensionArrowMarker } from "./plotDimensionOverlay.ts";
@@ -72,6 +73,10 @@ export function ColonyMap({ client, actor, colonyId, onBack }: Props) {
   // Legend filter (M6, spec/06) — empty means no filter applied (every plot at full
   // opacity); a non-empty set dims every plot whose status isn't in it. Multi-select.
   const [activeStatuses, setActiveStatuses] = useState<Set<PlotStatus>>(new Set());
+  // Table view (docs/plans/10.md) — a full-screen overlay, not a conditional replacement
+  // of the map's own container div, so Leaflet's mount effect (below, keyed to
+  // containerRef) never tears down and reinitialises when this toggles.
+  const [tableViewOpen, setTableViewOpen] = useState(false);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -223,7 +228,19 @@ export function ColonyMap({ client, actor, colonyId, onBack }: Props) {
           onClear={() => setActiveStatuses(new Set())}
         />
         <ShareSummary client={client} colonyId={colonyId} />
+        <button
+          type="button"
+          className="colony-share-trigger"
+          onClick={() => setTableViewOpen(true)}
+        >
+          Table view
+        </button>
       </div>
+      {tableViewOpen && (
+        <div className="plot-table-overlay">
+          <PlotTableView client={client} colonyId={colonyId} onBack={() => setTableViewOpen(false)} />
+        </div>
+      )}
       <AnimatePresence>
         {selectedId && (
           <PlotDetailSheet

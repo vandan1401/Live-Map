@@ -22,7 +22,17 @@ SVG, so a fake colony looks like a real map. The plan called the residue "harmle
 when it was written, false the moment a UI listed it, and nothing in the plan reconciles the
 two.
 
-**How to apply:** the fix that fits this schema is not `delete` (not granted) — it is either
-leaving the scratch row `verified: false` and flipping it true only for the assertion, or an
-`update ... verified = false` teardown. Related: [[review-vacuous-acceptance-tests]] (test
-hygiene) and [[review-attribution-fallbacks]] (non-real rows presented as real data).
+**Recurred 2026-08-16, plan 10** — `lib/colony/bulkImportInitialPlotData.test.ts` created its
+scratch colony with `verified: true`, the *only* test file in the repo that does (`rls.test.ts`,
+`applyPlotTransition.test.ts`, `subscribePlots.test.ts` all use `false`). 15 rows named
+"Bulk import scratch colony" were already sitting in the local DB, +5 per full run, all listed
+by `fetchVerifiedColonies`. Also collides with invariant 2 / D-108 ("no code path sets it
+true") — a test file *is* a code path. Nothing in the test needed `true`.
+
+**How to apply:** grep every new `insertColony(` in a `*.test.ts` for `verified: true` — the
+default must be `false`. The fix that fits this schema is not `delete` (not granted) — it is
+either leaving the scratch row `verified: false` and flipping it true only for the assertion,
+or an `update ... verified = false` teardown. Verify with
+`docker exec supabase_db_colony-map psql -U postgres -d postgres -tAc "select id,name,verified from colonies where verified"`,
+not by reading the test. Related: [[review-vacuous-acceptance-tests]] (test hygiene) and
+[[review-attribution-fallbacks]] (non-real rows presented as real data).

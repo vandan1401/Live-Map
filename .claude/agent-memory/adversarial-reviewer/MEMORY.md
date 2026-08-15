@@ -6,6 +6,6 @@
 - [Fixture geometry unchecked](review-fixture-geometry-unchecked.md) — 3x: nothing checks overlap, viewBox drift, or derived `facing`/`is_corner`; recompute them from `colony.svg` yourself.
 - [Fixture plot-count drift](review-fixture-plot-count-drift.md) — the fixture's plot count is a literal in ~8 spec/README files; grep the old count on any fixture change.
 - [Comments assert what code doesn't do](review-comment-asserts-unimplemented.md) — 4x: intent comments (CSS cascade, SW cache-versioning, "this corner is free") the code doesn't deliver; do the cascade/position arithmetic yourself.
-- [Optimistic defaults](review-optimistic-defaults.md) — 8x: initial state, a `catch`, cached data with no age, a frozen age, an error flag that won't clear *or* that discards good cached data.
+- [Optimistic defaults](review-optimistic-defaults.md) — 9x: initial state, a missing `catch`/`finally`, stale cache, a frozen age, a stuck error flag, a `() => {}` sync handler.
 - [Unstyled new components](review-unstyled-new-components.md) — grep every new `className` against `src/styles/*.css` + the `index.css` imports; nothing else catches it.
-- [Scratch rows leak into UI](review-scratch-rows-leak-into-ui.md) — tests insert permanent DB rows (no DELETE grant); any new list query will show them to the owner.
+- [Scratch rows leak into UI](review-scratch-rows-leak-into-ui.md) — 2x: tests insert permanent DB rows (no DELETE grant); grep every new test's `insertColony` for `verified: true`.
