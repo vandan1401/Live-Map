@@ -37,6 +37,10 @@ async function revokeVerification(client: SupabaseClient, colonyId: string): Pro
 }
 
 describe("loadVerifiedColonies — D-108 list-level gate", () => {
+  // Explicit timeout (subscribePlots.test.ts/applyPlotTransition.test.ts/rls.test.ts's
+  // precedent) — createScratchUser's GoTrue admin.createUser + signInWithPassword calls
+  // are bcrypt-heavy, and this test's default (vitest's 5000ms) was found flaking under
+  // full parallel-suite contention on the local Docker Supabase stack, not a real bug.
   it("includes a verified scratch colony and the real shree-vatika-2 colony, excludes an unverified one", async () => {
     const admin = serviceRoleClient();
     const verifiedId = await createScratchColony(admin, true);
@@ -57,5 +61,5 @@ describe("loadVerifiedColonies — D-108 list-level gate", () => {
       await revokeVerification(admin, verifiedId);
       await deleteScratchUser(user);
     }
-  });
+  }, 15_000);
 });

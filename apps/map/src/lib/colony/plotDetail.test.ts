@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadPlotDetail } from "./plotDetail.ts";
 import { insertColony } from "../db/colonies.ts";
@@ -7,6 +7,7 @@ import {
   createScratchUser,
   deleteScratchUser,
   serviceRoleClient,
+  type ScratchUser,
 } from "../auth/testHelpers.ts";
 
 // Live integration test against the local Supabase instance (Docker must be up — same
@@ -48,23 +49,28 @@ async function revokeVerification(client: SupabaseClient, colonyId: string): Pro
 }
 
 describe("loadPlotDetail — unverified colony gate (D-108)", () => {
+  // Shared across both tests (applyPlotTransition.test.ts's precedent, a past /review
+  // finding — per-test create+delete multiplies Auth-container contention under a full
+  // parallel suite run; both tests only read, so sharing one reader is safe).
+  let user: ScratchUser;
+  beforeAll(async () => {
+    user = await createScratchUser("Plot Detail Reader");
+  }, 15_000);
+  afterAll(async () => {
+    await deleteScratchUser(user);
+  });
+
   it("returns null for a plot in an unverified colony", async () => {
     const admin = serviceRoleClient();
     const { colonyId, svgId } = await createScratchColony(admin, false);
-    const user = await createScratchUser("Plot Detail Reader");
 
-    try {
-      const detail = await loadPlotDetail(user.client, colonyId, svgId);
-      expect(detail).toBeNull();
-    } finally {
-      await deleteScratchUser(user);
-    }
+    const detail = await loadPlotDetail(user.client, colonyId, svgId);
+    expect(detail).toBeNull();
   });
 
   it("returns the plot for a verified colony", async () => {
     const admin = serviceRoleClient();
     const { colonyId, svgId } = await createScratchColony(admin, true);
-    const user = await createScratchUser("Plot Detail Reader");
 
     try {
       const detail = await loadPlotDetail(user.client, colonyId, svgId);
@@ -72,7 +78,6 @@ describe("loadPlotDetail — unverified colony gate (D-108)", () => {
       expect(detail?.plot.svg_id).toBe(svgId);
     } finally {
       await revokeVerification(admin, colonyId);
-      await deleteScratchUser(user);
     }
   });
 });

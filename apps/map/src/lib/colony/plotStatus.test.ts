@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadPlotStatuses } from "./plotStatus.ts";
 import { insertColony } from "../db/colonies.ts";
@@ -7,6 +7,7 @@ import {
   createScratchUser,
   deleteScratchUser,
   serviceRoleClient,
+  type ScratchUser,
 } from "../auth/testHelpers.ts";
 
 // Live integration test against the local Supabase instance (Docker must be up — same
@@ -47,23 +48,28 @@ async function revokeVerification(client: SupabaseClient, colonyId: string): Pro
 }
 
 describe("loadPlotStatuses — unverified colony gate (D-108)", () => {
+  // Shared across both tests (applyPlotTransition.test.ts's precedent, a past /review
+  // finding — per-test create+delete multiplies Auth-container contention under a full
+  // parallel suite run; both tests only read, so sharing one reader is safe).
+  let user: ScratchUser;
+  beforeAll(async () => {
+    user = await createScratchUser("Plot Status Reader");
+  }, 15_000);
+  afterAll(async () => {
+    await deleteScratchUser(user);
+  });
+
   it("returns no statuses for an unverified colony", async () => {
     const admin = serviceRoleClient();
     const colonyId = await createScratchColony(admin, false);
-    const user = await createScratchUser("Plot Status Reader");
 
-    try {
-      const statuses = await loadPlotStatuses(user.client, colonyId);
-      expect(statuses).toEqual({});
-    } finally {
-      await deleteScratchUser(user);
-    }
+    const statuses = await loadPlotStatuses(user.client, colonyId);
+    expect(statuses).toEqual({});
   });
 
   it("returns statuses for a verified colony", async () => {
     const admin = serviceRoleClient();
     const colonyId = await createScratchColony(admin, true);
-    const user = await createScratchUser("Plot Status Reader");
 
     try {
       const statuses = await loadPlotStatuses(user.client, colonyId);
@@ -71,7 +77,6 @@ describe("loadPlotStatuses — unverified colony gate (D-108)", () => {
       expect(Object.keys(statuses)).toHaveLength(1);
     } finally {
       await revokeVerification(admin, colonyId);
-      await deleteScratchUser(user);
     }
   });
 });
