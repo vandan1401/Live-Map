@@ -66,10 +66,21 @@ what makes it cheap to test, and every other module depends on it.
 | How overrides are keyed and reapplied | `tools/pipeline/pipeline/overrides/store.py` | 1 |
 | The QA checks that block an export | `tools/pipeline/pipeline/export/qa.py` | 1 |
 | Snapping, polygonize, simplification | `tools/pipeline/pipeline/geom/` | 1 |
+| Vector-vs-raster triage, `make inspect` | `tools/pipeline/pipeline/io/pdf.py`, `pipeline/cli/inspect.py` | 2/3 |
 | Reading paths and text from a vector PDF | `tools/pipeline/pipeline/extract/vector.py` | 2 |
 | OpenCV contours and OCR | `tools/pipeline/pipeline/extract/raster.py` | 2 |
 | Roads, trees, facing, corner | `tools/pipeline/pipeline/derive/` | 2 |
 | The tracing tools | `tools/pipeline/verify/tracer.js` | 1 |
+
+## tools/pipeline — toolchain
+
+`ruff`/`mypy`/`pytest` are not on this machine's global `PATH` (only bare `python` is —
+D-117-adjacent, no confirmed shared Python toolchain yet). Every `tools/pipeline/Makefile`
+target resolves them through a self-bootstrapping `.venv` (`python -m venv .venv` +
+`pip install -e ".[dev]"`, triggered by a `$(VENV)/pyvenv.cfg` prerequisite) so
+`make verify`/`make inspect`/etc. work cold with no manual activation step. Root `Makefile`
+targets (`verify-pipe`, `contract`, `gate`, `inspect`) delegate to this nested Makefile via
+`$(MAKE) -C tools/pipeline <target>` rather than duplicating bare tool invocations.
 
 ## Session tooling
 
@@ -91,6 +102,13 @@ what makes it cheap to test, and every other module depends on it.
 | Multi-colony home screen / colony picker (docs/plans/06.md) | `apps/map/src/lib/colony/listColonies.ts` | `lib/db/colonies.ts`'s `fetchVerifiedColonies` | `apps/map/src/App.tsx` fetches the list once after the actor gate and owns `selectedColonyId`; `features/colony-picker/ColonyPicker.tsx` is presentational, renders the list and an empty/error state, calls back `onSelect(colonyId)`; `ColonyMap.tsx` takes `colonyId` as a prop (no longer a hardcoded module constant) | `colonies` (read-only, `verified = true` only — D-108 applied at the list level) |
 | PWA install + offline reads (docs/plans/07.md, M7) | none — `src/pwa/` is persistence, not domain logic (see below) | `src/pwa/offlineCache.ts` (native IndexedDB, no dependency) — the only place offline plot-status/colony-list snapshots are written or read | `public/sw.js` (hand-written service worker, versioned `CACHE_NAME`, no Workbox); `src/pwa/registerServiceWorker.ts` (called once from `main.tsx`); `features/pwa-install/InstallInstructions.tsx` (one-time screen, gated by `pwa/installInstructionsSeen.ts` + `display-mode: standalone`); `lib/sync/attachSync.ts` and `App.tsx` fall back to the offline cache when the initial fetch fails while `navigator.onLine` is false | none — read-only, D-008 |
 | Auth: username/password + RLS lockdown (docs/plans/09.md, M8) | `apps/map/src/lib/auth/{username,session}.ts` (D-019, D-020) | none new — sessions/reads go through the existing `lib/db/browserClient.ts` client; `scripts/create-user.ts` is the only writer of `auth.users`, via the service-role key | `App.tsx` owns the single app-lifetime Supabase client and the session gate (`getSession`/`onAuthStateChange`), replacing the old `!actor` gate; `features/auth/LoginScreen.tsx` (username/password form, shown whenever there is no session) | `auth.users` (via Admin API only); RLS on `colonies`/`plots`/`plot_history` is now select-only, authenticated-only — see `apply_plot_transition()`'s own comment for why writes still work |
+
+## tools/pipeline — reusable functions
+
+| Function | Path | What it does |
+|---|---|---|
+| `triage_pdf(path)` | `tools/pipeline/pipeline/io/pdf.py` | Opens a PDF/JPEG/PNG/TIFF and returns one `PageTriage` per page — vector-or-raster, drawing-path count, text-span count, bbox, rotation. Rejects any other extension with `UnreadablePdfError` before ever calling PyMuPDF (it happily parses Markdown/other formats too — out of scope for a site-plan triage tool, a real gap M9's own test caught). Never raises a raw PyMuPDF exception. |
+| `classify_document(pages)` | `tools/pipeline/pipeline/cli/inspect.py` | `"vector"` if every page is vector, `"raster"` if none are, else `"mixed"` — the M9/spec-04 fork point (`make inspect`'s whole reason to exist). |
 
 ## Reusable functions
 

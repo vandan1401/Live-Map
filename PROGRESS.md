@@ -2,6 +2,61 @@
 
 ## Current
 
+- **M9 built: pipeline triage/ingest (2026-08-16, Tier 2/3, spec/09-pipe-triage.md).**
+  `tools/pipeline/` now exists for real — previously only a placeholder directory root
+  `make` targets pointed at (`cd tools/pipeline` failed with "directory doesn't exist" as
+  recently as the 2026-08-12 wrap log entry below). Built: `pyproject.toml` (pymupdf,
+  shapely, numpy, jsonschema + ruff/mypy/pytest dev deps), a self-bootstrapping
+  `tools/pipeline/Makefile` (`verify`/`lint`/`typecheck`/`test`/`contract`/`golden`/`gate`/
+  `ingest`/`export`/`serve`, all routed through a local `.venv` — see NAVIGATION.md's new
+  "tools/pipeline — toolchain" section for why), `pipeline/io/pdf.py`'s `triage_pdf()`
+  (vector-vs-raster classification per page via PyMuPDF), `pipeline/cli/inspect.py` (`make
+  inspect PDF=...`), and the `tests/test_contract.py`/`tests/test_golden.py` scaffolding
+  root's `make contract`/`make gate` already assumed existed. Root `Makefile`'s
+  `verify-pipe`/`contract`/`gate`/`inspect` targets rewritten to delegate to the nested
+  Makefile (`$(MAKE) -C tools/pipeline <target>`) instead of calling bare `ruff`/`mypy`/
+  `pytest`/`python` directly — none of those are on this machine's global `PATH` (only
+  `python` itself is; D-117 "Python toolchain... not explicitly confirmed" from Deferred,
+  now resolved for real via the venv bootstrap rather than left open).
+- **Real gap the tests caught**: spec/09's own acceptance criterion 5 example ("feed it
+  this spec file" to prove an unreadable file fails cleanly) doesn't actually fail against
+  current PyMuPDF (1.28.2) — it added generic Markdown parsing and opens a `.md` file as a
+  valid 2-page document. `triage_pdf()` now rejects anything outside a `.pdf`/`.jpg`/
+  `.jpeg`/`.png`/`.tif`/`.tiff` allowlist before ever calling PyMuPDF, which is what
+  actually makes the criterion pass — caught by writing the test first and watching it
+  fail with "DID NOT RAISE", not assumed from reading the spec.
+- Verified: all 5 of spec/09's acceptance criteria run for real from repo root via
+  `mingw32-make.exe` (only `make` on this machine's `PATH`) — `make verify-pipe` → ruff
+  clean, mypy clean ("Success: no issues found in 5 source files"), pytest "7 passed, 1
+  skipped" (the 1 skip is the golden-export placeholder, correctly deferred to M14); `make
+  inspect PDF=fixtures/demo-plan.pdf` → `tier: vector (M2 path)`, 198 paths, 56 text
+  spans; `make inspect PDF=fixtures/demo-plan-scan.jpg` → `tier: raster (M9 path)`, 0
+  paths, 0 text spans; the rotated/landscape unit test (synthetic 842x595 page, rotation
+  set to 90) is part of the 7-passed run; `make inspect PDF=spec/09-pipe-triage.md` →
+  clean `error: ... is not a PDF or image (got .md) - ...`, exit 2 (Makefile-propagated),
+  no traceback. `make contract` (repo root) → "2 passed" against
+  `fixtures/shree-vatika-2/colony.json`. Confirmed cold: ran `mingw32-make.exe
+  verify-pipe` from repo root and watched it create `.venv` and `pip install -e ".[dev]"`
+  before running the gate, so the literal acceptance-criterion command works with no
+  manual setup step. `git add -n tools/` confirmed only real source files stage — `.venv`/
+  caches correctly excluded by the pre-existing `.gitignore` pipeline section. **Full
+  repo gate** (`/wrap`, same session): `make contract` → 2 passed; `apps/map` —
+  `pnpm typecheck`/`pnpm lint` clean, `pnpm build` clean (712.99 kB main chunk, over the
+  500 kB warning threshold — pre-existing, not this session's diff); `pnpm test -- --run`
+  → 95/96 passing after a `db-reseed` (one `supabase db reset` attempt hit a transient
+  `LegacyDbSetupError`, succeeded on immediate retry with all containers already healthy —
+  not chased further, looked like container-timing noise, not a real bug). The one
+  remaining failure, `subscribePlots.test.ts`'s realtime live-integration test, is the
+  pre-existing intermittent flake already on record in `## Deferred` (reproduced twice in
+  a row this session, not clearing on retry this time — see Deferred entry, updated).
+  `tools/pipeline` — `make -C tools/pipeline verify` clean (ruff/mypy/pytest, 7 passed 1
+  skipped), `make -C tools/pipeline golden` → 1 skipped (expected, M14 not built). No
+  file in this session's diff touches `apps/map/src/lib/sync/` — the flake is unrelated
+  to M9, confirmed by the diff, not just by assumption.
+- Next: M10 (`spec/10-pipe-vector.md`) — extracting polygons/text from a vector PDF, the
+  path M9's triage report points a real DWG-exported PDF down. Non-goals explicitly
+  deferred by M9: extracting polygons, matching labels, OCR, export.
+
 - **Map UI rework, part 5 (2026-08-16, Tier 3): reference-matched label style, lower
   status opacity, road grain, and a real fix for the ground texture's visible tiling —
   the actual root cause turned out to be my own processing, not the source photo or a
@@ -525,6 +580,12 @@
   to have checked the exit code, only the printed pass count). Needs a real fix in
   `ColonyMap.test.tsx`'s realtime-subscription teardown (or `subscribePlots.test.ts`'s
   timeout), not a `/review`-fix-pass patch — out of scope for this Tier 1 PWA task.
+  **Reconfirmed 2026-08-16 (M9 wrap):** `subscribePlots.test.ts`'s "a write from one
+  client is observed by another" timed out at 20000ms twice in a row (not intermittent
+  this time) during the M9 gate run — a fresh `db-reseed` right before didn't clear it.
+  Confirmed unrelated to that session's diff (Tier 2/3, `tools/pipeline` + Makefiles
+  only, nothing under `apps/map/src/lib/sync/`). Still not fixed — still needs the real
+  investigation this entry already called for, now two sessions old.
 - **From M7 PWA (2026-08-14):** `InstallInstructions.tsx` ships a hand-drawn, geometric
   share→add-to-home-screen illustration (`public/images/install-instructions.png`,
   generated by `scripts/generate-icons.mjs`'s `installIllustrationPng`), not a real iPhone
@@ -614,8 +675,11 @@
   this machine — see Current). One warning: `[inbucket]` is deprecated in favour of
   `[local_smtp]` in this CLI version — harmless today (M2/M3 don't touch email), fix
   before it's actually needed.
-- `pnpm`/`wrangler` (D-014), Python toolchain (D-117), read-only offline (D-008), and
-  no-photos-in-v1 (D-015) were proposed and not explicitly confirmed. All reversible.
+- `pnpm`/`wrangler` (D-014), read-only offline (D-008), and no-photos-in-v1 (D-015) were
+  proposed and not explicitly confirmed. All reversible. Python toolchain (D-117) is now
+  resolved in practice, not just proposed — M9 (2026-08-16, see `## Current`) confirmed
+  `ruff`/`mypy`/`pytest` aren't globally on this machine's `PATH` and made every
+  `tools/pipeline` Makefile target bootstrap its own `.venv` instead.
 - Whether their real PDFs are vector or raster is unknown. If raster, M17's fallback stops
   being last and becomes urgent. `make inspect` on one real file settles it.
 - How a new colony reaches production once exported is undecided. M6 imports by script.
@@ -623,6 +687,28 @@
 ## Log
 
 <!-- Append-only. Four lines per entry: Done / Next / Surprises / Verified. -->
+
+### 2026-08-16 — M9 built: pipeline triage/ingest (spec/09-pipe-triage.md)
+- Done: `tools/pipeline/` scaffolded for real (`pyproject.toml`, self-bootstrapping
+  `Makefile`, `pipeline/io/pdf.py`'s `triage_pdf()`, `pipeline/cli/inspect.py`), plus the
+  `tests/test_contract.py`/`tests/test_golden.py` root's `make contract`/`make gate`
+  already depended on. Root `Makefile` rewritten to delegate `verify-pipe`/`contract`/
+  `gate`/`inspect` to the nested Makefile instead of calling bare Python tools.
+- Next: M10 (`spec/10-pipe-vector.md`) — vector PDF extraction, the path M9's triage
+  points a real DWG export down.
+- Surprises: PyMuPDF (1.28.2) parses Markdown as a generic document, so spec/09's own
+  "feed it this spec file" example for the unreadable-file criterion doesn't fail on its
+  own — `triage_pdf()` needed an explicit PDF/image extension allowlist to make that
+  criterion true. Also: this machine has no global `ruff`/`mypy`/`pytest` on `PATH` (only
+  bare `python`) — resolved D-117 in practice by making every pipeline Makefile target
+  bootstrap its own `.venv`.
+- Verified: all 5 of spec/09's acceptance criteria run for real via `mingw32-make.exe`
+  from repo root, output pasted in `## Current` above. `make contract` → "2 passed".
+  Confirmed the venv bootstraps cold (no manual setup) and that only real source files
+  stage (`git add -n tools/`). **Full `/wrap` gate, same session:** `make contract`
+  clean; `apps/map` typecheck/lint/build clean, tests 95/96 (one pre-existing, unrelated
+  realtime flake — see `## Deferred`, reconfirmed not this diff's doing); `tools/pipeline`
+  `verify`/`golden` clean.
 
 ### 2026-08-16 — Map UI rework, part 5: reference-matched labels, road grain, texture-tiling root cause, phone access
 - Done: matched road/quadrant labels to the owner's part-4 reference render (white

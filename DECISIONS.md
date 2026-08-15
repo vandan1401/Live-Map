@@ -54,7 +54,7 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-114 | Verify page is three files, not one | accepted |
 | D-115 | DXF front end deferred and conditional on evidence | accepted |
 | D-116 | Source provenance recorded in every manifest | accepted |
-| D-117 | Makefile + pytest + ruff + mypy, stdlib venv | provisional |
+| D-117 | Makefile + pytest + ruff + mypy, stdlib venv | accepted |
 
 ## Both
 

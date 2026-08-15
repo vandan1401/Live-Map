@@ -1,6 +1,12 @@
 # D-117 — Makefile, pytest, ruff, mypy, stdlib venv
 
-**Status:** provisional — proposed and not explicitly confirmed
+**Status:** accepted — implemented and gate-verified by M9 (spec/09-pipe-triage.md,
+2026-08-16). `tools/pipeline/Makefile` bootstraps `.venv` via `python -m venv` +
+`pip install -e ".[dev]"` behind a `$(VENV)/pyvenv.cfg` prerequisite, so every target
+resolves ruff/mypy/pytest through it rather than assuming a global install — confirmed
+necessary in practice: this dev machine has no global `ruff`/`mypy`/`pytest` on `PATH`,
+only bare `python`. Root `Makefile` delegates to it (`$(MAKE) -C tools/pipeline <target>`)
+rather than duplicating bare tool invocations.
 
 ## Decision
 

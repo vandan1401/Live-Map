@@ -1,0 +1,49 @@
+[project]
+name = "pipeline"
+version = "0.1.0"
+description = "Colony Viewer pipeline: site-plan PDF -> SVG + manifest"
+requires-python = ">=3.11"
+dependencies = [
+    "pymupdf>=1.24",
+    "shapely>=2.0",
+    "numpy>=1.26",
+    "jsonschema>=4.21",
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "pytest>=8.0",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["pipeline*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+files = ["pipeline"]
+
+[[tool.mypy.overrides]]
+module = "pymupdf"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# pymupdf ships partial/inconsistent stubs (D-117-adjacent: an external C-extension,
+# not something this repo controls). io/ is deliberately the one layer allowed to touch
+# it directly (tier-2.md, "format code stays at the edge") — relax strictness here only.
+module = "pipeline.io.*"
+disallow_untyped_calls = false
+warn_return_any = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
