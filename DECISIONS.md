@@ -21,7 +21,7 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-008 | Read-only offline; writes require connectivity | provisional |
 | D-009 | Leaflet `CRS.Simple` as a pan/zoom container only, not its vector layer | accepted |
 | D-010 | Money stored as integer paise | accepted |
-| D-011 | Auth deferred to M8; app must not be publicly deployed before it | accepted |
+| D-011 | Auth deferred to M8; app must not be publicly deployed before it | superseded by D-021 |
 | D-012 | Plot field set derived from the owner's stated needs | provisional |
 | D-013 | Three-status vocabulary with defined legal transitions | provisional |
 | D-014 | pnpm + Vite + Vitest + Wrangler | provisional |
@@ -31,6 +31,7 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-018 | `owner_name` is sticky — never cleared by a status transition, only overwritten by a fresh booking | provisional |
 | D-019 | Username/password via a synthetic per-user email, not magic links | accepted |
 | D-020 | Write attribution is derived server-side from the authenticated session, never a client parameter | accepted |
+| D-021 | Public deployment permitted; D-011's deploy block lifted | accepted |
 
 ## tools/pipeline
 

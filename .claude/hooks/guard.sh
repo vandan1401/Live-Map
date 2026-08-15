@@ -27,8 +27,6 @@ echo "$CMD" | grep -qE 'git +push.*--force'      && block "force push."
 echo "$CMD" | grep -qE 'git +reset +--hard'      && block "hard reset. Use /rewind or do it yourself."
 echo "$CMD" | grep -qiE 'drop +(table|database)' && block "destructive SQL."
 
-# apps/map — no auth until M8 (D-011). A URL leak exposes ownership records.
-echo "$CMD" | grep -qE 'wrangler pages deploy|wrangler deploy' && block "deploys are manual — and there is no auth until M8 (D-011). Never deploy this publicly."
 # `supabase db reset` (local target only) is deliberately NOT blocked (user's explicit
 # instruction, 2026-08-12 — see CLAUDE.md's Commands section for the no-remote-link
 # reasoning). Everything that can target or create a remote link stays blocked: `db push`,

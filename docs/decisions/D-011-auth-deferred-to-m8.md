@@ -1,6 +1,7 @@
 # D-011 — Auth deferred to M8; no public deployment before it
 
-**Status:** accepted
+**Status:** superseded by D-021 — M8 shipped, `docs/plans/09.md` closed 2026-08-15, deploy
+block removed
 
 ## Decision
 

@@ -2,6 +2,20 @@
 
 ## Current
 
+- **`docs/plans/09.md` (M8) is now closed** — the owner confirmed both remaining manual
+  criteria directly: criterion 1 (an outside username is rejected on a real device) and
+  criterion 5 (cache-TTL forced re-auth), the latter via a direct check rather than a real
+  24h wait. All six acceptance criteria are met; `**Status:** complete` appended to the
+  plan.
+- **`D-011` flipped (2026-08-15), per the owner's explicit go-ahead** — new
+  `D-021-public-deployment-permitted.md` (accepted) records that M8 shipping satisfies the
+  one condition D-011 itself named for lifting the block. `DECISIONS.md`'s D-011 row →
+  `superseded by D-021`; `docs/decisions/D-011-auth-deferred-to-m8.md`'s own Status line
+  updated to match. `.claude/hooks/guard.sh`'s `wrangler pages deploy`/`wrangler deploy`
+  block (the D-011-specific one) removed. Note: CLAUDE.md's separate "Never run: ...
+  `wrangler pages deploy`" instruction is unrelated to D-011 (it's about deploys being the
+  owner's own action, not Claude's, regardless of auth status) and still stands — this
+  only removes the auth-safety gate, it does not make deploying Claude's job.
 - **M8 built this session (`docs/plans/09.md`, Tier 1, `/plan → /build`, `/review`
   pending): username/password auth + RLS lockdown.** Per the user's explicit override of
   D-003 ("we do auth a little different — usernames and passwords no email needed"),
@@ -235,11 +249,6 @@
   User") — created purely as the fixture the live-integration tests sign in as, obviously
   fake, never committed anywhere. Real accounts: `pnpm create-user <username> <password>
   "<Display Name>"` once the user provides names, run once per family member.
-- **`[auth.sessions] timebox = "24h"` was accepted with no error by the installed CLI
-  (2.114.0) during `make db-up`/`supabase db reset`, but the actual 24h-expiry behaviour
-  itself was not live-verified this session** (would need a real session held open across
-  a clock change or a 24h wait) — config-accepted is not the same as behaviour-proven.
-  Worth a real check before the M8 acceptance table's manual criteria are signed off.
 - **Owner feedback from live iPhone PWA testing (2026-08-15) — all three resolved this
   session, see `## Current`.** Kept here for the history: (1) no back button/way to return
   to the colony picker home screen once inside a colony's map. (2) the colony picker home
