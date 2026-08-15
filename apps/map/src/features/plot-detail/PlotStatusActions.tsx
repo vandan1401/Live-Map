@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { isLegalTransition } from "../../lib/plot-status/transitions.ts";
 import { isRecentlyEdited } from "../../lib/plot-status/recentEdit.ts";
-import { formatStatusLabel } from "../../shared/format.ts";
+import { formatActorName, formatStatusLabel } from "../../shared/format.ts";
 import type { PlotHistoryRow, PlotRow, PlotStatus } from "../../lib/db/types.ts";
 
 const ALL_STATUSES: PlotStatus[] = ["available", "booked", "registered"];
@@ -45,7 +45,7 @@ export function PlotStatusActions({ plot, history, actor, saving, onChangeStatus
     <div className="plot-status-actions">
       {showRecentEditWarning && (
         <p className="plot-status-warning">
-          {plot.updated_by} edited this a few minutes ago — check before you save.
+          {formatActorName(plot.updated_by)} edited this a few minutes ago — check before you save.
         </p>
       )}
       {canBook && (

@@ -31,6 +31,23 @@ port = 55324
 [auth]
 enabled = true
 site_url = "http://localhost:5173"
+# No public self-registration — an admin-created auth.users row (scripts/create-user.ts)
+# *is* the allowlist (D-019, docs/plans/09.md). Deliberately no separate roster table.
+enable_signup = false
 
-# D-011: auth is deferred to M8. This section exists because the CLI requires it, not
-# because sign-in is wired up yet.
+[auth.email]
+# Every account's email is a synthetic, invisible address (D-019) — created
+# pre-confirmed via the admin API (email_confirm: true), never sent real mail.
+enable_confirmations = false
+
+[auth.sessions]
+# Pinned at 24h (docs/plans/09.md, spec/08 criterion 5's "on the order of 24 hours, not
+# 30 days"). Verified against the installed CLI (2.114.0) by running `supabase start`
+# for real — see this file's own top-of-file disclaimer about verifying against your
+# installed CLI.
+timebox = "24h"
+
+# D-011: superseded by this plan (docs/plans/09.md) once the user live-verifies all six
+# spec/08 acceptance criteria for real and updates the decision themselves — see that
+# plan's Non-goals. The deploy guard in .claude/hooks/guard.sh is not lifted by this
+# migration alone.

@@ -1,14 +1,14 @@
 import type { PlotDetail } from "../../lib/colony/plotDetail.ts";
-import { formatRelativeTime, formatStatusLabel } from "../../shared/format.ts";
+import { formatActorName, formatRelativeTime, formatStatusLabel } from "../../shared/format.ts";
 
 // Read-only display: dimensions, owner name only while booked (D-012 amended this
 // session — narrower than the original D-012 field list), plus the attribution line
 // and history (D-006/D-007 — a different question than "what does this plot look
 // like," kept regardless of the field-list change).
 export function PlotDetailContent({ plot, history }: PlotDetail) {
-  const attribution = `${formatStatusLabel(plot.status)} — updated by ${
-    plot.updated_by
-  }, ${formatRelativeTime(plot.updated_at)}`;
+  const attribution = `${formatStatusLabel(plot.status)} — updated by ${formatActorName(
+    plot.updated_by,
+  )}, ${formatRelativeTime(plot.updated_at)}`;
 
   return (
     <div className="plot-detail-content">
@@ -41,7 +41,7 @@ export function PlotDetailContent({ plot, history }: PlotDetail) {
           <ul>
             {history.map((row) => (
               <li key={row.id}>
-                {formatStatusLabel(row.status)} — {row.changed_by},{" "}
+                {formatStatusLabel(row.status)} — {formatActorName(row.changed_by)},{" "}
                 {formatRelativeTime(row.changed_at)}
                 {row.note && ` — ${row.note}`}
               </li>

@@ -145,11 +145,14 @@ const plotInserts: PlotInsert[] = manifest.plots.map((plot) => {
 });
 
 const url = process.env.VITE_SUPABASE_URL ?? "";
-const anonKey = process.env.VITE_SUPABASE_ANON_KEY ?? "";
-if (!url || !anonKey) {
-  fail("VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY must be set (see .env.example).");
+// The service-role key, not the anon key (docs/plans/09.md) — M8's RLS lockdown leaves
+// anon/authenticated with no insert grant on colonies/plots, so this admin-only import
+// must bypass RLS entirely, the same way scripts/create-user.ts does.
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+if (!url || !serviceRoleKey) {
+  fail("VITE_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set (see .env.example).");
 }
-const client = createDbClient(url, anonKey);
+const client = createDbClient(url, serviceRoleKey);
 
 async function main() {
   await insertColony(client, {

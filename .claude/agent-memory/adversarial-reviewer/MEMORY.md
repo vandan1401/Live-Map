@@ -1,8 +1,8 @@
 - [Autonomous skill loop](project-autonomous-loop.md) — approval gates removed on purpose; flag the fallout, not the decision.
 - [Review diff blind spots](review-diff-blind-spots.md) — `diff-head` hides untracked files *and* sweeps in unplanned work; check `git status --short` + the plan's task list.
-- [Docs vs enforcement drift](review-docs-vs-enforcement-drift.md) — 4x recurrence: prose relaxed, `guard.sh`/`_json.sh` too broad or failing open. Check both, every pass.
+- [Docs vs enforcement drift](review-docs-vs-enforcement-drift.md) — 5x: prose/config/migration claims a guarantee the runtime doesn't have. Check `docker inspect` + `information_schema`, not the file.
 - [Vacuous acceptance tests](review-vacuous-acceptance-tests.md) — 3x: tests passing for the wrong reason; also read vitest's *exit code*, not the green `Tests N passed` line.
-- [Attribution fallbacks](review-attribution-fallbacks.md) — 5x: actor `??` fallbacks, a bogus `confidence`, `import` rows shown as changes, a sticky `owner_name` on un-booked plots. Grep every consumer.
+- [Attribution fallbacks](review-attribution-fallbacks.md) — 7x: `??` placeholders, bogus `confidence`, `import` rows, sticky `owner_name`, a self-writable `user_metadata` JWT claim. Ask who can write it.
 - [Fixture geometry unchecked](review-fixture-geometry-unchecked.md) — 3x: nothing checks overlap, viewBox drift, or derived `facing`/`is_corner`; recompute them from `colony.svg` yourself.
 - [Fixture plot-count drift](review-fixture-plot-count-drift.md) — the fixture's plot count is a literal in ~8 spec/README files; grep the old count on any fixture change.
 - [Comments assert what code doesn't do](review-comment-asserts-unimplemented.md) — 4x: intent comments (CSS cascade, SW cache-versioning, "this corner is free") the code doesn't deliver; do the cascade/position arithmetic yourself.

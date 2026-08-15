@@ -13,7 +13,6 @@ export interface ApplyPlotTransitionInput {
   fromStatus: PlotStatus;
   toStatus: PlotStatus;
   expectedVersion: number;
-  actor: string;
   note?: string | null;
   // Fresh booking only (docs/plans/08.md) — omitted on every other transition, including
   // Undo, so the RPC's coalesce leaves the existing owner_name in place.
@@ -40,7 +39,6 @@ export async function applyPlotTransition(
       plotId: input.plotId,
       expectedVersion: input.expectedVersion,
       newStatus: input.toStatus,
-      actor: input.actor,
       note: input.note,
       ownerName: input.ownerName,
     });

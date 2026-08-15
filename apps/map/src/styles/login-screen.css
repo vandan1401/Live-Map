@@ -1,7 +1,7 @@
-/* One-time "who's using this device?" prompt (M4 follow-up, D-016). Its own file, not
- * folded into plot-detail-sheet.css — a different feature entirely, shown before the
- * map ever mounts. */
-.name-prompt-overlay {
+/* Username/password login (docs/plans/09.md, D-019) — supersedes the M4 free-text
+ * "who's using this device?" prompt. Its own file, not folded into plot-detail-sheet.css
+ * — a different feature entirely, shown whenever there is no active session. */
+.login-screen-overlay {
   position: fixed;
   inset: 0;
   z-index: 2000;
@@ -12,7 +12,7 @@
   padding: 1.5rem;
 }
 
-.name-prompt-card {
+.login-screen-card {
   width: 100%;
   max-width: 22rem;
   background: #ffffff;
@@ -22,19 +22,19 @@
   text-align: center;
 }
 
-.name-prompt-card h1 {
+.login-screen-card h1 {
   font-size: 1.1rem;
   font-weight: 600;
   margin: 0 0 0.5rem;
 }
 
-.name-prompt-card p {
+.login-screen-card p {
   font-size: 0.85rem;
   color: var(--colony-site-boundary);
   margin: 0 0 1rem;
 }
 
-.name-prompt-input {
+.login-screen-input {
   width: 100%;
   font-size: 1rem;
   border: 1px solid var(--colony-plot-stroke);
@@ -43,7 +43,13 @@
   margin-bottom: 0.75rem;
 }
 
-.name-prompt-submit {
+.login-screen-error {
+  font-size: 0.85rem;
+  color: var(--colony-status-hold);
+  margin: 0 0 0.75rem;
+}
+
+.login-screen-submit {
   width: 100%;
   font-size: 0.95rem;
   font-weight: 600;
@@ -54,6 +60,6 @@
   padding: 0.6rem;
 }
 
-.name-prompt-submit:disabled {
+.login-screen-submit:disabled {
   opacity: 0.5;
 }

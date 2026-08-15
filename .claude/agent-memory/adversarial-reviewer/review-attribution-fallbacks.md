@@ -1,6 +1,6 @@
 ---
 name: review-attribution-fallbacks
-description: Recurring defect — a fabricated, synthetic, or stale provenance value (actor fallback, a `confidence` for a match that never ran, `import` rows shown as real changes, a sticky `owner_name` on an un-booked plot) writes a fake fact into the evidence trail. Flagged five times.
+description: Recurring defect — a fabricated, synthetic, or stale provenance value (actor fallback, a `confidence` for a match that never ran, `import` rows shown as real changes, a sticky `owner_name`, a JWT claim the user can rewrite) writes a fake fact into the evidence trail. Flagged seven times.
 metadata:
   type: feedback
 ---
@@ -47,6 +47,21 @@ Occurrences so far:
    and is findable by — the previous buyer's name. **When a plan defends "we never clear
    field X" with "X is only shown when Y", grep every consumer of X yourself; the plan
    author checked one.**
+
+6. 2026-08-15 (plan 09, M8 auth) — **"server-side" is not the same as "not client-controlled."**
+   `20260815020000_m8_auth_rls_lockdown.sql:39` derives attribution inside a `security
+   definer` function from `auth.jwt() -> 'user_metadata' ->> 'display_name'`, and D-020
+   claims "a forged request body has nothing to tamper." But GoTrue's `user_metadata` is
+   *self-writable*: `PUT /auth/v1/user {"data":{"display_name":"..."}}` with only the anon
+   key plus the user's own session rewrites it, and the next JWT carries it. Proven by
+   curl + a rolled-back `apply_plot_transition` call that attributed to the forged name.
+   **Rule: for any JWT claim used as evidence, ask who can write it — `user_metadata` is
+   the user, `app_metadata` is service-role only.** Same question for any "derived from the
+   session" phrasing.
+7. 2026-08-15 (plan 09, same diff) — the `?? "unknown"` literal came *back*, in
+   `lib/auth/session.ts:36`'s `getDisplayName`, in the very plan whose §3 named that exact
+   string as the mistake not to reintroduce. Grep the placeholder strings themselves
+   (`"unknown"`, `"import"`, `"system"`, `"anonymous"`) on every diff that touches identity.
 
 **How to apply:** the fix is always the same — make the guarantee structural (pass the actor
 as a required prop from the component that already enforces it) or refuse the write. Related:

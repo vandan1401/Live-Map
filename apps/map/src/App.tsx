@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
+import type { Session } from "@supabase/supabase-js";
 import { ColonyMap } from "./components/ColonyMap";
 import { ColonyPicker } from "./features/colony-picker/ColonyPicker";
-import { NamePrompt } from "./features/identity/NamePrompt";
+import { LoginScreen } from "./features/auth/LoginScreen";
 import { InstallInstructions } from "./features/pwa-install/InstallInstructions";
 import { hasSeenInstallInstructions } from "./pwa/installInstructionsSeen";
-import { getStoredActor, setStoredActor } from "./lib/identity/actor";
+import { getDisplayName, signOut } from "./lib/auth/session";
 import { getBrowserDbClient } from "./lib/db/browserClient";
 import { loadVerifiedColonies } from "./lib/colony/listColonies";
-import { loadColonyList, saveColonyList } from "./pwa/offlineCache";
+import { isSnapshotExpired, loadColonyList, saveColonyList } from "./pwa/offlineCache";
 import { formatFreshnessLabel } from "./lib/sync/freshness";
 import type { ColonyRow } from "./lib/db/types";
 
@@ -25,7 +26,24 @@ function isStandaloneDisplay(): boolean {
 const COLONY_LIST_FRESHNESS_TICK_MS = 15_000;
 
 function App() {
-  const [actor, setActor] = useState(() => getStoredActor());
+  // Created once, for the whole app lifetime (docs/plans/09.md) — lifted out of
+  // ColonyMap.tsx's per-mount effect so App.tsx can check for a session before any
+  // colony is even picked. Reused by ColonyMap/PlotDetailSheet as a prop, same pattern
+  // that already existed one level down. null only if env vars are missing (moved here
+  // from ColonyMap.tsx's own try/catch, same degrade-gracefully behaviour).
+  const [client] = useState(() => {
+    try {
+      return getBrowserDbClient();
+    } catch (error) {
+      console.error("failed to create Supabase client:", error);
+      return null;
+    }
+  });
+  // undefined = still checking for a session on mount; null = no session (show
+  // LoginScreen); a Session = signed in. Distinguishing "checking" from "no session"
+  // avoids a one-frame flash of the login screen on a page that's actually about to
+  // restore a valid session from storage.
+  const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [showInstallInstructions, setShowInstallInstructions] = useState(
     () => !hasSeenInstallInstructions() && !isStandaloneDisplay(),
   );
@@ -44,10 +62,25 @@ function App() {
   const [freshnessNow, setFreshnessNow] = useState(() => new Date());
 
   useEffect(() => {
-    if (!actor) return;
+    if (!client) {
+      setSession(null);
+      return;
+    }
+    client.auth.getSession().then(({ data }) => setSession(data.session));
+    // Reacts to sign-in, sign-out (including the TTL check below calling signOut()
+    // itself), and a failed token refresh (e.g. a revoked account) — any of these
+    // updates `session`, which drives the LoginScreen/picker/map gate below.
+    const { data: subscription } = client.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+    });
+    return () => subscription.subscription.unsubscribe();
+  }, [client]);
+
+  useEffect(() => {
+    if (!client || !session) return;
 
     const fetchColonies = () => {
-      loadVerifiedColonies(getBrowserDbClient())
+      loadVerifiedColonies(client)
         .then((loaded) => {
           setColonies(loaded);
           setColonyListSavedAt(null);
@@ -68,13 +101,21 @@ function App() {
           if (!navigator.onLine) {
             loadColonyList()
               .then((snapshot) => {
-                if (snapshot) {
-                  setColonies(snapshot.colonies);
-                  setColonyListSavedAt(snapshot.savedAt);
-                  setLoadError(false);
-                } else {
+                if (!snapshot) {
                   setLoadError(true);
+                  return;
                 }
+                // Cache TTL (docs/plans/09.md, spec/08 criterion 5): data older than 24h
+                // is never rendered — forces re-auth by signing the (possibly revoked)
+                // session out rather than trusting stale data indefinitely.
+                if (isSnapshotExpired(snapshot.savedAt, new Date())) {
+                  void signOut(client);
+                  setLoadError(true);
+                  return;
+                }
+                setColonies(snapshot.colonies);
+                setColonyListSavedAt(snapshot.savedAt);
+                setLoadError(false);
               })
               .catch(() => setLoadError(true));
             return;
@@ -90,7 +131,7 @@ function App() {
     // data the moment "online" fires (/review finding #1).
     window.addEventListener("online", fetchColonies);
     return () => window.removeEventListener("online", fetchColonies);
-  }, [actor]);
+  }, [client, session]);
 
   useEffect(() => {
     if (colonyListSavedAt === null) return;
@@ -98,15 +139,29 @@ function App() {
     return () => clearInterval(interval);
   }, [colonyListSavedAt]);
 
-  if (!actor) {
+  if (!client) {
     return (
-      <NamePrompt
-        onSubmit={(name) => {
-          setStoredActor(name);
-          setActor(name);
-        }}
-      />
+      <div className="colony-picker-overlay">
+        <p className="colony-picker-empty">Could not connect. Check your setup.</p>
+      </div>
     );
+  }
+
+  // undefined = still checking for an existing session — render nothing rather than
+  // flash the login screen for a page about to restore a valid one.
+  if (session === undefined) return null;
+
+  if (session === null) {
+    return <LoginScreen client={client} />;
+  }
+
+  const actor = getDisplayName(session);
+  if (actor === null) {
+    // A session with no usable identity (no app_metadata.display_name, no email) is
+    // one this app refuses to trust rather than papering over with a placeholder
+    // (docs/plans/09.md — the exact `?? "unknown"` mistake tier-1.md warns against).
+    void signOut(client);
+    return <LoginScreen client={client} />;
   }
 
   if (showInstallInstructions) {
@@ -142,6 +197,7 @@ function App() {
 
   return (
     <ColonyMap
+      client={client}
       actor={actor}
       colonyId={selectedColonyId}
       onBack={() => setSelectedColonyId(null)}

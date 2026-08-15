@@ -4,7 +4,6 @@ import "leaflet/dist/leaflet.css";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AnimatePresence } from "framer-motion";
 import colonySvgRaw from "../../../../fixtures/shree-vatika-2/colony.svg?raw";
-import { getBrowserDbClient } from "../lib/db/browserClient.ts";
 import { attachSync } from "../lib/sync/attachSync.ts";
 import type { PlotStatus } from "../lib/db/types.ts";
 import { PlotDetailSheet } from "../features/plot-detail/PlotDetailSheet.tsx";
@@ -34,9 +33,12 @@ function parseColonySvg(raw: string): SVGSVGElement {
 }
 
 interface Props {
-  // From App.tsx's non-null state (D-016) — never re-read from localStorage here, so
-  // there is exactly one place a missing identity can produce a fallback value, and
-  // App.tsx's gate means it never has to.
+  // From App.tsx's single app-lifetime client (docs/plans/09.md) — no longer created
+  // per colony mount, so auth state (and its session) is shared everywhere.
+  client: SupabaseClient;
+  // From App.tsx's session (D-020) — never re-read from localStorage here, so there is
+  // exactly one place a missing identity can produce a fallback value, and App.tsx's
+  // gate means it never has to.
   actor: string;
   // From App.tsx's ColonyPicker selection — the picker only offers verified colonies
   // (D-108), so this is always a colony this component is allowed to read.
@@ -46,17 +48,11 @@ interface Props {
   onBack: () => void;
 }
 
-export function ColonyMap({ actor, colonyId, onBack }: Props) {
+export function ColonyMap({ client, actor, colonyId, onBack }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
-  const clientRef = useRef<SupabaseClient | null>(null);
-  // Mirrors clientRef into state (/review finding, M6): PlotSearch and ShareSummary
-  // read this as a prop, and a ref mutation alone doesn't trigger their first
-  // re-render. Without this, if attachSync's very first fetch happened to fail, no
-  // state changed anywhere, so those two never learned the client existed — search
-  // silently showed "No matches" forever, indistinguishable from a real empty result.
-  const [client, setClient] = useState<SupabaseClient | null>(null);
+  const clientRef = useRef<SupabaseClient>(client);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Sync/freshness state (M5, spec/05) — attachSync (lib/sync/) owns the subscription,
   // the tick, and the reconnect logic; this component just renders what it reports and
@@ -109,38 +105,28 @@ export function ColonyMap({ actor, colonyId, onBack }: Props) {
     // attachSync (lib/sync/) owns the subscription, the connection signals, the
     // reconnect refetch, and the freshness tick. This component only supplies the DOM
     // writes and state setters it asks for — colony-theme.css's [data-status]
-    // selectors do the rest. Missing env vars (e.g. no .env configured yet) degrade to
-    // plots rendering with no status colour, not a crash. The same client is reused by
-    // the plot detail sheet (M3) so a click never re-reads env vars or opens a second
-    // connection.
-    let detachSync: (() => void) | null = null;
-    try {
-      const dbClient = getBrowserDbClient();
-      clientRef.current = dbClient;
-      setClient(dbClient);
-      detachSync = attachSync(dbClient, colonyId, {
-        applyStatuses: (statuses) => {
-          for (const [svgId, status] of Object.entries(statuses)) {
-            svgEl.querySelector(`#${svgId}`)?.setAttribute("data-status", status);
-          }
-        },
-        applyStatus: (svgId, status) => {
+    // selectors do the rest. The client is created once, app-wide, in App.tsx
+    // (docs/plans/09.md) and passed down as a prop — no longer created per colony mount.
+    const detachSync = attachSync(client, colonyId, {
+      applyStatuses: (statuses) => {
+        for (const [svgId, status] of Object.entries(statuses)) {
           svgEl.querySelector(`#${svgId}`)?.setAttribute("data-status", status);
-        },
-        setOffline,
-        setFreshnessLabel,
-      });
-    } catch (error) {
-      console.error("failed to create Supabase client:", error);
-    }
+        }
+      },
+      applyStatus: (svgId, status) => {
+        svgEl.querySelector(`#${svgId}`)?.setAttribute("data-status", status);
+      },
+      setOffline,
+      setFreshnessLabel,
+    });
 
     return () => {
-      detachSync?.();
+      detachSync();
       map.off("zoomend", applyZoomDetail);
       mapRef.current = null;
       map.remove();
     };
-  }, [colonyId]);
+  }, [client, colonyId]);
 
   // Legend filter (spec/06) — classes on the SVG root, not per-plot writes, so the
   // dimming stays correct even when a realtime status change (M5) alters which plots

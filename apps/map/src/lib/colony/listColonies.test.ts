@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadVerifiedColonies } from "./listColonies.ts";
-import { getBrowserDbClient } from "../db/browserClient.ts";
 import { insertColony } from "../db/colonies.ts";
+import {
+  createScratchUser,
+  deleteScratchUser,
+  serviceRoleClient,
+} from "../auth/testHelpers.ts";
 
 // Live integration test against the local Supabase instance (Docker must be up — same
 // requirement as pnpm import:seed). Proves D-108 at the list level: an unverified colony
@@ -34,19 +38,24 @@ async function revokeVerification(client: SupabaseClient, colonyId: string): Pro
 
 describe("loadVerifiedColonies — D-108 list-level gate", () => {
   it("includes a verified scratch colony and the real shree-vatika-2 colony, excludes an unverified one", async () => {
-    const client = getBrowserDbClient();
-    const verifiedId = await createScratchColony(client, true);
-    const unverifiedId = await createScratchColony(client, false);
+    const admin = serviceRoleClient();
+    const verifiedId = await createScratchColony(admin, true);
+    const unverifiedId = await createScratchColony(admin, false);
+    // Reads go through a real authenticated session (docs/plans/09.md) — anon is
+    // filtered to zero rows by RLS regardless of `verified`, which would defeat this
+    // test's whole purpose.
+    const user = await createScratchUser("List Colonies Reader");
 
     try {
-      const colonies = await loadVerifiedColonies(client);
+      const colonies = await loadVerifiedColonies(user.client);
       const ids = colonies.map((c) => c.id);
 
       expect(ids).toContain(verifiedId);
       expect(ids).toContain("shree-vatika-2");
       expect(ids).not.toContain(unverifiedId);
     } finally {
-      await revokeVerification(client, verifiedId);
+      await revokeVerification(admin, verifiedId);
+      await deleteScratchUser(user);
     }
   });
 });

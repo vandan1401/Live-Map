@@ -68,3 +68,10 @@ export function formatStatusLabel(status: string): string {
   if (status === "registered") return "Registry done";
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
+
+// scripts/import-seed.ts writes the literal "import" into updated_by/changed_by for
+// every M2 seed row (docs/plans/09.md's "system user" convention) — shown as a real
+// name otherwise.
+export function formatActorName(actor: string): string {
+  return actor === "import" ? "Imported" : actor;
+}

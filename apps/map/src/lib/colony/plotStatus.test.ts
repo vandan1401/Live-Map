@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadPlotStatuses } from "./plotStatus.ts";
-import { getBrowserDbClient } from "../db/browserClient.ts";
 import { insertColony } from "../db/colonies.ts";
 import { insertPlots } from "../db/plots.ts";
+import {
+  createScratchUser,
+  deleteScratchUser,
+  serviceRoleClient,
+} from "../auth/testHelpers.ts";
 
 // Live integration test against the local Supabase instance (Docker must be up — same
 // requirement as pnpm import:seed). Proves D-108: an unverified colony's plots must not
@@ -44,24 +48,30 @@ async function revokeVerification(client: SupabaseClient, colonyId: string): Pro
 
 describe("loadPlotStatuses — unverified colony gate (D-108)", () => {
   it("returns no statuses for an unverified colony", async () => {
-    const client = getBrowserDbClient();
-    const colonyId = await createScratchColony(client, false);
+    const admin = serviceRoleClient();
+    const colonyId = await createScratchColony(admin, false);
+    const user = await createScratchUser("Plot Status Reader");
 
-    const statuses = await loadPlotStatuses(client, colonyId);
-
-    expect(statuses).toEqual({});
+    try {
+      const statuses = await loadPlotStatuses(user.client, colonyId);
+      expect(statuses).toEqual({});
+    } finally {
+      await deleteScratchUser(user);
+    }
   });
 
   it("returns statuses for a verified colony", async () => {
-    const client = getBrowserDbClient();
-    const colonyId = await createScratchColony(client, true);
+    const admin = serviceRoleClient();
+    const colonyId = await createScratchColony(admin, true);
+    const user = await createScratchUser("Plot Status Reader");
 
     try {
-      const statuses = await loadPlotStatuses(client, colonyId);
+      const statuses = await loadPlotStatuses(user.client, colonyId);
 
       expect(Object.keys(statuses)).toHaveLength(1);
     } finally {
-      await revokeVerification(client, colonyId);
+      await revokeVerification(admin, colonyId);
+      await deleteScratchUser(user);
     }
   });
 });

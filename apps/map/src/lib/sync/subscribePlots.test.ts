@@ -5,13 +5,18 @@
 // throws "the 'event' argument must be an instance of Event. Received an instance of
 // Event" the moment the socket connects. This file needs no DOM at all (same as
 // applyPlotTransition.test.ts's live-integration describe block), so plain node avoids it.
-import { describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { subscribePlotChanges, type SyncConnectionStatus } from "./subscribePlots.ts";
 import { applyPlotTransition } from "../plot-status/applyPlotTransition.ts";
-import { getBrowserDbClient } from "../db/browserClient.ts";
 import { insertColony } from "../db/colonies.ts";
 import { insertPlots } from "../db/plots.ts";
+import {
+  createScratchUser,
+  deleteScratchUser,
+  serviceRoleClient,
+  type ScratchUser,
+} from "../auth/testHelpers.ts";
 
 // Live integration test against the local Supabase instance (Docker must be up — same
 // requirement as applyPlotTransition.test.ts, whose two-independent-client scratch-plot
@@ -46,10 +51,26 @@ async function createScratchPlot(client: SupabaseClient): Promise<{
 }
 
 describe("subscribePlotChanges — live integration", () => {
+  // beforeAll/afterAll (docs/plans/09.md /review finding), not created+deleted inline
+  // in the test body — vitest runs afterAll even when the test assertion below throws,
+  // so a failing run can no longer leak these accounts.
+  let subscriber: ScratchUser;
+  let writer: ScratchUser;
+  beforeAll(async () => {
+    // RLS (docs/plans/09.md): both the subscriber and the writer must be authenticated
+    // — anon is filtered to zero rows, and Realtime enforces the same RLS on
+    // postgres_changes, so an anon subscriber would never see the event at all.
+    [subscriber, writer] = await Promise.all([
+      createScratchUser("Subscriber"),
+      createScratchUser("Writer"),
+    ]);
+  }, 15_000);
+  afterAll(async () => {
+    await Promise.all([deleteScratchUser(subscriber), deleteScratchUser(writer)]);
+  });
+
   it("a write from one client is observed by another", async () => {
-    const subscriberClient = getBrowserDbClient();
-    const writerClient = getBrowserDbClient();
-    const { plotId, colonyId, svgId } = await createScratchPlot(subscriberClient);
+    const { plotId, colonyId, svgId } = await createScratchPlot(serviceRoleClient());
 
     let resolveConnected: () => void;
     const connected = new Promise<void>((resolve) => {
@@ -57,11 +78,15 @@ describe("subscribePlotChanges — live integration", () => {
     });
 
     const received = await new Promise<{ svgId: string; status: string }>((resolve, reject) => {
-      // 10s, not spec's own 2s acceptance bar — a real Docker-local realtime channel's
-      // join + WAL delivery time is genuinely variable; a run at 5s ceiling was observed
-      // to trip the vitest default per-test timeout with the race fix already in place.
-      const timeout = setTimeout(() => reject(new Error("timed out waiting for change")), 10000);
-      const unsubscribe = subscribePlotChanges(subscriberClient, colonyId, {
+      // 20s, not spec's own 2s acceptance bar — a real Docker-local realtime channel's
+      // join + WAL delivery time is genuinely variable, and got measurably worse
+      // (docs/plans/09.md) once more live-integration test files started creating their
+      // own scratch Auth users concurrently, each contending for the same local
+      // Supabase Auth/Realtime services. 10s was itself an earlier bump from 5s for the
+      // same class of variance — bump the ceiling again rather than chase a moving
+      // target with a third value later.
+      const timeout = setTimeout(() => reject(new Error("timed out waiting for change")), 20000);
+      const unsubscribe = subscribePlotChanges(subscriber.client, colonyId, {
         onChange: (changedSvgId, status) => {
           clearTimeout(timeout);
           unsubscribe();
@@ -78,19 +103,18 @@ describe("subscribePlotChanges — live integration", () => {
       // the moment the join is slower, which would misreport a real regression.
       connected
         .then(() =>
-          applyPlotTransition(writerClient, {
+          applyPlotTransition(writer.client, {
             plotId,
             fromStatus: "available",
             toStatus: "booked",
             expectedVersion: 1,
-            actor: "test-writer",
           }),
         )
         .catch(reject);
     });
 
     expect(received).toEqual({ svgId, status: "booked" });
-    // Test-level timeout below matches the internal 10s ceiling — vitest's own default
+    // Test-level timeout below matches the internal 20s ceiling — vitest's own default
     // (5000ms) would otherwise fire first and misreport Docker/WAL jitter as a bug.
-  }, 10_000);
+  }, 20_000);
 });

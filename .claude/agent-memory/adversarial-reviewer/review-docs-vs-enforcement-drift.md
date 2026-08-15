@@ -43,8 +43,23 @@ Three checks that have each caught a real defect:
    went 179 → 263 lines in one diff and nothing objected. **Run `wc -l` on every non-TS
    source file a diff touches**; the hook will not do it for you.
 
+5. **A config file is not a running system, and a `GRANT` statement is not the grant table.**
+   2026-08-15 (plan 09, M8): `supabase/config.toml` gained `enable_signup = false` and
+   `[auth.sessions] timebox = "24h"`, and PROGRESS.md recorded them as "accepted with no
+   error by the CLI during `make db-up`/`supabase db reset`". Neither was in effect —
+   `docker inspect supabase_auth_colony-map --format '{{range .Config.Env}}...'` showed
+   `GOTRUE_DISABLE_SIGNUP=false` and no `GOTRUE_SESSIONS_TIMEBOX`, because `supabase start`
+   on an already-running stack and `db reset` both leave the auth container untouched;
+   only `supabase stop && supabase start` recreates it. Self-signup with the anon key then
+   returned a full `authenticated` session that read every table. Same pass: the migration
+   commented "no client role gets insert/update … enforced here at the grant layer", but
+   `information_schema.role_table_grants` still showed `TRUNCATE` (which bypasses the
+   append-only row triggers) for `anon`/`authenticated` on all three tables.
+   **Check the runtime, not the file: `docker inspect` env for config.toml claims,
+   `information_schema.role_table_grants` / `pg_policies` / `proacl` for migration claims.**
+
 **How to apply:** on any review that touches `CLAUDE.md`, `.claude/settings.json`, or a
 skill file, open `.claude/hooks/guard.sh` and `_json.sh` and check the greps in the same
-pass. This has now recurred five times — worth a CLAUDE.md line or a guard.sh self-test.
+pass. This has now recurred six times — worth a CLAUDE.md line or a guard.sh self-test.
 Related: [[project-autonomous-loop]], [[review-diff-blind-spots]],
 [[review-fixture-plot-count-drift]].

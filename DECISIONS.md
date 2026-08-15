@@ -13,7 +13,7 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 |---|---|---|
 | D-001 | PWA on Cloudflare Pages, not a native iOS app | accepted |
 | D-002 | Supabase Postgres as the data store, not Google Sheets | accepted |
-| D-003 | Supabase Auth magic links, not Cloudflare Access | accepted |
+| D-003 | Supabase Auth magic links, not Cloudflare Access | superseded by D-019 |
 | D-004 | Colony SVGs carry geometry only — no styling attributes | accepted |
 | D-005 | Only plots live in Postgres; roads, gardens, amenities ship as static files | accepted |
 | D-006 | Optimistic concurrency via `version`; stale writes fail loudly | accepted |
@@ -26,9 +26,11 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-013 | Three-status vocabulary with defined legal transitions | provisional |
 | D-014 | pnpm + Vite + Vitest + Wrangler | provisional |
 | D-015 | No photos or documents per plot in v1 | provisional |
-| D-016 | Actor identity is a client-supplied free-text string until M8 | provisional |
+| D-016 | Actor identity is a client-supplied free-text string until M8 | superseded by D-020 |
 | D-017 | Shared fixture is a real, hand-traced colony — not pipeline-generated | provisional |
 | D-018 | `owner_name` is sticky — never cleared by a status transition, only overwritten by a fresh booking | provisional |
+| D-019 | Username/password via a synthetic per-user email, not magic links | accepted |
+| D-020 | Write attribution is derived server-side from the authenticated session, never a client parameter | accepted |
 
 ## tools/pipeline
 

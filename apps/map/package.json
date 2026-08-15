@@ -10,7 +10,8 @@
     "lint": "oxlint",
     "test": "vitest",
     "preview": "vite preview",
-    "import:seed": "tsx scripts/import-seed.ts"
+    "import:seed": "tsx scripts/import-seed.ts",
+    "create-user": "tsx scripts/create-user.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

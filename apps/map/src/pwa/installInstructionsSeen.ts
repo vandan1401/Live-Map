@@ -1,4 +1,4 @@
-// Same one-time-flag pattern as lib/identity/actor.ts's ACTOR_STORAGE_KEY.
+// Simple one-time-flag pattern.
 const SEEN_STORAGE_KEY = "colony-map:install-instructions-seen";
 
 export function hasSeenInstallInstructions(): boolean {

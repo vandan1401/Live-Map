@@ -1,6 +1,17 @@
 import "@testing-library/jest-dom/vitest";
 import "fake-indexeddb/auto";
 
+// SUPABASE_SERVICE_ROLE_KEY is deliberately not VITE_-prefixed (docs/plans/09.md) so it
+// never reaches import.meta.env/the browser bundle — live-integration tests that need it
+// (lib/auth/testHelpers.ts) read it from process.env instead, same technique
+// scripts/import-seed.ts already uses.
+declare const process: { loadEnvFile?: (path?: string) => void };
+try {
+  process.loadEnvFile?.();
+} catch {
+  // No .env file — fall through to whatever is already in the environment.
+}
+
 // jsdom implements no SVG layout, so SVGGraphicsElement.getBBox() is missing entirely
 // (throws "not a function") rather than returning zeroes the way a real browser would
 // for an unlaid-out node. ColonyMap.tsx's selection/search/dimension-callout code

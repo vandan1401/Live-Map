@@ -109,7 +109,6 @@ export function PlotDetailSheet({
         fromStatus: detail.plot.status,
         toStatus,
         expectedVersion: detail.plot.version,
-        actor,
         ownerName,
       });
       if (result.ok) {

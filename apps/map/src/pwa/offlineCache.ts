@@ -73,3 +73,12 @@ export async function saveColonyList(colonies: ColonyRow[]): Promise<void> {
 export async function loadColonyList(): Promise<ColonyListSnapshot | null> {
   return get<ColonyListSnapshot>(COLONY_LIST_KEY);
 }
+
+// Pinned at 24h (docs/plans/09.md) — deliberately the same number as the auth session
+// timebox, so a revoked user's cached data goes stale on the same clock their session
+// would have expired on anyway (spec/08 criterion 5).
+export const OFFLINE_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+export function isSnapshotExpired(savedAt: string, now: Date): boolean {
+  return now.getTime() - new Date(savedAt).getTime() > OFFLINE_CACHE_MAX_AGE_MS;
+}

@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadPlotStatuses } from "../colony/plotStatus.ts";
 import { subscribePlotChanges, type SyncConnectionStatus } from "./subscribePlots.ts";
 import { formatFreshnessLabel } from "./freshness.ts";
-import { loadSnapshot, saveSnapshot } from "../../pwa/offlineCache.ts";
+import { isSnapshotExpired, loadSnapshot, saveSnapshot } from "../../pwa/offlineCache.ts";
 import type { PlotStatus } from "../db/types.ts";
 
 // Not specified by spec/05 — chosen so a human watching the indicator for 5 minutes
@@ -149,6 +149,13 @@ export function attachSync(
           // #3: this used to be the one place plan 07 §6.3's "Concurrency — N/A" didn't
           // hold).
           if (cancelled || !snapshot || lastSyncedAt) return;
+          // Cache TTL (docs/plans/09.md, spec/08 criterion 5): data older than 24h is
+          // never rendered — forces re-auth by signing the (possibly revoked) session
+          // out rather than trusting stale data indefinitely.
+          if (isSnapshotExpired(snapshot.savedAt, new Date())) {
+            void client.auth.signOut();
+            return;
+          }
           applyStatuses(snapshot.statuses);
           lastSyncedAt = new Date(snapshot.savedAt);
           latestStatuses = snapshot.statuses;

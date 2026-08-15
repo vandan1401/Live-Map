@@ -2,6 +2,87 @@
 
 ## Current
 
+- **M8 built this session (`docs/plans/09.md`, Tier 1, `/plan → /build`, `/review`
+  pending): username/password auth + RLS lockdown.** Per the user's explicit override of
+  D-003 ("we do auth a little different — usernames and passwords no email needed"),
+  every account is a synthetic-email Supabase Auth user (`{username}@colony.local`,
+  invisible to the user, D-019) created only via the new admin-only
+  `scripts/create-user.ts` (`enable_signup = false` — an admin-created row **is** the
+  allowlist, no separate table). New migration
+  `20260815020000_m8_auth_rls_lockdown.sql`: `apply_plot_transition()` drops `p_actor`
+  entirely (5-arg now), is `security definer`, derives `updated_by`/`changed_by` from
+  `auth.jwt()` inside the function body, and raises `not authenticated` rather than ever
+  falling back to a placeholder (D-020, supersedes D-016); `colonies`/`plots`/
+  `plot_history` RLS is now select-only + `authenticated`-only, with every direct
+  insert/update grant revoked from `anon`/`authenticated` — the RPC's `security definer`
+  is what makes writes still work, deliberately keeping "exactly one write path"
+  (invariant 4) true at the privilege layer, not just convention. `App.tsx` now creates
+  one Supabase client for the whole app lifetime (lifted out of `ColonyMap.tsx`'s
+  per-mount effect) and gates on a real session (`getSession`/`onAuthStateChange`) via a
+  new `features/auth/LoginScreen.tsx`, replacing the old free-text `NamePrompt`/
+  `lib/identity/actor.ts` (both deleted). Cache TTL (spec/08 criterion 5) is pinned at
+  24h, same number as the session timebox — `pwa/offlineCache.ts`'s new
+  `isSnapshotExpired`/`OFFLINE_CACHE_MAX_AGE_MS`, checked in both `attachSync.ts`'s and
+  `App.tsx`'s offline-snapshot fallbacks, which call `client.auth.signOut()` on expiry
+  (the actual "forces re-auth" mechanism). `scripts/import-seed.ts` now requires
+  `SUPABASE_SERVICE_ROLE_KEY` (new, `.env.example`), not the anon key, since RLS no
+  longer permits anon/authenticated inserts — same for the new `create-user.ts`. A real,
+  pre-existing display gap (`PlotDetailContent.tsx` showed the literal "updated by
+  import" for any plot untouched since seed) was fixed with a new `formatActorName`
+  helper → "Imported" — the user's own "system user" backfill decision was already true
+  at the data layer (`import-seed.ts` already wrote `"import"`), this only fixed the
+  display. New decisions `D-019`/`D-020`, `D-003`/`D-016` marked superseded in
+  `DECISIONS.md`. Verified for real throughout the build, not just by reading code: curl
+  against the live REST/Auth endpoints proved anon reads return `[]`, an anon RPC call is
+  permission-denied (Postgres grants EXECUTE to PUBLIC by default — had to add an
+  explicit `revoke execute ... from public` or anon could still reach the function body),
+  a forged `p_actor` field in the RPC payload is rejected outright by PostgREST (no such
+  function signature), and a real signed-in write attributes correctly to the session's
+  `display_name`. `service_role` also needed an explicit table grant added in this
+  migration — `BYPASSRLS` (Supabase's own role setup) skips RLS policies, not the
+  underlying `GRANT` check, and M2 never granted it one.
+- **`/review` ran and found 6 real issues, all fixed this session:** (1) **Critical** —
+  attribution read from `auth.jwt()`'s `user_metadata`, which is writable by the signed-in
+  user themselves via `PUT /auth/v1/user` with nothing but their own session; verified
+  live that a self-forged `display_name` did change nothing about the migration's
+  original code, then fixed by switching every write/read to `app_metadata` (service-role
+  only) and re-verified live that the same forgery attempt no longer changes
+  `updated_by`. (2) `supabase db reset`/`make db-up` don't recreate the auth container,
+  so `config.toml`'s `enable_signup = false`/`enable_confirmations`/`timebox` edits were
+  silently inert all session — a real `supabase stop` + restart was needed (same class of
+  gap as the 2026-08-13 `db-start` exclusion-flag lesson); confirmed via
+  `docker inspect`'s env vars and a live signup/self-signup attempt, both now correctly
+  rejected. (3) `TRUNCATE` survived on `plot_history` for `anon`/`authenticated` (bypasses
+  the M2 triggers entirely, so the "grant-layer enforced" claim in the migration's own
+  comment was false), and `service_role` was granted `update`/`delete` on `plot_history`
+  it never needed, reversing M2's stated intent — both fixed with narrower `revoke`/
+  `grant` statements, verified via `information_schema.role_table_grants`. (4)
+  `getDisplayName()` had reintroduced the exact `?? "unknown"` placeholder-fallback
+  mistake tier-1.md names by number — fixed to return `string | null`, `App.tsx` now
+  signs out and shows the login screen if it's ever null. (5) Scratch-account teardown
+  lived at the end of each test body, not in `finally`/`afterAll` — a failing assertion
+  permanently leaked the account until the next full `db reset`; restructured
+  `applyPlotTransition.test.ts`, `rls.test.ts`, and `subscribePlots.test.ts` to share one
+  `beforeAll`/`afterAll`-scoped scratch user (or pair) per file instead of one per test,
+  which also cut Auth-container contention (this is almost certainly why
+  `subscribePlots.test.ts`'s realtime warm-up flake got measurably more frequent this
+  session). (6) Negative RLS/RPC tests asserted only "some error happened", which passes
+  identically for an unrelated failure as for the actual permission gap under test —
+  tightened to assert Postgres's specific `42501` (permission denied) code. Gate re-run
+  clean twice in a row after all six fixes: 19/19 files, 96/96 tests, clean build. Not yet
+  done: the plan's manual acceptance criteria (criterion 1 on a real device, criterion 5's
+  clock-change scenario) and only then flipping D-011 to superseded and removing the
+  deploy block in `.claude/hooks/guard.sh` — all explicitly out of scope for `/build`/
+  `/review`, see `docs/plans/09.md` Non-goals. `docs/plans/09.md` is deliberately left
+  without a `Status: complete` marker for exactly this reason — it stays open until a
+  human runs those two manual criteria.
+- **`pnpm dev --host` started this session, in the background, for the user's own manual
+  testing** — reachable at `http://localhost:5173/` on this machine, or
+  `http://192.168.0.177:5173/` (the "Wi-Fi"-labeled interface) from a phone on the same
+  network, though `.env`'s `VITE_SUPABASE_URL` still points at `127.0.0.1:55321` and would
+  need the same temporary LAN-IP repoint the 2026-08-14 session used before phone testing
+  actually works. Sign in with the placeholder `demo`/`demo-pass-123` account — no real
+  family credentials exist yet (see Deferred).
 - **All three pieces of owner feedback from the 2026-08-15 iPhone session are now
   resolved (this session), ahead of M8 per the user's explicit "deferred items first"
   sequencing.** Two Tier 3 (no plan): a back-navigation button
@@ -25,17 +106,13 @@
   arbitrary "original" one). Plan numbering is sequential on disk, not milestone-aligned
   from here: `docs/plans/08.md` is not `spec/08-map-auth.md`'s M8 — noted in the plan file
   itself so a future session doesn't assume plan N = spec N.
-- **Next action: M8 — auth + RLS lockdown (`spec/08-map-auth.md`), Tier 1.** Deferred
-  earlier this session at the user's request until the three items above landed; now
-  queued. Needs `/plan` before `/build` — magic-link allowlist (likely a trigger on
-  `auth.users` plus a `family_members`-shaped table, since `plots.updated_by`/
-  `plot_history.changed_by` are plain `text`, not a foreign key, per D-016's blast-radius
-  note), replacing the permissive M2 RLS policies, and deciding the pinned cache-TTL
-  number for spec/08 criterion 5. Also open: the `pnpm test` exit-code flake (Deferred)
-  is worth a real fix at some point — a realtime-subscription test that times out on the
-  first run right after a fresh `supabase db reset` but passes clean on retry; it
-  currently means a CI-style "did the suite pass" check can't trust the exit code alone,
-  only the printed count.
+- **M8 is now built (see the top `## Current` entry) — this bullet is historical
+  context for why it was queued, not the current state.** Also open: the realtime
+  subscription warm-up flake (Deferred) got measurably worse this session — more
+  live-integration test files now create their own scratch Auth users concurrently, all
+  contending for the same local Supabase Auth/Realtime services — `subscribePlots.test.ts`'s
+  internal timeout was bumped 10s → 20s (second bump; started at 5s) to absorb it. Still
+  worth a real fix at some point rather than a third bump later.
 - **Task:** `docs/plans/05.md` is closed — `**Status:** complete` appended this session
   after re-running its full §5 acceptance table for real: SVG has no `fill`/`stroke`/
   `style` (grep, 0 matches), manifest validates against `contract/colony.schema.json`
@@ -152,6 +229,17 @@
 
 ## Deferred
 
+- **Real family usernames/passwords still not created (docs/plans/09.md).** The user
+  explicitly deferred providing them this session ("i will add username later"). Only one
+  placeholder/demo account exists locally (`demo` / `demo-pass-123`, display name "Demo
+  User") — created purely as the fixture the live-integration tests sign in as, obviously
+  fake, never committed anywhere. Real accounts: `pnpm create-user <username> <password>
+  "<Display Name>"` once the user provides names, run once per family member.
+- **`[auth.sessions] timebox = "24h"` was accepted with no error by the installed CLI
+  (2.114.0) during `make db-up`/`supabase db reset`, but the actual 24h-expiry behaviour
+  itself was not live-verified this session** (would need a real session held open across
+  a clock change or a 24h wait) — config-accepted is not the same as behaviour-proven.
+  Worth a real check before the M8 acceptance table's manual criteria are signed off.
 - **Owner feedback from live iPhone PWA testing (2026-08-15) — all three resolved this
   session, see `## Current`.** Kept here for the history: (1) no back button/way to return
   to the colony picker home screen once inside a colony's map. (2) the colony picker home
@@ -295,6 +383,43 @@
 ## Log
 
 <!-- Append-only. Four lines per entry: Done / Next / Surprises / Verified. -->
+
+### 2026-08-15 — M8 built: username/password auth + RLS lockdown (docs/plans/09.md), /review's 6 findings fixed
+- Done: planned and built M8 (spec/08-map-auth.md) — username/password via a synthetic
+  per-user email (D-019, user's explicit override of D-003), `apply_plot_transition()`
+  rewritten `security definer` with server-side attribution (D-020, drops `p_actor`),
+  RLS locked to select-only/authenticated-only on all three tables, `App.tsx` restructured
+  around a single app-lifetime client and a real session gate, cache TTL pinned at 24h.
+  `/review` found 6 real issues and all were fixed in the same session: attribution read a
+  self-writable JWT claim (`user_metadata`) instead of the service-role-only
+  `app_metadata`; `config.toml`'s auth edits were silently inert because the containers
+  were never restarted; a stray `TRUNCATE` grant left `plot_history`'s append-only
+  guarantee unenforced at the privilege layer; `getDisplayName()` had reintroduced the
+  `?? "unknown"` placeholder-fallback anti-pattern; scratch-account teardown could leak
+  accounts on a failing assertion; negative RLS/RPC tests asserted only "some error", not
+  the specific permission-denied code.
+- Next: a human runs the plan's two remaining manual acceptance criteria (criterion 1 —
+  an outside account can't sign in, on a real device; criterion 5 — the cache TTL forces
+  re-auth after a real clock change) before `docs/plans/09.md` gets its `Status: complete`
+  marker and D-011 is revisited. `pnpm dev --host` is running in the background for this.
+- Surprises: two Postgres/Supabase defaults worked against the security intent unless
+  explicitly overridden — `create function` grants `EXECUTE` to `PUBLIC` regardless of any
+  later narrower grant, and `BYPASSRLS` (which `service_role` has) skips RLS policies but
+  not the underlying table `GRANT` check, so `service_role` needed an explicit grant it
+  had never been given since M2. Also: `supabase db reset`/`make db-up` reuse the running
+  containers and never re-read `config.toml`'s `[auth]` block — only a full `supabase stop`
+  + restart picks up changes there, the same class of gap the 2026-08-13 `db-start`
+  exclusion-flag lesson already taught once, now relearned for a different config surface.
+- Verified: `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` — clean
+  twice in a row post-fixes, 19/19 test files, 96/96 tests, clean build (baseline 75/75 at
+  last commit `492c315`). Live curl/psql against the running stack, not just reading the
+  migration: anon reads return `[]`; an anon RPC call is `42501` permission denied; a
+  forged `p_actor` field makes PostgREST reject the call outright (no such signature); a
+  self-forged `user_metadata.display_name` no longer changes `updated_by` after the
+  `app_metadata` fix; `docker inspect`'s env vars confirm `GOTRUE_DISABLE_SIGNUP=true`/
+  `GOTRUE_SESSIONS_TIMEBOX=24h0m0s` are actually active; a live self-signup and an
+  outside-username sign-in attempt are both rejected; `information_schema.role_table_grants`
+  confirms no `TRUNCATE`/`UPDATE`/`DELETE` grant remains where it shouldn't.
 
 ### 2026-08-15 — Three deferred owner-feedback items closed: back nav, branded picker, booked-by name (docs/plans/08.md)
 - Done: asked the user to sequence three items flagged last session against the queued
