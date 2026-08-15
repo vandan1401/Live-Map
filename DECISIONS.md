@@ -32,6 +32,7 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-019 | Username/password via a synthetic per-user email, not magic links | accepted |
 | D-020 | Write attribution is derived server-side from the authenticated session, never a client parameter | accepted |
 | D-021 | Public deployment permitted; D-011's deploy block lifted | accepted |
+| D-022 | Ground texture is a mirror-tiled real photo, rendered as a second Leaflet SVG overlay | accepted |
 
 ## tools/pipeline
 

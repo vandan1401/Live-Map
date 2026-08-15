@@ -5,6 +5,27 @@
  * on top of them — a separate concern from map-toolbar.css's HTML overlay chrome
  * (search bar, legend buttons, share panel). */
 
+/* Plot numbers had no rule at all until this session — (x, y) in the fixture is
+ * already each plot's centroid, but with no text-anchor/dominant-baseline the default
+ * start-anchored, alphabetic-baseline text rendered off-centre. Owner's reference render
+ * (2026-08-15) shows plain bold black numbers with no halo at all, sitting bare on flat
+ * green — copied here (font, weight, no letter-spacing), but kept a thin halo rather
+ * than dropping it outright: that reference's ground is one flat colour, ours is a photo
+ * texture plus a status tint, busier underneath a number than a flat fill ever is. */
+.plot-label {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  fill: #1a1a1a;
+  text-anchor: middle;
+  dominant-baseline: central;
+  paint-order: stroke;
+  stroke: rgba(255, 255, 255, 0.75);
+  stroke-width: 1.5px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
 /* Selected state uses scale, never fill — fill belongs to status. No stroke override
  * (owner: "remove the black border") — the plot keeps its ordinary thin outline
  * (`.plot`'s own stroke) even while selected. The "comes above everything" feel is

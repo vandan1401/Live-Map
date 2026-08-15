@@ -1,7 +1,7 @@
 # Root dispatcher. Targets are the interface — found by name, never by searching.
 # Real implementations land in M1; these are the names the skills and CLAUDE.md rely on.
 
-.PHONY: verify verify-map verify-pipe gate contract inspect serve db-start db-up db-restart
+.PHONY: verify verify-map verify-pipe gate contract inspect serve db-start db-up db-restart db-reseed
 
 verify: verify-map verify-pipe
 
@@ -24,6 +24,11 @@ db-up:  ## start Docker Desktop if it isn't running, wait for it, then db-start.
 	}
 	@docker info >/dev/null 2>&1 || { echo "Docker did not come up within 120s — open Docker Desktop manually and retry."; exit 1; }
 	$(MAKE) db-start
+
+db-reseed:  ## wipe local DB, reseed the fixture colony, recreate the demo account — run after live-integration tests leak scratch colonies (documented DB-warm-up flake, PROGRESS.md)
+	cd apps/map && npx -y supabase db reset
+	cd apps/map && pnpm import:seed
+	cd apps/map && pnpm create-user demo demo-pass-123 "Demo User"
 
 verify-map:
 	cd apps/map && pnpm typecheck && pnpm test

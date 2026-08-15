@@ -2,6 +2,9 @@
  * colony-theme.css to keep that file the one place status/map colours live (D-004);
  * this file is feature chrome, same split as plot-detail-sheet.css. */
 
+/* Frosted-glass chrome (owner ask, 2026-08-15) — see colony-theme.css's
+ * --colony-glass-* tokens for why backdrop-filter here doesn't conflict with
+ * tier-3.md's "no SVG filters" rule (this is plain HTML chrome, not map geometry). */
 .colony-back-button {
   position: absolute;
   top: 0.75rem;
@@ -9,9 +12,11 @@
   z-index: 1100;
   font-size: 0.85rem;
   font-weight: 600;
-  border: 1px solid var(--colony-plot-stroke);
+  border: 1px solid var(--colony-glass-border);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--colony-glass-bg-strong);
+  backdrop-filter: blur(var(--colony-glass-blur));
+  -webkit-backdrop-filter: blur(var(--colony-glass-blur));
   padding: 0.4rem 0.9rem;
 }
 
@@ -28,17 +33,21 @@
   width: 100%;
   box-sizing: border-box;
   font-size: 0.9rem;
-  border: 1px solid var(--colony-plot-stroke);
+  border: 1px solid var(--colony-glass-border);
   border-radius: 999px;
   padding: 0.5rem 1rem;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--colony-glass-bg-strong);
+  backdrop-filter: blur(var(--colony-glass-blur));
+  -webkit-backdrop-filter: blur(var(--colony-glass-blur));
 }
 
 .colony-search-results {
   list-style: none;
   margin: 0.35rem 0 0;
   padding: 0.25rem;
-  background: #ffffff;
+  background: var(--colony-glass-bg-strong);
+  backdrop-filter: blur(var(--colony-glass-blur));
+  -webkit-backdrop-filter: blur(var(--colony-glass-blur));
   border-radius: 0.75rem;
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.18);
   max-height: 50vh;
@@ -97,9 +106,11 @@
   align-items: center;
   gap: 0.35rem;
   font-size: 0.75rem;
-  border: 1px solid var(--colony-plot-stroke);
+  border: 1px solid var(--colony-glass-border);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--colony-glass-bg-strong);
+  backdrop-filter: blur(var(--colony-glass-blur));
+  -webkit-backdrop-filter: blur(var(--colony-glass-blur));
   padding: 0.3rem 0.6rem;
 }
 
@@ -136,9 +147,11 @@
 .colony-share-trigger {
   font-size: 0.8rem;
   font-weight: 600;
-  border: 1px solid var(--colony-plot-stroke);
+  border: 1px solid var(--colony-glass-border);
   border-radius: 999px;
-  background: #ffffff;
+  background: var(--colony-glass-bg-strong);
+  backdrop-filter: blur(var(--colony-glass-blur));
+  -webkit-backdrop-filter: blur(var(--colony-glass-blur));
   padding: 0.4rem 0.9rem;
 }
 
@@ -157,7 +170,10 @@
   width: min(28rem, 100%);
   max-height: 70vh;
   overflow-y: auto;
-  background: #ffffff;
+  background: var(--colony-glass-bg-strong);
+  backdrop-filter: blur(var(--colony-glass-blur)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--colony-glass-blur)) saturate(160%);
+  border-top: 1px solid var(--colony-glass-border);
   border-radius: 1rem 1rem 0 0;
   padding: 1.5rem 1.25rem 1.25rem;
 }
@@ -186,9 +202,11 @@
 .colony-share-copy {
   font-size: 0.85rem;
   font-weight: 600;
-  border: 1px solid var(--colony-plot-stroke);
+  border: 1px solid var(--colony-glass-border);
   border-radius: 999px;
-  background: #ffffff;
+  background: var(--colony-glass-bg-strong);
+  backdrop-filter: blur(var(--colony-glass-blur));
+  -webkit-backdrop-filter: blur(var(--colony-glass-blur));
   padding: 0.4rem 0.9rem;
 }
 

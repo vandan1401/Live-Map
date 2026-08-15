@@ -7,27 +7,42 @@
   --colony-ground: #eef0e6;
   --colony-site-boundary: #8a8f7c;
 
-  /* Dark asphalt, not the old light tan — reads as a road at a glance the way the
-   * illustrated reference does. A literal dashed centerline isn't attempted: .road is
-   * one filled polygon per road segment (no separate centerline path in the fixture),
-   * so a CSS stroke/pattern would trace each polygon's outline, not a lane marking —
-   * that needs a pipeline/geometry change, not a theme one. */
-  --colony-road: #4a4a4a;
-  --colony-garden: #6fae63;
+  /* Warm mid-grey asphalt (owner reference, 2026-08-15 — replaces an earlier near-
+   * black repaint that swallowed the width labels). No stroke: a first pass added
+   * one for a "curb" look and it drew a visible border at every join between the
+   * compound path's rectangle segments (owner: "no borderline between the roads") —
+   * .road has no separate centerline path in the fixture, so a stroke traces each
+   * segment's own outline, not a lane marking; a dashed centerline needs a pipeline/
+   * geometry change, not a theme one. */
+  --colony-road: #7c7466;
   --colony-amenity: #cbb994;
   --colony-tree-crown: #4f7a44;
   --colony-tree-shadow: rgba(0, 0, 0, 0.12);
 
-  --colony-plot-fill: #ffffff;
-  --colony-plot-stroke: #9a9a92;
+  /* Ground-cover texture (owner-supplied AI-generated photo, 2026-08-15, replacing
+   * two earlier procedural attempts the owner called mechanical/"boring") —
+   * mapTexturePatterns.ts mirror-tiles the photo itself; --colony-ground-base is only
+   * the flat-colour fallback at the world edge (map-texture.css's
+   * .colony-map-container) and --colony-garden-tint darkens the same photo for
+   * garden features so they still read as distinct from plain ground. */
+  --colony-ground-base: #5a9450;
+  --colony-garden-tint: #1f3f1c;
+
+  /* Crisp warm white (owner: "the colour of boundary is not good" — was a flat grey
+   * that read as muddy over the new green ground) — matches how plot boundaries are
+   * actually painted in the owner's own aerial-photo reference. */
+  --colony-plot-stroke: #f7f4e8;
   --colony-plot-stroke-width: 1.5;
   --colony-plot-selected-stroke: #08060d;
 
   /* Legend: available=wheat, booked=blue, registered=orange — a saturated palette
-   * chosen to read clearly against the darker road/garden colours above. Available is
-   * deliberately NOT green (owner feedback, 2026-08-14): --colony-garden is also green,
-   * and an available plot sitting next to a garden feature visually merged into one
-   * blob at a glance — exactly the failure this map exists to prevent. */
+   * chosen to read clearly against the muted road/ground colours above. Available is
+   * deliberately NOT green (owner feedback, 2026-08-14): the ground/garden texture is
+   * also green, and an available plot sitting next to a garden feature visually
+   * merged into one blob at a glance — exactly the failure this map exists to
+   * prevent. A plot renders as a flat translucent tint of this colour over the shared
+   * ground texture (owner: status should be "some slight overlay", plots shouldn't
+   * carry their own copy of the texture) — see .plot[data-status] below. */
   --colony-status-available: #e8b84b;
   --colony-status-booked: #3b82f6;
   --colony-status-registered: #e67e22;
@@ -37,21 +52,23 @@
    * colour does. Reusing --colony-status-booked for this broke the moment booked
    * became blue instead of amber; this token exists so that can't happen again. */
   --colony-warning-amber: #e0a527;
+
+  /* Frosted-glass chrome (owner ask, 2026-08-15: "I like transparent style design") —
+   * one shared recipe for every floating HTML panel (status popup, search, legend,
+   * share sheet), applied in plot-detail-sheet.css/map-toolbar.css. This is ordinary
+   * CSS backdrop-filter on a handful of fixed HTML elements, not an SVG filter on map
+   * geometry — tier-3.md's "no SVG filters" rule is about blur/drop-shadow forcing a
+   * repaint on every zoom step of the map itself, which this is unrelated to. */
+  --colony-glass-bg: rgba(255, 255, 255, 0.6);
+  --colony-glass-bg-strong: rgba(255, 255, 255, 0.78);
+  --colony-glass-border: rgba(255, 255, 255, 0.5);
+  --colony-glass-blur: 16px;
 }
 
-.colony-map-container {
-  position: absolute;
-  inset: 0;
-  background: var(--colony-ground);
-}
-
-/* Leaflet writes plenty of inline styles to its own panes — none of that reaches
- * the plots themselves (D-009). This just gets the container out of the way. */
-.colony-map-container .leaflet-container {
-  background: var(--colony-ground);
-  width: 100%;
-  height: 100%;
-}
+/* .colony-map-container/.leaflet-container's grass backdrop (owner: "the entire
+ * universe" should be grass, not just the SVG's own rectangle) now lives in
+ * map-texture.css, next to the other ground-cover rules — split out to stay under
+ * the 250-line cap (CLAUDE.md invariant 7). */
 
 .colony-svg-root {
   /* No SVG filters (blur, drop-shadow) — they force a repaint on every zoom step
@@ -66,13 +83,40 @@
   pointer-events: none;
 }
 
+/* .texture-road-* (owner ask, 2026-08-16: "a little road like texture") live in
+ * map-texture.css with the other texture-support classes — stays under the 250-line cap. */
 .road {
-  fill: var(--colony-road);
+  fill: url(#texture-road);
   pointer-events: none;
 }
 
+/* Road/quadrant name labels now sit on a solid white chip (.feature-label-chip, a <rect>
+ * mapLabelChips.ts inserts behind each one from its own getBBox()) instead of a stroke
+ * halo directly on the road — owner's reference render (2026-08-15) shows exactly this:
+ * plain dark bold text on a small white pill, no outline of its own. Plot numbers keep a
+ * halo instead (plot-selection.css) since the reference shows those sitting bare on flat
+ * green — our ground is a busier photo texture, so a thin halo stands in for that. */
+.feature-label {
+  fill: #201c14;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+.feature-label-chip {
+  fill: rgba(255, 255, 255, 0.94);
+  pointer-events: none;
+}
+
+/* Texture-support classes (.texture-ground-fill, .texture-garden-tint) and the
+ * .colony-map-container/.leaflet-container backdrop rules live in map-texture.css —
+ * split out to stay under the 250-line cap (CLAUDE.md invariant 7). The colour
+ * tokens they point at still live in this file's :root block, so D-004 still holds. */
+
 .garden {
-  fill: var(--colony-garden);
+  fill: url(#texture-garden);
   pointer-events: none;
 }
 
@@ -91,8 +135,13 @@
   pointer-events: none;
 }
 
+/* No fill of its own (owner correction, 2026-08-15: a plot should be "visible via
+ * lines on that texture", not carry its own copy of the grass) — the shared ground
+ * rect (mapTexturePatterns.ts's buildGroundRect(), painted first) shows straight
+ * through until a status sets a translucent tint below. The boundary stroke is what
+ * marks a plot's extent either way. */
 .plot {
-  fill: var(--colony-plot-fill);
+  fill: none;
   stroke: var(--colony-plot-stroke);
   stroke-width: var(--colony-plot-stroke-width);
   cursor: pointer;
@@ -110,14 +159,23 @@
   pointer-events: auto;
 }
 
+/* Status as a flat translucent tint over the shared ground rect showing through
+ * underneath — not its own textured pattern (that was the seam between adjacent
+ * plots' separately-tiled copies the owner flagged). 0.55 read as too strong (owner,
+ * 2026-08-16: "overlay colour is too high opacity of what i am expecting") — dropped to
+ * 0.38, low enough that the grass texture stays clearly visible through it while still
+ * being the dominant colour at a glance (tier-3.md's readability floor). */
 .plot[data-status="available"] {
   fill: var(--colony-status-available);
+  fill-opacity: 0.38;
 }
 .plot[data-status="booked"] {
   fill: var(--colony-status-booked);
+  fill-opacity: 0.38;
 }
 .plot[data-status="registered"] {
   fill: var(--colony-status-registered);
+  fill-opacity: 0.38;
 }
 
 /* Selection state (scale, dimming, label focus), the legend filter, zoom-dependent
@@ -134,7 +192,9 @@
   pointer-events: none;
   font-size: 0.75rem;
   color: var(--colony-site-boundary);
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--colony-glass-bg-strong);
+  backdrop-filter: blur(var(--colony-glass-blur));
+  -webkit-backdrop-filter: blur(var(--colony-glass-blur));
   padding: 0.25rem 0.5rem;
   border-radius: 0.25rem;
 }
@@ -151,7 +211,9 @@
   pointer-events: none;
   font-size: 0.75rem;
   color: var(--colony-site-boundary);
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--colony-glass-bg-strong);
+  backdrop-filter: blur(var(--colony-glass-blur));
+  -webkit-backdrop-filter: blur(var(--colony-glass-blur));
   padding: 0.25rem 0.5rem;
   border-radius: 0.25rem;
 }

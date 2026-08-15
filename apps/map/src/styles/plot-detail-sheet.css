@@ -3,6 +3,10 @@
  * Split out of colony-theme.css to keep that file under the 250-line cap (CLAUDE.md
  * invariant 7) — colony-theme.css stays the one place status/map colours live (D-004);
  * this file is feature chrome, not part of that colour contract. */
+/* Frosted glass (owner ask, 2026-08-15) — the map stays visible/legible through the
+ * sheet instead of being fully hidden behind it. -webkit-backdrop-filter is required
+ * for Safari (tier-3.md's target device); the plain background colour above it is the
+ * fallback on anything that ignores backdrop-filter entirely. */
 .plot-detail-sheet {
   position: absolute;
   left: 0;
@@ -12,7 +16,10 @@
   height: 42%;
   max-height: 42%;
   overflow-y: auto;
-  background: #ffffff;
+  background: var(--colony-glass-bg-strong);
+  backdrop-filter: blur(var(--colony-glass-blur)) saturate(160%);
+  -webkit-backdrop-filter: blur(var(--colony-glass-blur)) saturate(160%);
+  border-top: 1px solid var(--colony-glass-border);
   border-radius: 1rem 1rem 0 0;
   box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.18);
   padding: 0 1rem 1.5rem;
@@ -161,6 +168,7 @@
   font-size: 0.9rem;
   border: 1px solid var(--colony-plot-stroke);
   border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.7);
   padding: 0.4rem 0.6rem;
 }
 
@@ -173,9 +181,11 @@
 .plot-status-button {
   font-size: 0.85rem;
   font-weight: 600;
-  border: 1px solid var(--colony-plot-stroke);
+  border: 1px solid var(--colony-glass-border);
   border-radius: 999px;
-  background: #ffffff;
+  background: var(--colony-glass-bg);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   padding: 0.4rem 0.9rem;
 }
 

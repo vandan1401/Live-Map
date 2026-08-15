@@ -1,0 +1,55 @@
+/* Ground-cover texture support for mapTexturePatterns.ts's <pattern> defs (owner-
+ * supplied photo, 2026-08-15) and the world-ground Leaflet layer that keeps it
+ * zooming in lockstep with the site instead of a separately-scaled CSS backdrop.
+ * Split out of colony-theme.css to stay under the 250-line cap (CLAUDE.md invariant
+ * 7) — the colour token .texture-garden-tint points at still lives in
+ * colony-theme.css's :root block, so D-004 still holds. */
+
+.texture-ground-fill {
+  fill: url(#texture-grass);
+  pointer-events: none;
+}
+
+.texture-garden-tint {
+  fill: var(--colony-garden-tint);
+  fill-opacity: 0.5;
+}
+
+/* Road grain (mapTexturePatterns.ts's buildRoadPatternDefs, colony-theme.css's .road) —
+ * a handful of fixed flecks over a flat base, barely-there on purpose (tier-3.md: roads
+ * stay muted so status stays the thing your eye catches). */
+.texture-road-base {
+  fill: var(--colony-road);
+}
+.texture-road-fleck-light {
+  fill: rgba(255, 255, 255, 0.07);
+}
+.texture-road-fleck-dark {
+  fill: rgba(0, 0, 0, 0.09);
+}
+
+/* The world-ground overlay (mapTexturePatterns.ts's buildWorldGroundSvg, added as a
+ * second L.svgOverlay beneath the site's own one) needs no explicit sizing here —
+ * Leaflet positions it via the worldBounds passed to svgOverlay, same as the site's
+ * own SVG. This selector only exists so the pointer never treats it as interactive. */
+.colony-world-ground {
+  pointer-events: none;
+}
+
+/* Small fallback for the rare case of panning past the padded world bounds
+ * (unrestricted panning, no maxBounds set) — a flat colour close to the photo's own
+ * tone blends far better at that edge than a mismatched second texture would. */
+.colony-map-container {
+  position: absolute;
+  inset: 0;
+  background: var(--colony-ground-base);
+}
+
+/* Leaflet writes plenty of inline styles to its own panes — none of that reaches
+ * the plots themselves (D-009). This just gets the container out of the way; the
+ * grass backdrop comes from the world-ground Leaflet layer above it. */
+.colony-map-container .leaflet-container {
+  background: transparent;
+  width: 100%;
+  height: 100%;
+}

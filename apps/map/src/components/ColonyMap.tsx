@@ -12,7 +12,10 @@ import { ShareSummary } from "../features/share-summary/ShareSummary.tsx";
 import { FreshnessIndicator } from "./FreshnessIndicator.tsx";
 import { StatusLegend } from "./StatusLegend.tsx";
 import { buildDimensionArrowMarker } from "./plotDimensionOverlay.ts";
+import { buildGardenPatternDefs, buildRoadPatternDefs, buildWorldGroundSvg, computeWorldLayerBounds } from "./mapTexturePatterns.ts";
+import { addFeatureLabelChips } from "./mapLabelChips.ts";
 import { useSelectedPlotOverlay } from "./useSelectedPlotOverlay.ts";
+import grassPhotoUrl from "../assets/textures/grass-satellite.jpg";
 
 const ALL_STATUSES: PlotStatus[] = ["available", "booked", "registered"];
 // Margin below the fit-to-bounds zoom, not an absolute zoom level — a hardcoded
@@ -29,6 +32,13 @@ function parseColonySvg(raw: string): SVGSVGElement {
   const svg = doc.documentElement as unknown as SVGSVGElement;
   svg.classList.add("colony-svg-root");
   svg.appendChild(buildDimensionArrowMarker());
+  // Only .garden (fill: url(#texture-garden)) reads from this — the ground itself
+  // comes from the separate world-ground layer beneath (see the mount effect below),
+  // not a rect painted inside this SVG, so the same one photo texture shows through
+  // consistently both inside and outside the site's own boundary with no seam or
+  // phase mismatch between two separately-tiled patterns.
+  svg.appendChild(buildGardenPatternDefs(grassPhotoUrl));
+  svg.appendChild(buildRoadPatternDefs()); // only ever referenced by .road, this doc only
   return svg;
 }
 
@@ -85,13 +95,28 @@ export function ColonyMap({ client, actor, colonyId, onBack }: Props) {
     // constant — a stale copy here previously letterboxed a taller fixture into the
     // wrong bounds and threw off the selection auto-pan math (/review finding, M6).
     const { width: viewBoxWidth, height: viewBoxHeight } = svgEl.viewBox.baseVal;
-    const bounds: L.LatLngBoundsExpression = [
+    const siteBounds: L.LatLngBoundsExpression = [
       [0, 0],
       [viewBoxHeight, viewBoxWidth],
     ];
-    L.svgOverlay(svgEl, bounds).addTo(map);
-    map.fitBounds(bounds);
-    const zoomDetailThreshold = map.getBoundsZoom(bounds) - ZOOM_DETAIL_MARGIN;
+
+    // World-ground layer (owner correction, 2026-08-15: panning/zooming should feel
+    // like the whole ground is moving, not just this rectangle) — a second, larger
+    // svgOverlay added *before* the site's own, so it paints beneath it and shares this
+    // same map's coordinate transform. See mapTexturePatterns.ts's computeWorldLayerBounds
+    // and buildWorldGroundSvg for the sizing and why it's a separate SVG rather than
+    // padding the site's own viewBox.
+    const { worldWidth, worldHeight, worldBounds } = computeWorldLayerBounds(viewBoxWidth, viewBoxHeight);
+    const worldSvg = buildWorldGroundSvg(grassPhotoUrl, worldWidth, worldHeight);
+    worldSvg.classList.add("colony-world-ground");
+    L.svgOverlay(worldSvg, worldBounds).addTo(map);
+
+    L.svgOverlay(svgEl, siteBounds).addTo(map);
+    // getBBox() right here still measures 0x0 — attached isn't the same as laid out, and
+    // nothing forces that pass synchronously (found live: every chip pinned to (0, 0)).
+    const labelChipFrame = requestAnimationFrame(() => addFeatureLabelChips(svgEl));
+    map.fitBounds(siteBounds);
+    const zoomDetailThreshold = map.getBoundsZoom(siteBounds) - ZOOM_DETAIL_MARGIN;
 
     // Zoom-dependent detail (spec/06): trees and plot labels look better and pan
     // faster on older phones when hidden while zoomed out. Applied once for the
@@ -121,6 +146,7 @@ export function ColonyMap({ client, actor, colonyId, onBack }: Props) {
     });
 
     return () => {
+      cancelAnimationFrame(labelChipFrame);
       detachSync();
       map.off("zoomend", applyZoomDetail);
       mapRef.current = null;

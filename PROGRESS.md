@@ -2,6 +2,238 @@
 
 ## Current
 
+- **Map UI rework, part 5 (2026-08-16, Tier 3): reference-matched label style, lower
+  status opacity, road grain, and a real fix for the ground texture's visible tiling —
+  the actual root cause turned out to be my own processing, not the source photo or a
+  rendering bug.** Four owner asks in one message: (1) road/quadrant name labels
+  ("9.0 M W ROAD", "Q-F") now sit on a solid white chip (`mapLabelChips.ts`'s
+  `addFeatureLabelChips`, a `<rect>` built from each label's own `getBBox()` and
+  inserted behind it) instead of a stroke halo on the road — copied directly from the
+  owner's part-4 reference render, which uses exactly this for every road/quadrant
+  label and plain bare black numbers (no chip) for plot numbers, so `.plot-label` lost
+  its heavy halo too, kept just enough (1.5px, 0.75 opacity) to stay legible over a
+  photo texture instead of the reference's flat green. Found live: `getBBox()` called
+  immediately after `L.svgOverlay().addTo(map)` measures 0x0 for every label — being
+  attached to the DOM isn't being laid out, and nothing forces that pass synchronously.
+  Fixed with one `requestAnimationFrame` (cancelled in the effect's cleanup). (2) status
+  fill-opacity 0.55 → 0.38 (owner: "overlay colour is too high opacity"). (3) roads got
+  a `texture-road` pattern (`buildRoadPatternDefs`) — a flat base plus six fixed flecks,
+  no image or filter, "a little road like texture". (4) the ground photo's mirrored tile
+  showed an obvious repeat ("it is making a pattern i dont want") — chased through
+  three wrong theories before finding the real one. First: reduced `GRASS_TILE_W/H`
+  repeat frequency and added a small overlap between the four mirrored quadrant
+  `<image>`s (`SEAM_OVERLAP`) — a real fix for antialiasing hairlines at tile joins,
+  worth keeping, but the grid was still there after it, so it wasn't the (sole) cause.
+  Second: assumed the owner's AI-generated photo had a baked-in vignette and cropped
+  the outer 18% off — grid still visible, slightly fainter. Only then reloaded the true
+  original source (`image-cache/.../6.png`, 707x636, never downsampled before this)
+  and saw it clearly: a deliberate concentric-rectangle "mowing stripe" motif runs
+  through the *entire* photo, not just its edge — cropping the same source tighter
+  couldn't out-run it. **Third, and actually causal**: my own canvas processing was
+  the bug. `ctx.filter = 'blur(Npx)'` immediately before `drawImage` to the full canvas
+  samples transparent pixels for anything the blur kernel reaches past the drawn
+  region's edge, which darkens/desaturates a border on *every* image I'd blur-processed
+  regardless of crop — a self-inflicted vignette, reproduced identically after every
+  attempted fix because every attempt still blurred right up to a hard edge. Fixed by
+  drawing a padded region first (real neighbouring source pixels, not transparency),
+  blurring the padded canvas, then cropping the interior back out — the blur kernel now
+  only ever samples real content. Combined with a tight center crop (30% margin) on the
+  original high-res source to get well clear of the stripe motif, this produces a tile
+  with no grid line and no vignette at any zoom level tested. **Lesson for next time
+  cropping+blurring in canvas: pad before you blur, always** — the artifact looks
+  exactly like a source-photo defect or a tiling bug and will send you chasing both
+  before you check your own filter call. Gate clean:
+  `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` — 19/19 files,
+  96/96 tests (one retry needed for the documented DB-warm-up flake, clean after).
+  Verified live in Chrome at both normal and zoomed-in scale.
+  **Phone access fixed same session (2026-08-16):** owner tried the LAN URL on their
+  phone and login silently failed — `apps/map/.env`'s `VITE_SUPABASE_URL` was
+  `http://127.0.0.1:55321`, baked into the client bundle at dev-server start, so the
+  phone's browser resolved `127.0.0.1` to itself, not this machine, and every
+  Supabase call had nothing to talk to (the Vite page itself loaded fine, masking
+  this as a login bug rather than a config one). Fixed by pointing it at this
+  machine's LAN address instead (`http://192.168.0.177:55321`, from `ipconfig`,
+  confirmed against the actual Wi-Fi adapter — two other IPv4s on this machine are
+  VMware/WSL virtual adapters, not reachable from a phone) and restarting `pnpm dev
+  --host` so the new env value gets baked in (Vite does not hot-reload `.env`
+  changes into a running client bundle). Confirmed the local Supabase stack's Kong
+  gateway publishes on `0.0.0.0:55321` (not just loopback) and returns
+  `Access-Control-Allow-Origin: *`, so the phone's origin isn't blocked either.
+  `apps/map/.env` is gitignored — this is a local dev-machine value, not something
+  that ships or needs undoing later, but it will need updating again if this
+  machine's LAN IP changes (e.g. after a router reboot/DHCP lease renewal) or if
+  dev testing moves to a different network. Next: still not confirmed working from
+  the owner's own phone — waiting on their retry.
+- **Map UI rework, part 4 (2026-08-15, Tier 3): switched to the owner's own AI-
+  generated ground photo, fixed zoom desync, chased a corrupted-asset bug to ground.**
+  Owner rejected the procedural blob texture outright ("worst boring grass"), flagged
+  that zooming only scaled the site rectangle while the backdrop stayed fixed size
+  (the CSS-background approach from part 3), and supplied their own AI-generated grass
+  photo (`image-cache/.../6.png`) with explicit permission to use it — a second
+  licensed-looking photo they sent was NOT used, since they gave conflicting signals
+  about its licence in the same session ("licensed" then "free to use") and the AI
+  photo's permission was unambiguous. New `mapTexturePatterns.ts` mirror-tiles that
+  photo into a 2x2 block (normal/flip-x/flip-y/flip-both) so the tile has no seam
+  regardless of whether the source photo itself is seamless — the owner said they
+  weren't sure. The zoom-desync fix is architectural, not cosmetic: a *second* Leaflet
+  `svgOverlay` (`buildWorldGroundSvg`, a standalone SVG with its own viewBox, added
+  *before* the site's own overlay so it paints beneath it) covers a world ~4x the
+  site's own size, sharing the map's coordinate transform so it pans/zooms in exact
+  lockstep with the site — not a CSS background image on the container, which can't
+  scale with Leaflet's zoom at all. Deliberately not done by padding the site SVG's
+  own viewBox: `useSelectedPlotOverlay.ts` reads that viewBox's height directly for
+  pan-to-selection math, and this repo already has a documented incident
+  (`ColonyMap.tsx`'s `ZOOM_DETAIL_MARGIN` comment) from a viewBox/bounds mismatch
+  breaking that exact code path once before.
+  **Two real bugs found and fixed during this pass, both worth remembering:** (1) both
+  SVG documents (site + world) initially defined a `<pattern id="texture-grass">` —
+  SVG/HTML ids are unique per *document*, not per `<svg>` sub-root, and this app puts
+  both documents in the same live DOM as sibling Leaflet layers, so the second
+  definition silently collided with the first. Fixed by giving the world layer's
+  patterns their own disjoint ids (`buildGardenPatternDefs` for the site's `.garden`
+  only, a separate inline defs block for the world layer's `texture-grass` only) —
+  this actually turned out NOT to be the visible bug's cause (see next), but is a real
+  latent one worth remembering for any future second-SVG-document trick. (2) **the
+  actual cause**: the compressed JPEG asset was silently *corrupted/truncated* —
+  `get_page_text` (used to pull a ~50,000-character base64 data URL out of the browser
+  by writing it into the DOM and reading it back) apparently has an undocumented
+  truncation limit well below that length, and returned a partial string with no
+  error or warning. The resulting file decoded and rendered fine at first glance
+  (JPEG headers were intact) but was missing its end-of-image marker and most of its
+  scan data — every image on the page (SVG `<image>`, plain `<img>`, at any size)
+  rendered only its top ~15–20% before falling back to solid grey. Confirmed
+  definitively via a byte-level check (`buf[buf.length-2]===0xFF &&
+  buf[buf.length-1]===0xD9`, absent) after visually reproducing the bug in total
+  isolation (a bare `<img>` tag, no Leaflet, no pattern) ruled out every app-specific
+  explanation first. Fixed by transferring the base64 in ~1800-character chunks (small
+  enough that neither `get_page_text` nor the direct-return channel — which separately
+  blocks anything shaped like a base64/token string outright — mangled or refused
+  them), reassembling in Node, and verifying the EOI marker before ever writing the
+  file the app actually uses. **Lesson for any future session moving binary data out
+  of a browser tab this way: verify the decoded file's integrity in Node before
+  trusting it, never assume a browser round-trip preserved an arbitrarily long
+  string byte-for-byte.** Also folded in: `map-texture.css`'s CSS data-URI backdrop
+  from part 3 is gone entirely (replaced by the Leaflet world layer above); leaked
+  `verified: true` scratch colonies from this session's own repeated flaky test runs
+  were cleaned up via `supabase db reset` + reseed + `pnpm create-user` (demo account)
+  three separate times this session — the DB-warm-up flake (documented elsewhere in
+  this file) got noticeably worse under the unusually high number of consecutive test
+  runs this session needed, worth a real fix at some point rather than the fourth
+  "reset and reseed" bump. Gate clean after all of this:
+  `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` — 19/19 files,
+  96/96 tests (multiple retries needed due to the flake above, always clean on
+  retry), clean build. Verified live in Chrome, in total isolation before the app:
+  a bare `<img>` at the target size, then the full pattern in a blank page, then the
+  real app — texture now shows correctly at every step, whole viewport covered, zoom
+  keeps the backdrop and site moving together. Still not owner-verified on their own
+  device — this is the fourth live correction cycle in one session.
+- **Map UI rework, part 3 (2026-08-15, Tier 3): owner corrected part 2 after seeing it
+  live, plus DB residue cleanup.** Four fixes: (1) the ground rect from part 2 only
+  covered the SVG's own bounds — at this aspect ratio Leaflet's fitBounds letterboxes,
+  and the owner saw the flat cream container background around it and read that as
+  "only a rectangle patch is in grass" (their words) when they meant the whole
+  viewport. `colony-map-container` (`map-texture.css`) now carries a matching mottled-
+  green CSS `background-image` (a hand-encoded data URI, same palette as the SVG
+  pattern) so the backdrop outside the site is grass too, not just the fitted
+  rectangle — `.leaflet-container`'s own background is now `transparent` so it doesn't
+  paint over that. (2) the blade-stroke texture from parts 1–2 still read as a
+  mechanical repeating pattern up close, not an aerial photo (owner: "not every strand
+  will be visible... from satellite it will look like some texture" — and explicitly
+  offered "get a seamless image from somewhere" as a fallback, which isn't available
+  here: this is an offline-capable PWA with no external asset/CDN dependency and no
+  image-generation tool in this environment, so an actual satellite photo wasn't an
+  option). Replaced the blade strokes with layered translucent ellipse "blobs" (3
+  tones, off-grid positions, `mapTexturePatterns.ts`'s `GROUND_BLOBS`) that read as
+  soft colour mottling through alpha overlap rather than a hard-edged repeating
+  motif — no blur filter used or needed (tier-3.md still bans SVG filters on map
+  geometry). Tile size also went from 10 to 50 units so the repeat is far less
+  frequent relative to a plot's own size. (3) plot boundary colour ("not good," a dull
+  grey that read as muddy over green) changed to a crisp warm white
+  (`--colony-plot-stroke: #f7f4e8`), matching how the owner's own aerial-photo
+  reference actually paints plot lines. (4) unrelated to the owner's feedback but found
+  while re-verifying live: two `verified: true` scratch colonies had leaked into the
+  real colony picker — residue from this session's own live-integration test run that
+  timed out once (documented DB-warm-up flake) before passing clean on retry, same
+  failure class as the 2026-08-14 session's `revokeVerification`-teardown gap.
+  `supabase db reset` + `pnpm import:seed` + `pnpm create-user demo demo-pass-123
+  "Demo User"` (the demo account is also wiped by a full reset) cleared it; picker
+  re-verified live to show only the one real colony. Gate re-verified clean after all
+  four fixes: `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` — 19/19
+  files, 96/96 tests, clean build. Verified live in Chrome: grass now fills the visible
+  viewport outside the site rectangle too, the texture reads as soft mottling rather
+  than a repeating blade grid, plot boundaries are crisp and legible. Still not
+  owner-verified on their own device — this is the third live correction cycle in one
+  session, worth getting their reaction before treating the texture as settled.
+- **Map UI rework, part 2 (2026-08-15, Tier 3): owner corrected part 1 after seeing it
+  live.** Three fixes: (1) the grass texture had been tiled separately per plot/garden
+  shape (each its own `<pattern>`, own tile phase) instead of reading as one continuous
+  field — `mapTexturePatterns.ts` gained `buildGroundRect()`, one `<rect
+  width="100%" height="100%">` inserted as the SVG's *first* child (not appended) so
+  every plot/road/garden shape paints over a single shared grass layer;
+  `patternUnits="userSpaceOnUse"` ties every pattern to that same (0, 0) origin, so
+  nothing seams at plot boundaries anymore. `.plot` itself now has `fill: none` — it's
+  marked only by its boundary stroke ("visible via lines on that texture," the owner's
+  words) — and `.plot[data-status]` is a flat translucent colour (no pattern lookup)
+  layered on top of the shared ground showing through. (2) grass density/saturation
+  raised — 3 blades per 10×10 tile to 6 across three tones, base green from `#6fae63`
+  to a more saturated `#4f9645` (owner: "not enough grassy"). (3) the `.road` stroke
+  part 1 added for a "curb" look drew a visible border at every internal join between
+  the compound path's own rectangle segments (owner: "roads should not have a
+  borderline between them" — confirmed with a screenshot showing the grid) — removed
+  outright, back to a flat fill with no stroke. `map-texture.css`'s now-unused
+  `.texture-tint-*`/per-status pattern classes were deleted rather than left dead.
+  Gate re-verified clean after: `pnpm typecheck && pnpm lint && pnpm test -- --run &&
+  pnpm build` — 19/19 files, 96/96 tests (one `applyPlotTransition.test.ts` timeout on
+  the first run, the documented DB warm-up flake, clean on immediate retry), clean
+  build. Verified live in Chrome: the whole map reads as one grass field under the
+  roads/plots, road bands have no internal grid lines, plot tint still shows grain
+  through it. Still not owner-verified on their own device.
+- **Map UI rework, part 1 (2026-08-15, Tier 3, no plan/review needed): road, plot,
+  garden, and status rendering, plus a frosted-glass chrome pass.** Owner gave two
+  reference images and asked for (1) realistic-looking plots/garden with status as "a
+  slight overlay on top", not a flat opaque fill, (2) a lighter, more legible road
+  style, (3) transparent/glassmorphism popups, "rest you decide yourself" for
+  everything else. New `components/mapTexturePatterns.ts` (same
+  `parseColonySvg`-time-injection precedent as `plotDimensionOverlay.ts`'s arrow
+  marker) builds `<pattern>` defs for a grass-blade ground texture, a denser
+  shrub-dotted garden texture, and one tinted-grass pattern per plot status
+  (available/booked/registered) at 0.62 fill-opacity over the grass tile — status
+  still reads clearly at a glance (tier-3.md's "readable at a glance" floor), texture
+  shows faintly through it (owner's "slight overlay" ceiling). New `styles/
+  map-texture.css` holds the CSS classes those pattern tiles reference (split out of
+  `colony-theme.css` to stay under the 250-line cap); the actual colour tokens stay in
+  `colony-theme.css`'s `:root` per D-004. `--colony-road` repainted from near-black to
+  a warm mid-grey (owner's road reference image) — the near-black repaint from
+  2026-08-13 had made the road width labels (`.feature-label`, "9.0 M W ROAD") which
+  had *no CSS rule at all* until this session and rendered in the browser default
+  (black, left-anchored, unstyled) effectively invisible against it; both `.feature-
+  label` and the per-plot `.plot-label` numbers (also previously unstyled, off-centre)
+  now get text-anchor/dominant-baseline centering plus a stroke halo (`paint-order:
+  stroke`) so they stay legible regardless of the exact road/status colour underneath,
+  instead of depending on one hand-tuned contrast pair. Frosted-glass chrome (owner:
+  "I like transparent style design") — new shared `--colony-glass-*` tokens in
+  `colony-theme.css`, applied via `backdrop-filter`/`-webkit-backdrop-filter` to the
+  plot detail sheet (the "status popup"), its status-change buttons, and every other
+  floating HTML panel (search bar, back button, legend, share sheet) for a consistent
+  look; this is ordinary HTML/CSS backdrop-filter on a handful of fixed elements, not
+  an SVG filter on map geometry, so it doesn't conflict with tier-3.md's "no SVG
+  filters" rule (noted inline in the CSS so a future session doesn't misread it as a
+  violation). One real bug caught before verifying, not by `/review` (Tier 3, none
+  run): a comment in `colony-theme.css` described the split-out texture classes as
+  `.texture-blade-*/` — the literal `*/` inside that text closed the CSS comment early
+  and left the rest of the comment's own words parsed as real CSS, breaking `pnpm
+  build` with `CssSyntaxError: Missing opening (` (dev mode/`pnpm typecheck`/`pnpm
+  lint` all stayed silently green through this, since Vite's dev CSS pipeline didn't
+  hit the same failure path — caught only because the full gate was run before calling
+  this done, not just dev-mode eyeballing). Verified live in a Claude-driven Chrome
+  session (`mcp__claude-in-chrome`), not just by reading the CSS: zoomed screenshots
+  confirm the grass-blade texture is visible through a booked plot's blue tint, the
+  garden's shrub texture, road labels and plot numbers both legible over every status
+  colour, and the plot detail sheet showing the map visibly blurred through it. Not yet
+  shown to the owner in a real browser — next session (or later this one) should get
+  their reaction before calling the redesign done; garden texture in particular reads
+  as stylized/geometric rather than photorealistic, a real constraint of flat SVG
+  patterns with no external image assets, not a bug.
 - **`docs/plans/09.md` (M8) is now closed** — the owner confirmed both remaining manual
   criteria directly: criterion 1 (an outside username is rejected on a real device) and
   criterion 5 (cache-TTL forced re-auth), the latter via a direct check rather than a real
@@ -214,14 +446,13 @@
   the shared fixture; needs a real decision (regenerate the golden PDF to match, or accept
   a two-copy split between "pipeline's golden fixture" and "app's real fixture") before
   `tools/pipeline` is built.
-- **Owner feedback this session, not yet acted on:**
+- **Owner feedback from this 2026-08-14 session:**
   1. Plot shapes are rectangles-only right now — a fixture limitation (hand-traced from
      the photo, which showed only rectangular plots readably), not a contract or app
-     limitation; `class="plot"` works on any SVG path shape.
-  2. Current road rendering (solid grey band + dashed centerline + width label, matching
-     the reference plan) still doesn't look right to the owner. Explicitly told not to
-     touch it this session — "think something else for rendering" is a real open
-     question for a future session, not a small tweak.
+     limitation; `class="plot"` works on any SVG path shape. Still open — not touched
+     by the 2026-08-15 road/plot-texture rework above.
+  2. Road rendering "doesn't look right" — addressed 2026-08-15, see the "Map UI
+     rework, part 1" entry at the top of this section; not yet owner-verified.
 - **Local Supabase stack now runs `realtime`** (`Makefile`'s `db-start` used to exclude
   it — M5 needed it). If a future milestone needs another currently-excluded service
   (`storage-api`, etc.), remember: a plain `supabase start` restart silently keeps the
@@ -318,9 +549,8 @@
   rule in `plot-selection.css` is correct but dead for this colony.
 - **Owner feedback, not yet acted on (2026-08-14):** plot shapes in the real fixture are
   rectangles only (photo only showed rectangular plots readably — a fixture limit, not
-  a contract limit). Road rendering (solid band + dashed centerline + width label) still
-  doesn't look right to the owner; explicitly told not to touch it this session — a real
-  redesign question for later, see Current.
+  a contract limit) — still open. Road rendering "doesn't look right" — addressed
+  2026-08-15 (see `## Current`'s "Map UI rework, part 1"), not yet owner-verified.
 - **From M5 (2026-08-13):** `ColonyMap.tsx` imports directly from `lib/db` and
   `lib/colony`, which NAVIGATION.md's stated layer table says Components may not do
   (only `src/shared`). This predates M5. During the `/review` fix pass, `lib/sync/
@@ -392,6 +622,166 @@
 ## Log
 
 <!-- Append-only. Four lines per entry: Done / Next / Surprises / Verified. -->
+
+### 2026-08-16 — Map UI rework, part 5: reference-matched labels, road grain, texture-tiling root cause, phone access
+- Done: matched road/quadrant labels to the owner's part-4 reference render (white
+  chip via a new `mapLabelChips.ts`, `getBBox()`-measured, deferred one
+  `requestAnimationFrame` past `svgOverlay.addTo(map)` since attachment isn't layout);
+  dropped status fill-opacity 0.55 → 0.38; added a small fixed-fleck road-grain
+  pattern; and, after three wrong theories (tile-join antialiasing, a source-photo
+  vignette), found the real cause of the ground texture's visible tiling: my own
+  canvas `blur()` call sampling transparent pixels past the crop edge, self-inflicting
+  a vignette on every processed image regardless of crop. Fixed by padding with real
+  neighbouring pixels before blurring, then cropping the interior back out. Separately,
+  fixed the owner's phone not being able to log in at all — `apps/map/.env`'s
+  Supabase URL was `127.0.0.1`, meaningless from a phone; repointed at this machine's
+  LAN IP and restarted `pnpm dev --host`.
+- Next: owner to retry on their own phone now that both the texture fixes and the LAN
+  URL fix are in — this is the fifth live correction cycle this session, still nothing
+  confirmed from their own device.
+- Surprises: `getBBox()` measures 0x0 immediately after inserting an SVG into a live
+  Leaflet overlay — being attached to the document isn't the same as having been laid
+  out, and nothing forces that pass synchronously; needs one rAF. Bigger one: a canvas
+  `ctx.filter = 'blur()'` drawn right up to a crop edge darkens that edge by sampling
+  transparent pixels beyond it — this produces an artifact that looks exactly like a
+  defect in the source photo (a "vignette") or a tiling/rendering bug, and survived two
+  full wrong-theory fixes (reduced tile repeat + image overlap, then a source-photo
+  crop) before the actual cause — my own filter call — was checked. Pad the canvas
+  before blurring, always, when cropping is involved. Also: Vite does not hot-reload
+  `.env` changes into an already-running dev server's client bundle — a full restart
+  was needed for the new `VITE_SUPABASE_URL` to take effect, not just a page refresh.
+- Verified: `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` — clean,
+  19/19 files, 96/96 tests (one retry, the documented DB-warm-up flake, clean after),
+  clean build. Live in Chrome at normal and zoomed-in scale, texture confirmed with no
+  visible grid line or vignette at either. LAN reachability confirmed via `curl` from
+  this machine to its own Wi-Fi IP (not the loopback-bound VMware/WSL adapters) for
+  both the Vite dev server and the Supabase Kong gateway, plus a CORS preflight check
+  (`Access-Control-Allow-Origin: *`) — not yet confirmed from the owner's actual phone.
+  `supabase db reset` + reseed + `pnpm create-user` once this session to clear scratch
+  colonies leaked by the flaky retry.
+
+### 2026-08-15 — Map UI rework, part 4: real photo texture, zoom-lockstep world layer, corrupted-asset bug hunt
+- Done: owner rejected the procedural blob texture, flagged the backdrop not scaling
+  with zoom, and supplied their own AI-generated grass photo with explicit use
+  permission (a second, licensed-looking photo was deliberately not used — mixed
+  signals from the owner about its licence in the same session). Rebuilt the ground
+  texture around that real photo, mirror-tiled 2x2 for guaranteed seamlessness, and
+  replaced the CSS-background zoom workaround with a second Leaflet `svgOverlay`
+  sharing the map's own coordinate transform so the backdrop and site now zoom/pan in
+  lockstep. Spent most of the session chasing what looked at first like a
+  duplicate-SVG-id bug, then discovered and fixed the real cause: `get_page_text`
+  silently truncated a ~50k-character base64 transfer, corrupting the JPEG asset in a
+  way that still rendered its top portion correctly, making the bug look like a
+  tiling/scaling problem rather than a broken file.
+- Next: owner still hasn't seen this on their own device — fourth correction cycle in
+  one session, worth stopping for their reaction before any further texture work.
+- Surprises: a corrupted JPEG that still has valid header bytes renders its top slice
+  correctly and the rest as flat grey, in both `<img>` and SVG `<image>` — this looks
+  exactly like a scaling/tiling bug, not an asset-integrity one, and cost real time
+  before a byte-level EOI-marker check (absent) settled it. `get_page_text` has no
+  documented length limit but silently truncates well under 50,000 characters with no
+  error — any future large binary transfer through a browser tab this way needs
+  chunking (~1800 chars was reliable) and a Node-side integrity check before the
+  decoded file is ever trusted, not just a visual glance. Separately (real bug, but
+  not this one's cause): two sibling Leaflet SVG overlay layers in the same live DOM
+  cannot both define a `<pattern>` with the same id — ids are unique per document, not
+  per `<svg>` sub-root.
+- Verified: `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` — clean,
+  19/19 files, 96/96 tests (several retries needed, the documented DB-warm-up flake
+  got worse under this session's unusually high test-run count), clean build. Live in
+  Chrome, isolated before integrated: a bare `<img>` tag at target size, then the full
+  pattern in a blank page, then the real app — each step confirmed correct before
+  moving to the next, catching the corruption at the smallest reproduction rather than
+  guessing inside the full app. `supabase db reset` + reseed + `pnpm create-user`
+  three times this session to keep the demo picker clean of leaked scratch colonies.
+
+### 2026-08-15 — Map UI rework, part 3: whole-viewport grass, blob texture, boundary colour, DB residue cleanup
+- Done: owner sent a screenshot showing the grass texture only filling the map's own
+  rectangle (letterboxed at this aspect ratio) and asked for the whole viewport, said
+  the blade texture still looked low-quality/mechanical up close and suggested a real
+  satellite-photo texture as a fallback if a better procedural one wasn't possible, and
+  flagged the plot boundary colour as bad. Extended the ground texture to
+  `.colony-map-container`'s own CSS background (a hand-encoded data-URI SVG matching
+  the in-map palette, since a satellite photo asset isn't available in this offline
+  PWA with no CDN dependency and no image-generation tool here), replaced the blade-
+  stroke pattern with layered translucent blob ellipses for a softer mottled look, and
+  recoloured the plot stroke to a crisp white. Also found and cleaned up two leaked
+  `verified: true` scratch colonies in the real picker — residue from this session's
+  own flaky test run, not related to the texture work.
+- Next: this is the third live correction cycle on this UI rework in one session —
+  worth getting the owner's own reaction before assuming the texture is settled;
+  nothing else queued.
+- Surprises: a CSS `background-image` can't reference an SVG `<pattern>` def or read a
+  CSS custom property, so the container backdrop's colours had to be hand-duplicated
+  into a literal data-URI string rather than sharing the DOM-built pattern's code path
+  — documented inline as a deliberate, manually-synced exception to D-004, not an
+  oversight. Also: `supabase db reset` wipes the `auth` schema along with the rest of
+  the database, so the demo account needed recreating with `pnpm create-user`
+  afterward, not just `pnpm import:seed`.
+- Verified: `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` — clean,
+  19/19 files, 96/96 tests, clean build, re-run after the `db reset` too. Live in
+  Chrome: grass fills the viewport outside the site rectangle, texture reads as
+  mottling rather than a repeating blade grid, plot boundaries are crisp, and the
+  colony picker shows only the one real colony post-cleanup.
+
+### 2026-08-15 — Map UI rework, part 2: owner corrections after seeing part 1 live
+- Done: owner looked at part 1 in a real browser and sent three corrections — grass
+  was tiling separately per plot instead of reading as one field, texture wasn't dense
+  enough, and the road-edge stroke added in part 1 drew a visible border at every
+  segment join (confirmed with their own screenshot). Fixed all three: new
+  `buildGroundRect()` in `mapTexturePatterns.ts` paints one shared grass rect as the
+  SVG's first child; `.plot` fill dropped to `none` (boundary line only) with status as
+  a flat translucent colour over the shared ground instead of its own pattern; blade
+  count/saturation increased; the road stroke removed outright. Deleted the now-dead
+  per-status pattern classes rather than leaving them unused.
+- Next: still needs the owner's own look, on their own device — this was corrected
+  from a screenshot they sent mid-session, not yet a fresh from-scratch reaction.
+- Surprises: `patternUnits="userSpaceOnUse"` ties a pattern's tile grid to the SVG's
+  global coordinate origin, not each shape's own bounding box — meant switching from
+  "one pattern fill per plot" to "one shared rect underneath everything" needed no
+  coordinate math at all, every pattern already shared the same (0, 0) phase.
+- Verified: `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` — clean,
+  19/19 files, 96/96 tests (one live-integration timeout on the first run, the
+  documented DB warm-up flake, passed clean on retry). Live in Chrome: continuous grass
+  under roads/plots, no internal road borders, plot tint still shows grain through it.
+
+### 2026-08-15 — Map UI rework, part 1: road/plot/garden textures, status as overlay, glass chrome
+- Done: owner asked to continue a "UI rework" with no prior thread in this repo — asked
+  which piece, owner picked road rendering (the deferred 2026-08-14 item), then mid-turn
+  supplied two reference images and expanded scope live: realistic-looking plots/garden
+  with status as a translucent overlay (not opaque fill), the referenced lighter road
+  style, and transparent/glassmorphism popups ("rest you decide yourself" for the rest).
+  Built new `components/mapTexturePatterns.ts` (grass/garden/per-status `<pattern>` defs,
+  injected at SVG-parse time, same precedent as `plotDimensionOverlay.ts`), new
+  `styles/map-texture.css` (split out to hold the 250-line cap), recoloured
+  `--colony-road` off near-black to a warm mid-grey, added the `.feature-label`/
+  `.plot-label` styling neither had ever had (centering + a stroke halo for legibility
+  regardless of the colour underneath), and a shared `--colony-glass-*` frosted-glass
+  recipe applied via `backdrop-filter` to the plot detail sheet, its status buttons, and
+  every other floating HTML panel.
+- Next: show the owner a real browser and get their reaction before calling this
+  redesign done — garden texture reads as stylized/geometric, not photorealistic (a
+  flat-SVG-pattern constraint, no external image assets available); plot shapes staying
+  rectangle-only (2026-08-14 feedback) is still untouched.
+- Surprises: two road-colour labels (`.feature-label`, the "9.0 M W ROAD" text) had *no
+  CSS rule at all* before this session — they'd been rendering in the browser default
+  (black, unstyled, left-anchored) the entire time, which the 2026-08-13 near-black road
+  repaint had made almost invisible; that near-invisibility is very likely most of what
+  "road rendering doesn't look right" actually meant, found only by loading the real
+  page in Chrome and zooming into a screenshot, not by reading the CSS. Separately, a
+  comment written mid-session (`.texture-blade-*/` as shorthand for two class names)
+  contained a literal `*/` that closed the CSS comment early and broke `pnpm build` with
+  `CssSyntaxError: Missing opening (` — `pnpm typecheck`/`pnpm lint`/the Vite dev server
+  all stayed silently green through it, only the production build's CSS pipeline caught
+  it, another instance of this repo's "verify by running the actual command" rule
+  earning its keep.
+- Verified: `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` from
+  `apps/map` — clean after the comment fix, 19/19 test files, 96/96 tests. Live in a
+  Claude-driven Chrome session (`mcp__claude-in-chrome`), not just by reading the CSS:
+  zoomed screenshots confirm grass-blade texture visible through a booked plot's blue
+  tint, garden shrub texture, road labels and plot numbers legible over every status
+  colour, and the plot detail sheet showing the map visibly blurred through it. Not yet
+  shown to the owner.
 
 ### 2026-08-15 — M8 built: username/password auth + RLS lockdown (docs/plans/09.md), /review's 6 findings fixed
 - Done: planned and built M8 (spec/08-map-auth.md) — username/password via a synthetic
