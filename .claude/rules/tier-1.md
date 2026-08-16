@@ -9,10 +9,10 @@ paths:
   - "apps/map/public/sw.js"
   - "tools/pipeline/pipeline/geom/**/*.py"
   - "tools/pipeline/pipeline/matching/**/*.py"
-  - "tools/pipeline/pipeline/overrides/**/*.py"
   - "tools/pipeline/pipeline/export/**/*.py"
-  - "tools/pipeline/verify/index.html"
-  - "tools/pipeline/verify/tracer.js"
+  - "apps/map/src/features/colony-upload/**/*.tsx"
+  - "apps/map/src/features/colony-upload/**/*.ts"
+  - "docs/cad-layer-standard.md"
 ---
 
 # Tier 1 — money, state, identity, the contract
@@ -127,26 +127,32 @@ CAD counts Y upward; SVG counts Y downward. Every transform flips it. A mirrored
 plausible — the plots are all there, the roads all connect — which is why this needs its own
 test rather than a visual glance.
 
-### Overrides are somebody's work
+### The DXF is the source of truth
 
-`overrides/<colony>.json` holds corrections a human made by hand. Losing one is silent, and
-the loss surfaces weeks later as a wrong plot in the app.
+There is no override store (D-118, superseding D-107). A correction is made in the drawing
+and re-ingested, so it survives every rerun by construction.
 
-- Key by **rounded centroid**. Not array index, not generated id — both change when
-  detection changes, which is exactly when overrides matter most.
-- Reapply on every run.
-- An override whose key matches nothing is **reported loudly**, never dropped. The geometry
-  moved and a human needs to look.
-- Never delete or truncate an overrides file. The guard hook blocks this; do not work around
-  it.
+- **Never add a stage that edits geometry or identity after ingest.** It would hold a
+  correction the next run silently discards — invariant 6, arrived at from a new direction.
+- The reader is **strict**: refuse non-conforming input naming the offending layer and
+  entity handle. Never repair, never guess, never fall back. Tolerance here rebuilds the
+  untestable rescue logic D-101 rejected, which is the whole reason this path is cheap.
+- Ambiguity is a hard error, not a confidence score. Two labels in one plot, a label in no
+  plot, a number outside `number_range` — all fail loudly and name the entity.
+- Mechanical transforms (block resolution, zero-padding) stay in code; judgement (which ring
+  is a plot, is it closed, is this the as-sold revision) stays in AutoCAD. D-118 has the
+  full statement of that line.
 
 ### Export is the last gate
 
 The QA checks in `tools/pipeline/pipeline/export/qa.py` are blocking, not advisory. A warning that lets a
 broken colony through is worse than no check, because it teaches the human to ignore output.
 
-`"verified": false` on every automatic export. Only the human clicking "Mark verified" in
-the verify page flips it. There is no code path that sets it true.
+`"verified": false` on every export, with no exception and no flag to override it. Nothing
+in `tools/pipeline` may write `true` — the verify page has no button for it since D-025, and
+adding one back is a review finding. The single writer is the app's upload confirmation,
+shown in front of the rendered map, because a flag inside an uploaded file is a claim rather
+than evidence that a human looked.
 
 ### Purity in `tools/pipeline/pipeline/geom/`
 
@@ -156,7 +162,7 @@ everything and is the cheapest place in the repo to be certain.
 ### Write checklist
 
 Before finishing, walk `spec/00-rules.md`'s five failure modes by name — partial writes,
-idempotency, override loss, orphans, dead computation — and say what each means here.
+idempotency, silent re-identification, orphans, dead computation — and say what each means here.
 
 ---
 

@@ -1,7 +1,8 @@
 """`make inspect PDF=...` — print the triage report and name the tier.
 
-Ten seconds, no guessing: vector (M2 path), raster (M9 path), or mixed (page-by-page
-handling needed). The fix for a bad tier is re-exporting the source file, not writing code.
+Ten seconds, no guessing: what did someone actually hand me? Since D-118 the pipeline
+ingests DXF only, so no tier here leads to an automatic path — this answers whether a
+file is worth opening in AutoCAD as a tracing backdrop or is already a real drawing.
 """
 
 from __future__ import annotations
@@ -23,9 +24,9 @@ def classify_document(pages: list[PageTriage]) -> str:
 
 
 _TIER_LABEL = {
-    "vector": "vector (M2 path)",
-    "raster": "raster (M9 path)",
-    "mixed": "mixed (needs page-by-page handling)",
+    "vector": "vector - exact geometry, ask whoever sent it for the DWG",
+    "raster": "raster - a picture. Trace it in AutoCAD over an attached image",
+    "mixed": "mixed - pages differ, check each one",
 }
 
 

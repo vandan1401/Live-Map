@@ -1,7 +1,7 @@
 # Root dispatcher. Targets are the interface — found by name, never by searching.
 # Real implementations land in M1; these are the names the skills and CLAUDE.md rely on.
 
-.PHONY: verify verify-map verify-pipe gate contract inspect serve db-start db-up db-restart db-reseed
+.PHONY: verify verify-map verify-pipe gate contract inspect ingest serve db-start db-up db-restart db-reseed
 
 verify: verify-map verify-pipe
 
@@ -44,8 +44,11 @@ gate: contract
 	$(MAKE) -C tools/pipeline verify
 	$(MAKE) -C tools/pipeline golden
 
-inspect:   ## make inspect PDF=fixtures/demo-plan.pdf
-	$(MAKE) -C tools/pipeline ingest PDF=../../$(PDF)
+inspect:   ## triage only — what is this file? make inspect PDF=fixtures/demo-plan.pdf
+	$(MAKE) -C tools/pipeline inspect PDF=../../$(PDF)
+
+ingest:    ## make ingest COLONY=<id> DXF=fixtures/<id>/colony.dxf — the real pipeline entry (D-118)
+	$(MAKE) -C tools/pipeline ingest COLONY=$(COLONY) DXF=../../$(DXF)
 
 serve:     ## I run this, not Claude — see .claude/hooks/guard.sh
 	cd tools/pipeline/verify && python3 -m http.server 8080

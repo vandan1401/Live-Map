@@ -2,6 +2,194 @@
 
 ## Current
 
+- **Colony onboarding designed as an in-app upload (2026-08-17, docs only). New
+  `D-025-colony-onboarding-in-app.md` + `spec/15-map-colony-upload.md` (Tier 1, unbuilt).**
+  Owner asked for "a website so I can upload colony maps without depending on Claude Code or
+  Claude tokens", and picked *keep the Python pipeline local, upload its output* over porting
+  the pipeline to the browser. They also want to **hand the two files to a family member who
+  can upload them with no local setup**, and to be able to do it from their own laptop.
+  **The premise needed correcting and the correction is the finding:** running `make ingest`
+  needs Python, not Claude — D-113 pins the pipeline offline and free. The real dependency is
+  app-side and worse than a terminal. `ColonyMap.tsx:6` does
+  `import colonySvgRaw from "../../../../fixtures/shree-vatika-2/colony.svg?raw"` — **the
+  colony's SVG is compiled into the bundle at build time and the path is hardcoded to one
+  fixture**, so adding a colony is a source edit plus a redeploy, every time, forever. No
+  amount of pipeline work fixes that.
+  **Design:** (1) `colonies.svg` becomes a `text` column fetched at runtime — chosen over
+  Supabase Storage to avoid enabling `storage-api` (currently excluded from the local stack)
+  for one text blob per colony, and it rides along with the offline snapshot the PWA already
+  caches. (2) `create_colony_from_manifest()`, a second `security definer` narrow write path
+  with the same shape as `bulk_set_initial_plot_data` (D-023) — a browser cannot hold the
+  service-role key `import-seed.ts` uses, so this is required, not a convenience. (3) A
+  `features/colony-upload/` full-screen overlay modelled on `BulkImportScreen.tsx`.
+  **The human verification gate moves, and this is the part worth remembering.** D-108 put it
+  on the verify page's "Mark verified" button. Keeping it there while adding an upload leaves
+  a silent hole: the uploaded `colony.json` is a plain file, so `"verified": true` is just a
+  string someone could type — the gate would be enforced against a file, not a person. So the
+  pipeline now **always** emits `false`, and the upload screen renders the SVG at full size
+  and requires an explicit "I compared this against the site plan" confirmation before the RPC
+  writes `true`. Same gate, same human, moved to the only place a family member without
+  AutoCAD could ever exercise it. Rejected alternative: HMAC-signing the manifest from the
+  verify page — solves the hole, but leaves a family member uploading a file nobody looked at.
+  **Consequences:** `spec/14` (verify page) loses its button entirely and drops **Tier 1 → 2**
+  — it is now a local preview for the owner's fix-and-rerun loop, which was always its real
+  value; `CLAUDE.md`'s tier table and `.claude/rules/{tier-1,tier-3}.md` frontmatter updated
+  to match (`verify/**` → Tier 3, `features/colony-upload/**` → Tier 1). `D-108` marked
+  **amended by D-025** — the requirement is unchanged, only its location. `import-seed.ts`
+  stays for the fixture and local dev but is no longer the onboarding path.
+  **Numbering slip caught and fixed mid-session:** this was first written as `D-119`, which is
+  the `tools/pipeline` range. It is an app-side decision (migration, RLS, `ColonyMap.tsx`), so
+  it is `D-025`. Renamed and all references updated; no `D-119` remains.
+  **Verified:** documentation only, no code written. `make verify-pipe` and `make contract`
+  re-run clean after the spec/rules edits. No `apps/map` source file is in the diff.
+  **`CLAUDE.md`'s invariant 2 restated (owner approved, same session)** — it said "No code
+  path sets it true (D-108)"; under D-025 exactly one does, gated on a human's confirmation in
+  front of the rendered map. The two other live statements of the old rule were updated with
+  it: `contract/SPEC.md`'s "The `verified` flag" section (which now also says an uploaded
+  `true` is **rejected**, not trusted — the flag in a plain-text file is a claim, not
+  evidence) and `.claude/rules/tier-1.md`'s export section (adding a "Mark verified" button
+  back to the verify page is now explicitly a review finding). `D-108`'s own body is left as
+  written, matching how D-101/D-107 were handled — the Status line carries the amendment.
+  **Next action:** unchanged and still upstream of all of this — the owner produces
+  `fixtures/shree-vatika-2/colony.dxf`. M15 is Tier 1 and can be planned in parallel, but it
+  has nothing real to upload until the pipeline (M10–M13) exists.
+
+- **Pipeline re-scoped to CAD-first (2026-08-17, docs only — no code written).** The owner
+  raised that they are experienced in AutoCAD and could trace a colony there directly,
+  asking whether M10–M17 were still needed. Answer: mostly not. New
+  **`D-118-cad-first-dxf-source.md`** (accepted) makes a normalised DXF the only built
+  input; the owner opens each colony's original DWG in AutoCAD, normalises it to a fixed
+  layer standard, and exports DXF. The reader is deliberately **strict** — a non-conforming
+  file is refused with the offending layer and entity handle, never repaired. That
+  strictness is what keeps it small: normalisation moved upstream of the code, into a tool
+  built for the job.
+  **Why the original decision flipped:** D-101 chose PDF-first on two arguments —
+  availability of DWGs, and layer hygiene — and both assumed the CAD operator is a third
+  party. The owner has the original DWGs for the 10–12 colonies in scope and is the
+  operator, so the "rescue logic for exploded line segments" that D-101 rightly feared is
+  now paid by hand in AutoCAD (`PEDIT → Join`, seconds) instead of in untestable Python.
+  D-115 had already named this outcome and gated it on evidence; the evidence arrived from
+  an unanticipated direction. **The owner also bills ₹10–30 per plot per colony for this
+  work**, which inverts the one real argument against CAD-first — operator-dependence is
+  the business model, not a cost, so M16's "onboard a colony with no CAD file" premise is
+  solving a problem this project does not have.
+  **Superseded:** D-101, D-102, D-107, D-111, D-115 (each file's own Status line updated).
+  **D-103 deliberately left `accepted`** — it forbids vision/LLM models for geometry, and
+  that guardrail must not lapse just because the raster path it governed is now unbuilt.
+  **Spec set restructured — the pipeline is now six contiguous milestones, `spec/09`–`14`,
+  down from nine.** `spec/10-pipe-ingest.md` (renamed from `10-pipe-vector.md`, which named
+  the cut PDF path) is the DXF reader, Tier 2. `spec/11` geometry core loses
+  `snap`/`polygonize`/`dedupe` and gains validation — a closed polyline is already a ring, so
+  a 0.001-unit gap flips from something to *heal* into something to *reject*. `spec/12` loses
+  the confidence ladder and the area/keyword classification (one containment test, layer
+  lookup, everything ambiguous a hard error) and gains block resolution + zero-padding.
+  **`spec/13` and the old `spec/14` are merged** into `13-pipe-derive-export.md`: they are one
+  pass and one artifact — nothing derived can be checked without exporting something to look
+  at, and the gate's job is to refuse an export whose derived fields are wrong, so splitting
+  them described the same run twice. Both halves are unchanged in substance; the gate is worth
+  *more* now, because human error is quieter than detector error. The verify page moves
+  `spec/15` → `spec/14`, read-only review + "Mark verified". **The two cut milestones'
+  spec files are deleted outright** — D-118 is now the single record of what browser tracing
+  tools and the overrides/raster fallback were, why they are not being built, and what
+  reviving them would require (notably: raster cannot be revived without override durability,
+  since OCR output is detector output). Files kept as stubs would have been two milestones of
+  non-work sitting in the numbering.
+  **Not merged, deliberately:** `spec/10` (DXF reader) and `spec/11` (geometry) stay separate
+  even though both are about "is this drawing usable". `spec/11`'s whole design point is that
+  it is a *pure* module importing no file-format library, enforced by an import test — folding
+  it into the reader, which is all I/O, would blur the exact boundary the spec exists to
+  protect. New **`docs/cad-layer-standard.md`** — the eight
+  layers, plot-number format, units, colony config shape, the 13-step per-colony procedure,
+  and a common-rejections table. Per D-115's own words this was always "the highest-leverage
+  action in this whole project"; it is now free because the owner is the CAD person.
+  **Also resolved by this:** the stale 45-plot golden target flagged in `## Deferred` — the
+  golden test becomes `fixtures/shree-vatika-2/colony.dxf` reproducing the existing real
+  26-plot `colony.json`. `NAVIGATION.md` updated throughout (flow diagram, "where do I
+  change X" table, fixture table, `spec/` line); `spec/00-rules.md`'s pipeline never-build
+  table gained four rows and lost the DXF one.
+  **Verified:** nothing to run — this session wrote documentation only, no code and no test
+  touched. `git status` was clean at session start.
+  **One thing needing the owner's explicit yes before it is applied:** `CLAUDE.md`'s
+  invariant 6 ("Overrides survive reruns") no longer describes anything being built.
+  Proposed rewording is in D-118 — same intent (no hand correction is ever silently lost),
+  different mechanism (the DXF is the source of truth). **Not yet applied.**
+  **Amended same session, after the owner described their real drawings:** plans are in
+  feet ✓, a north arrow is present in ~99% of them, and **plot numbers are bare —
+  `1, 2, 3, … 10, 11` with no block prefix**, with a small chance some colonies use prefixes.
+  The first draft of the layer standard had the owner renumber to `A-01` by hand; that is
+  now explicitly forbidden. D-118 gained a "what belongs in AutoCAD" section drawing the
+  line at **judgement vs. mechanical transform** — which ring is a plot is judgement and
+  moves upstream; renumbering 300 plots is tedium that introduces the exact mis-typed-number
+  failure the QA gate then has to catch, so it stays in code. `blocks` (first entry is the
+  default for unprefixed labels; an undeclared prefix is an error, so a stray `S-7` cannot
+  invent a block) and `number_width` are now colony-config fields; M12 owns the transform.
+  `COL-NORTH` is now optional with a config fallback, and a disagreement over 1° between the
+  two is an error — two sources disagreeing about north silently rotates every plot's
+  `facing`, which carries a real price premium.
+  **`number_width` is pinned in config, never derived** — deriving it means a colony growing
+  99 → 100 plots re-pads every `svg_id`, orphaning every `plots` and `plot_history` row
+  already in the database. That is invariant 5's evidence trail broken by adding a plot, and
+  it is silent. M13 gained a matching **id-stability check**: refuse to export if an
+  `svg_id` present in the previous export has vanished, unless `--allow-id-change` is passed.
+  It is the one QA check whose failure mode lives in the other half of the repo.
+  **Owner's CAD-prep method settled (same session).** Owner proposed extracting all text and
+  mapping it to plots by coordinate — which is already M12's containment rule — and offered
+  to manually delete every dimension string and road name so only plot numbers remain.
+  Pushed back on the deletion half and the owner's approach is now the inverse: **assign,
+  never delete.** Unlisted layers are ignored, so junk costs nothing by being present, and
+  the two methods fail in opposite directions — a missed `1500` under "delete the junk"
+  becomes a candidate plot number silently, whereas a missed number under "select the plot
+  numbers onto `COL-PLOT-NO`" produces a loud `plot <handle> has no label`. Also added a
+  **work-on-a-copy rule**: the original DWGs are business records and the as-sold layout may
+  matter in a registry or commission question years later. Both rules are now a "Two rules
+  before you touch a drawing" section at the top of the layer standard.
+  A **relaxed `text_source: "any"` mode** (take all text, let geometry and regex discriminate)
+  was considered and **not specced** — it only pays when selecting plot numbers is hard, and
+  the owner is doing the layer assignment anyway. Recorded here rather than in the standard
+  so it isn't rediscovered from scratch: the guards it would need are the existing regex
+  plus `number_range`.
+  New optional config field **`number_range`** — the only guard against a mis-typed plot
+  number (`170` for `17`), which looks perfectly correct in AutoCAD and which no geometry
+  check catches. It is a typo net, not a contiguity rule; gaps are fine.
+  **Open contingency, decide against the first real DWG:** plot numbers are specced as
+  `TEXT`/`MTEXT`. If they turn out to be block attributes (`INSERT`/`ATTRIB`), read those
+  too rather than making the owner explode every block — noted in `spec/10` as explicitly
+  *not* to be built speculatively.
+  **Repo swept for the new plan (owner approved both `CLAUDE.md` edits, same session).**
+  `CLAUDE.md`: invariant 6 reworded to "Corrections survive reruns" per D-118; risk-tier row
+  drops `pipeline/overrides/**`, `tracer.js` → `verify.js`, adds `docs/cad-layer-standard.md`
+  as Tier 1; the `tools/pipeline` one-liner and the "Never run" line updated. **Path-scoped
+  rules matter most here** — they are loaded on path during Tier 1 work and are not
+  re-injected after compaction: `.claude/rules/tier-1.md` lost its overrides glob and its
+  "Overrides are somebody's work" section, gaining "The DXF is the source of truth" (never
+  add a post-ingest stage that edits geometry; strictness; ambiguity is a hard error;
+  the judgement-vs-mechanical line). `tier-2.md`'s format-code-at-the-edge section now names
+  `ezdxf`; `tier-3.md` gets `verify.css` and loses the amber tier. `spec/00-rules.md`: OCR
+  exception removed, `Override` dropped from the vocabulary for `Normalise`, and
+  failure-mode 3 changed from "override loss" to **silent re-identification**. `contract/SPEC.md`
+  reworded (the source-agnostic claim is still true and is now demonstrated by D-118 having
+  swapped the whole front end without touching it). `README.md`: the "ask their CAD person
+  for three layer-separated PDFs" section is gone — that was D-115's leverage play and the
+  owner is now the CAD person.
+  **Two real code fixes, not just docs:** `make ingest` had been aliased to the triage CLI,
+  which conflated M9's "what is this file?" with M10's actual pipeline entry — split into
+  `make inspect PDF=...` (triage, works today) and `make ingest COLONY=<id> DXF=<path>`
+  (errors "not built yet (M10)" like `export` does), in both Makefiles. And
+  `pipeline/cli/inspect.py` printed `tier: vector (M2 path)` / `raster (M9 path)` — both
+  paths are now cut, so the label was actively misleading; it now says what to *do* with a
+  file ("ask whoever sent it for the DWG" / "trace it in AutoCAD over an attached image").
+  `.claude/hooks/guard.sh`'s deletion block cites D-118 and covers `.dxf`.
+  **Deliberately not touched, both pre-existing and outside this plan:** (1) `CLAUDE.md`
+  invariant 8 still reads "No auth until M8" though M8 shipped and D-011 was superseded by
+  D-021 — stale, but it is an invariant and a separate decision. (2) The 45-plot references
+  in `docs/plans/{01,03}.md` and `spec/02-map-schema.md` — that is the pre-existing fixture
+  drift already recorded under D-017; closed plan files are historical records and were left
+  alone.
+  **Next action:** owner produces `fixtures/shree-vatika-2/colony.dxf` by normalising the
+  real Shree Vatika DWG per `docs/cad-layer-standard.md`. Until it exists, M10's acceptance
+  criteria 1–2 and the golden test cannot run — it is the first blocking task of this path.
+  Then `/plan` M10 (Tier 2) and build.
+
 - **`docs/plans/10.md` is now closed** — in-app plot-status table view + CSV initial-data
   import (Tier 1, `/plan → /build → /review`, plus a live-browser fix after the owner
   clicked through it themselves). Owner asked for "a google sheet import... so that plot

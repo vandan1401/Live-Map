@@ -6,11 +6,11 @@ Look here before exploring. An un-indexed function gets re-implemented by the ne
 
 ```
 contract/           SPEC.md + colony.schema.json — the interface. Tier 1.
-fixtures/           one shared demo colony + a synthetic CAD-style source PDF
+fixtures/           one shared colony (svg + manifest + dxf) + a synthetic source PDF
 seed/               demo statuses, owners, brokers — imported in M2
 apps/map/           the PWA          (TypeScript, pnpm, Vite, Supabase)
 tools/pipeline/     the local tool   (Python, Make, pytest)
-spec/               01-08 the app · 09-17 the pipeline
+spec/               01-08 + 15 the app · 09-14 the pipeline
 ```
 
 Both halves read `contract/` and `fixtures/`. Neither imports from the other — the SVG and
@@ -33,17 +33,24 @@ manifest are the only things that cross.
 ## tools/pipeline — the run, end to end
 
 ```
-PDF/image ─► io ─► extract ─► geom ─► matching ─► derive ─► overrides ─► export
+DWG ─(AutoCAD, by hand)─► DXF ─► extract ─► geom ─► matching ─► derive ─► export
                                                                             │
                                                        out/<colony>/ ───────┤
                                                          colony.svg         │
                                                          colony.json ───────┘
                                                                             │
                                          verify/index.html reads out/ ──────┘
-                                         corrections write overrides/<colony>.json
+                                              (local preview only)          │
+                                                                            ▼
+                                   a human uploads both files in the app, looks
+                                   at the render, confirms → verified: true (M15)
 ```
 
-`pipeline/geom/` imports no file-format library — no fitz, no cv2, no PIL. That purity is
+Normalisation happens in AutoCAD, upstream of all code, per `docs/cad-layer-standard.md`
+(D-118). A correction is made in the DXF and re-ingested — there is no override store, and
+nothing downstream ever edits geometry.
+
+`pipeline/geom/` imports no file-format library — no ezdxf, no fitz, no cv2, no PIL. That purity is
 what makes it cheap to test, and every other module depends on it.
 
 ## Where do I change X?
@@ -63,14 +70,18 @@ what makes it cheap to test, and every other module depends on it.
 | How a plot number is matched to a polygon | `tools/pipeline/pipeline/matching/assign.py` | 1 |
 | Plot vs garden vs amenity classification | `tools/pipeline/pipeline/matching/classify.py` | 1 |
 | Y-flip and viewBox normalisation | `tools/pipeline/pipeline/export/normalise.py` | 1 |
-| How overrides are keyed and reapplied | `tools/pipeline/pipeline/overrides/store.py` | 1 |
+| ~~How overrides are keyed and reapplied~~ | Cut — the DXF is the source of truth (D-118) | — |
 | The QA checks that block an export | `tools/pipeline/pipeline/export/qa.py` | 1 |
-| Snapping, polygonize, simplification | `tools/pipeline/pipeline/geom/` | 1 |
+| Ring validation, area, centroid, simplification | `tools/pipeline/pipeline/geom/` | 1 |
 | Vector-vs-raster triage, `make inspect` | `tools/pipeline/pipeline/io/pdf.py`, `pipeline/cli/inspect.py` | 2/3 |
-| Reading paths and text from a vector PDF | `tools/pipeline/pipeline/extract/vector.py` | 2 |
-| OpenCV contours and OCR | `tools/pipeline/pipeline/extract/raster.py` | 2 |
+| Reading rings and labels from a DXF | `tools/pipeline/pipeline/extract/dxf.py` | 2 |
+| The CAD layer standard the DXF must meet | `docs/cad-layer-standard.md` | 1 |
+| ~~OpenCV contours and OCR~~ | Cut — a plan with no DWG is traced in AutoCAD (D-118) | — |
 | Roads, trees, facing, corner | `tools/pipeline/pipeline/derive/` | 2 |
-| The tracing tools | `tools/pipeline/verify/tracer.js` | 1 |
+| ~~The tracing tools~~ | Cut — the operator has AutoCAD (D-118) | — |
+| The local export preview | `tools/pipeline/verify/index.html`, `verify.js` | 3 |
+| The human verification gate | `apps/map/src/features/colony-upload/` | 1 |
+| How a colony's SVG reaches the app | `colonies.svg` column → `ColonyMap.tsx` | 1 |
 
 ## tools/pipeline — toolchain
 
@@ -154,12 +165,13 @@ targets (`verify-pipe`, `contract`, `gate`, `inspect`) delegate to this nested M
 
 | File | What it is |
 |---|---|
-| `fixtures/shree-vatika-2/colony.svg` | 45-plot demo colony. Geometry only, no styling. |
+| `fixtures/shree-vatika-2/colony.svg` | 26-plot real colony. Geometry only, no styling. |
+| `fixtures/shree-vatika-2/colony.dxf` | **Not yet produced.** The normalised DXF the golden test ingests (D-118). |
 | `fixtures/shree-vatika-2/colony.json` | Manifest. Validates against the schema. |
-| `fixtures/demo-plan.pdf` | Synthetic CAD-style vector plan — the pipeline's input. |
-| `fixtures/demo-plan-scan.jpg` | The same plan degraded, for the M17 raster fallback. |
+| `fixtures/demo-plan.pdf` | Synthetic vector plan. Input to `make inspect` (M9) only — no longer a pipeline source. |
+| `fixtures/demo-plan-scan.jpg` | The same plan degraded. Exercises `make inspect`'s raster branch; the raster fallback it was for is cut (D-118). |
 | `seed/plot-status-seed.csv` | Demo statuses, owners, brokers. |
 
 One copy of each, used by both halves. The pipeline's golden test asserts it reproduces the
-same 45 plot ids and centroids the app renders. Two copies would drift; this is the failure
+same 26 plot ids and centroids the app renders. Two copies would drift; this is the failure
 that motivated merging the two original repos.

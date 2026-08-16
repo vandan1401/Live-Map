@@ -1,6 +1,7 @@
 # D-101 — PDF-first pipeline, not DXF-first
 
-**Status:** accepted
+**Status:** superseded by D-118 - the owner is the CAD operator, so the availability and
+layer-hygiene arguments below no longer hold.
 
 ## Decision
 

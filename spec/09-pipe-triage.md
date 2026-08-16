@@ -11,11 +11,11 @@ found. Ten seconds, no guessing.
 
 - `tools/pipeline/pyproject.toml`, `Makefile` with the targets named in `CLAUDE.md` (`verify`, `gate`,
   `serve`, `ingest`, `export`), and the package layout from `NAVIGATION.md`.
-- Dependencies: `pymupdf`, `shapely`, `numpy`. Not opencv or OCR yet — those are M9.
+- Dependencies: `pymupdf`, `shapely`, `numpy`. `ezdxf` arrives with M10.
 - `tools/pipeline/pipeline/io/pdf.py` — open a PDF, report per page: vector or raster, drawing-path
   count, text-span count, page bounding box, and rotation.
 - `tools/pipeline/pipeline/cli/inspect.py` — `make inspect PDF=...` prints the triage report and names
-  the tier: vector (M2 path), raster (M9 path), or mixed.
+  the tier: vector, raster, or mixed.
 
 The vector/raster test that matters: a PDF exported by `DWG To PDF.pc3` yields hundreds of
 drawing paths and real text spans. One exported by "Microsoft Print to PDF" yields a single
@@ -34,4 +34,10 @@ because the fix is re-exporting, not writing code.
 
 ## Non-goals
 
-Extracting polygons, matching labels, OCR, export. M1 only tells you what you have.
+Extracting polygons, matching labels, export. This milestone only tells you what you have.
+
+## Its role since D-118
+
+The pipeline ingests DXF only, so triage is no longer the fork between two automatic paths —
+both are cut. It answers a narrower question that still matters: someone handed me a file,
+is it a real drawing worth chasing the DWG for, or a picture to trace over in AutoCAD?

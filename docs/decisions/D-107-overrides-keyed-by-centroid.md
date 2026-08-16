@@ -1,6 +1,7 @@
 # D-107 — Overrides keyed by rounded centroid, reapplied every run
 
-**Status:** accepted
+**Status:** superseded by D-118 - no detector exists to move geometry under a correction;
+the DXF is the source of truth and corrections survive by construction.
 
 ## Decision
 

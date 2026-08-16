@@ -5,7 +5,7 @@
 VENV := .venv
 PY := $(VENV)/Scripts/python.exe
 
-.PHONY: verify lint typecheck test contract golden gate ingest export serve
+.PHONY: verify lint typecheck test contract golden gate inspect ingest export serve
 
 $(VENV)/pyvenv.cfg: pyproject.toml
 	python -m venv $(VENV)
@@ -33,11 +33,14 @@ golden: $(VENV)/pyvenv.cfg
 
 gate: verify golden
 
-ingest: $(VENV)/pyvenv.cfg  ## make ingest PDF=../../fixtures/demo-plan.pdf
+inspect: $(VENV)/pyvenv.cfg  ## triage only — what is this file? make inspect PDF=../../fixtures/demo-plan.pdf
 	$(PY) -m pipeline.cli.inspect $(PDF)
 
+ingest:    ## make ingest COLONY=<id> DXF=<path> — the real pipeline entry (D-118)
+	@echo "ingest not built yet (M10 — pipeline/extract/dxf.py)"; exit 1
+
 export:
-	@echo "export not built yet (M14 — pipeline/export/)"; exit 1
+	@echo "export not built yet (M13 — pipeline/export/)"; exit 1
 
 serve:     ## I run this, not Claude — see .claude/hooks/guard.sh
 	python3 -m http.server 8080 --directory verify

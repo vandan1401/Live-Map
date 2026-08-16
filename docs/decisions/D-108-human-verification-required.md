@@ -1,6 +1,7 @@
 # D-108 — No export is a deliverable until a human has verified it
 
-**Status:** accepted
+**Status:** amended by D-025 - the requirement stands unchanged; the gate moved from the
+verify page's button to the app's upload confirmation, where a family member can reach it.
 
 ## Decision
 

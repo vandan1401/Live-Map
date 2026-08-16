@@ -6,7 +6,7 @@ Five or six people currently share a PDF on WhatsApp every day. This replaces it
 map everyone can see and update, installable on an iPhone home screen without the App Store.
 
 ```
-tools/pipeline/   site plan PDF  ->  colony.svg + colony.json     (Python, local, offline)
+tools/pipeline/   normalised DXF ->  colony.svg + colony.json     (Python, local, offline)
 contract/         the interface between them — schema-validated on both sides
 apps/map/         the app the family uses                          (React PWA, Supabase)
 ```
@@ -42,13 +42,15 @@ in `CLAUDE.md`.
 
 ## Milestones
 
-`spec/01`–`08` build the app, `spec/09`–`17` build the pipeline. The app comes first because
-`fixtures/shree-vatika-2/` is a complete hand-authored 45-plot colony — so the whole app can
-be built and shown to the family before the pipeline exists.
+`spec/01`–`08` build the app, `spec/09`–`14` build the pipeline, and `spec/15` makes colony
+onboarding self-serve (D-025). Two former pipeline
+milestones — browser tracing tools and the overrides/raster fallback — are **cut**; D-118
+is the record of what they were. The app comes first because `fixtures/shree-vatika-2/` is a complete
+hand-traced 26-plot colony — so the whole app can be built and shown to the family before
+the pipeline exists.
 
-The pipeline then has a golden test: run it on `fixtures/demo-plan.pdf` (a synthetic
-CAD-style vector plan, 198 drawing paths, 45 selectable labels) and it must reproduce the
-same 45 plot ids and centroids the app already renders.
+The pipeline then has a golden test: run it on `fixtures/shree-vatika-2/colony.dxf` and it
+must reproduce the same 26 plot ids and centroids the app already renders.
 
 Auth is M8, last, by request. Until it ships there is **no authentication** — RLS is
 permissive and the anon key grants full read and write. Do not put the app on a public URL
@@ -78,19 +80,18 @@ Adding a column later is cheap. Renaming one after live data exists is not.
 
 ## Ask them for this
 
-The highest-leverage thing in this project is not code. Ask their CAD person to export each
-layout as **three PDFs of the same drawing**, each with a different layer set visible: plot
-boundaries only, plot numbers only, roads and open space only. All three plot to the same
-extents, so the coordinate systems match. That delivers layer separation through PDF and
-removes the messiest part of the pipeline, for about three minutes of their time.
+The highest-leverage thing in this project is not code — it is the state of the drawing
+before it reaches the pipeline. Since D-118 that is the owner's own job: each colony's DWG is
+normalised in AutoCAD to `docs/cad-layer-standard.md` and exported as DXF. The pipeline reads
+DXF only and refuses anything that does not conform.
 
-Ask for the **as-sold / final sanctioned** layout, not the latest working drawing. They
-differ, and building from a superseded revision is a quiet, serious failure — the map simply
-contradicts the sale deeds and nothing looks wrong.
+The one thing to ask **whoever holds the files** for: the **as-sold / final sanctioned**
+layout, not the latest working drawing. They differ, and building from a superseded revision
+is a quiet, serious failure — the map simply contradicts the sale deeds and nothing looks
+wrong.
 
-Export settings that matter: plotter `DWG To PDF.pc3` — never "Microsoft Print to PDF",
-which rasterises a perfectly good drawing — plot area **Extents**, largest paper,
-`monochrome.ctb`.
+Where no DWG exists at all, attach the plan image in AutoCAD and trace it there. `make
+inspect PDF=...` says which case a given file is.
 
 ## Recurring cost
 

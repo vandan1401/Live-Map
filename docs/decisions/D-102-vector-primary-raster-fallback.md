@@ -1,6 +1,7 @@
 # D-102 — Vector PDF path primary, raster fallback second
 
-**Status:** accepted
+**Status:** superseded by D-118 - neither path is built. D-103 still governs if raster is
+ever revived.
 
 ## Decision
 

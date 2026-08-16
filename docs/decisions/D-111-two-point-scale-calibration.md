@@ -1,6 +1,7 @@
 # D-111 — Scale recovered by two-point calibration
 
-**Status:** accepted
+**Status:** superseded by D-118 - `px_per_ft` is asserted in the colony config and checked
+against a known plot, not calibrated by clicking.
 
 ## Decision
 

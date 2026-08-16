@@ -4,8 +4,9 @@
 the boundary.
 
 This is the reason the two halves can be built independently: the app has no idea whether
-geometry came from a vector PDF, an OpenCV contour run, or someone dragging rectangles over
-a phone photo. Change anything here and both halves change together, in one commit — which
+geometry came from a CAD drawing, a detector, or someone dragging rectangles over a phone
+photo — today it is always a normalised DXF (D-118), and the contract would not notice if
+that changed again. Change anything here and both halves change together, in one commit — which
 is the whole point of keeping them in one repo.
 
 Validated on both sides against `contract/colony.schema.json`. If you change this document
@@ -76,12 +77,14 @@ disagree with the generator.
 
 ## The `verified` flag
 
-`false` on every automatic export. Only a human pass in the verify page sets it `true`, and
-there is no code path that does. The app **refuses to import** a manifest that is not
-verified.
+`false` on every export, without exception — the pipeline has no code path that writes
+`true`. It is set exactly once, by a human confirming the upload in front of the rendered
+map (M15). The app **refuses to render** a colony that is not verified.
 
-Enforced on both sides deliberately. A rule living only in the producing half gets bypassed
-the first time someone copies a file by hand. See D-108.
+A manifest arriving with `"verified": true` is therefore not trusted, it is **rejected**:
+the file is plain text, so the flag in it is a claim, not evidence. Enforced on both sides
+deliberately — a rule living only in the producing half gets bypassed the first time someone
+copies a file by hand. See D-108, amended by D-025.
 
 ## Changing this contract
 

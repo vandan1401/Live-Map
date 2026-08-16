@@ -32,12 +32,15 @@ Each entry is out of scope. Where a narrow exception exists it is named; where i
 
 | Never build | Narrow approved exception |
 |---|---|
-| Vision or LLM models for polygon geometry | Reading plot **numbers** via local OCR, and parsing their existing status PDF into rows. Never coordinates. |
+| Vision or LLM models for polygon geometry | None. Plot numbers are real text in the DXF (D-118); no OCR is built. Parsing their existing status PDF into rows stays permitted. Never coordinates. |
 | Cloud OCR (Google Vision, AWS Textract) | None. Local only (D-113). |
 | SAM, GPU inference, any torch/tensorflow dependency | None. Blocked by the guard hook. |
 | Survey-grade or to-scale geometry claims | Every export carries "Indicative layout — not to scale". |
-| Writing directly into the `colony-map` repo | None. Export to `out/`, the human moves it. |
-| A DXF front end | Only after `inspect` shows a majority of real colonies need it (D-115). |
+| Writing directly into the `colony-map` repo | None. Export to `out/`; a human uploads the two files in the app (D-025). |
+| A PDF or raster geometry path | None while D-118 stands. DXF is the only built input; a plan with no DWG is traced in AutoCAD, not detected. |
+| Browser tracing or geometry-editing tools | None. The operator has AutoCAD (D-118). |
+| An override store outside the DXF | None. The DXF is the source of truth; anything corrected elsewhere is lost on the next run (D-118, superseding D-107). |
+| A DXF reader that repairs, guesses, or falls back | None. Non-conforming input is refused with the offending entity handle. Tolerance here reintroduces exactly the rescue logic D-101 rejected. |
 | Automatic export without human verification | None (D-108). |
 | A build step for the verify page | None. It must open from `file://` with no tooling. |
 | Per-colony hardcoded constants | Anything colony-specific goes in that colony's config file, never in code. |
@@ -64,7 +67,7 @@ The wrong word here produces a UI that lies about who owns what.
 | Feature | Static map content — road, garden, amenity | A product feature |
 | Match | A label assigned to a polygon | A polygon that was detected |
 | Verified | A human confirmed this plot | The QA gate passed |
-| Override | A hand-made correction, keyed and durable | A config setting |
+| Normalise | Preparing a DWG in AutoCAD to the layer standard | Anything the pipeline does to input |
 | Confidence | How the match was made, not a probability | A model score |
 
 ## Failure-mode checklist
@@ -90,9 +93,9 @@ in `/check`.
 1. **Partial writes** — an export writes SVG and manifest. Both or neither.
 2. **Idempotency** — two runs on the same input produce byte-identical output. Tree scatter
    is seeded for exactly this reason. A diff between clean runs is a bug.
-3. **Override loss** — a rerun after a code change reapplies every existing override. Silent
-   loss is the failure that makes the tool untrustworthy; the human only notices when a plot
-   they fixed is wrong again.
+3. **Silent re-identification** — a rerun must not change an `svg_id` that a previous export
+   emitted. It orphans the `plots` and `plot_history` rows already in the database, and the
+   new export looks perfectly correct on its own. Blocking, not a warning.
 4. **Orphans** — a polygon with no id, an id with no polygon, a label matched twice. All
    three are blocking QA failures, never warnings.
 5. **Dead computation** — `facing`, `is_corner`, `area_sqft` computed once at export, stored.
@@ -107,9 +110,10 @@ A green test suite is evidence, not proof.
   a bug — `<use>` with no width/height scaling every tree to the full viewport — that every
   unit test passed and only a raster render caught. Render before believing.
 - **The golden fixture** is the strongest automated check available: the pipeline run on
-  `fixtures/demo-plan.pdf` must reproduce the 45 plot ids and centroids in
+  `fixtures/shree-vatika-2/colony.dxf` must reproduce the 26 plot ids and centroids in
   `fixtures/shree-vatika-2/colony.json` — the same file the app renders.
-- **Override durability** is proved by writing one, rerunning, and asserting it survived.
+- **Reader strictness** is proved by feeding it a non-conforming DXF and asserting a
+  non-zero exit naming the offending entity — never by reading the validation code back.
 - **RLS policies and grants** are proved by querying as an anon client, never by reading the
   migration file.
 - **The service worker** is proved from a built, served bundle with the network offline. A

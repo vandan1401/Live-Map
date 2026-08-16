@@ -6,7 +6,7 @@ paths:
   - "apps/map/vite.config.ts"
   - "apps/map/tailwind.config.ts"
   - "tools/pipeline/pipeline/cli/**/*.py"
-  - "tools/pipeline/verify/tracer.css"
+  - "tools/pipeline/verify/**/*"
   - "tools/pipeline/Makefile"
   - "tools/pipeline/pyproject.toml"
 ---
@@ -66,8 +66,9 @@ exactly that and naming the correct plotter — not a stack trace about missing 
 
 ### Verify page styling
 
-The red/amber/green distinction is the only thing on screen that matters. Everything else
-is quiet.
+The pass/fail distinction is the only thing on screen that matters. Everything else is
+quiet. (There is no amber tier since D-118 — nothing is held at partial confidence; a colony
+either exports clean or names the entity that blocked it.)
 
 Red must be unmistakable at a glance across a full colony — this is scanned, not read. Do
 not use a red that a colourblind user cannot separate from green; pair the colour with a

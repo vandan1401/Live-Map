@@ -36,8 +36,11 @@ echo "$CMD" | grep -qiE 'drop +(table|database)' && block "destructive SQL."
 echo "$CMD" | grep -qE 'supabase db push|supabase link|supabase .*(--linked|--db-url)' \
   && block "remote-targeting supabase commands are mine to run. Local-only \`supabase db reset\` is allowed. See D-011."
 
-# tools/pipeline — hand-verified corrections and the local-only rule.
-echo "$CMD" | grep -qE 'rm .*(overrides|out/|verified)' && block "that path holds hand-verified corrections. See D-107."
+# tools/pipeline — normalised drawings, exports, and the local-only rule.
+# Path-scoped, not word-scoped: the bare word `overrides` false-positived on
+# `spec/17-pipe-overrides-raster.md` when that spec was deleted (2026-08-17). A markdown file
+# named after the thing is not the thing.
+echo "$CMD" | grep -qE 'rm .*(tools/pipeline/(overrides|out)/|\.dxf)' && block "that path holds a normalised drawing or a human-verified export. See D-118."
 echo "$CMD" | grep -qE 'pip install .*(torch|tensorflow|segment-anything|ultralytics)' && block "no GPU or vision-model dependencies. See D-113."
 
 exit 0

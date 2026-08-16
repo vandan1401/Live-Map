@@ -1,6 +1,7 @@
 # D-115 — DXF front end deferred and conditional on evidence
 
-**Status:** accepted
+**Status:** superseded by D-118 - the gate below was met from an unanticipated direction.
+The two risks it names (revisions, layer discipline) carry over unchanged.
 
 ## Decision
 

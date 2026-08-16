@@ -51,19 +51,19 @@ component. A magic number in a component is a decision nobody can find later.
 ## tools/pipeline
 
 Build and `/check`. No `/plan` needed unless the task turns out to touch matching, export,
-or overrides — in which case stop, it is Tier 1.
+in which case stop, it is Tier 1.
 
 ### Format code stays at the edge
 
-`fitz` and `cv2` live in `tools/pipeline/pipeline/io/` and `tools/pipeline/pipeline/extract/` and nowhere else. Both the
-vector path and the raster path emit the **same** neutral intermediate structure: a list of
-rings plus a list of `(text, point)` pairs.
+`ezdxf` and `fitz` live in `tools/pipeline/pipeline/io/` and `tools/pipeline/pipeline/extract/`
+and nowhere else. The DXF reader emits a neutral intermediate structure — a list of rings
+plus a list of `(text, point)` pairs — and nothing format-specific travels past it.
 
-That symmetry is the whole design. Everything downstream works identically regardless of
-source, which is why the raster fallback can be built last without disturbing anything, and
-why a DXF front end would plug in as a third producer touching nothing else.
+That seam is why the source format was swappable in the first place: D-118 replaced the
+whole front end with a DXF reader and touched nothing downstream. Keep it that way.
 
-If you find yourself passing a PyMuPDF object past this layer, that is a finding.
+If you find yourself passing an `ezdxf` or PyMuPDF object past this layer, that is a
+finding.
 
 ### Derive, do not extract
 
