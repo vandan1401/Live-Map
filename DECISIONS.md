@@ -59,6 +59,7 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-116 | Source provenance recorded in every manifest | accepted |
 | D-117 | Makefile + pytest + ruff + mypy, stdlib venv | accepted |
 | D-118 | CAD-first — a normalised DXF is the only built input | accepted |
+| D-119 | Pre-normalisation AutoLISP toolkit writes only to scratch layers, never `COL-*` directly | accepted |
 
 ## Both
 

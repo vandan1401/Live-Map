@@ -10,11 +10,33 @@ fixtures/           one shared colony (svg + manifest + dxf) + a synthetic sourc
 seed/               demo statuses, owners, brokers — imported in M2
 apps/map/           the PWA          (TypeScript, pnpm, Vite, Supabase)
 tools/pipeline/     the local tool   (Python, Make, pytest)
+tools/cad-lisp/     AutoCAD toolkit  (AutoLISP, standalone — see below)
 spec/               01-08 + 15 the app · 09-14 the pipeline
 ```
 
 Both halves read `contract/` and `fixtures/`. Neither imports from the other — the SVG and
 manifest are the only things that cross.
+
+## tools/cad-lisp — pre-normalisation AutoCAD toolkit
+
+Standalone AutoLISP commands (`cv-tools.lsp`) that speed up the manual procedure in
+`docs/cad-layer-standard.md`, run *before* a DXF ever reaches `make ingest`. No
+dependency on `contract/`, `apps/map`, or `tools/pipeline`; writes only to scratch
+layers (`CV-MERGED`, `CV-PLOT-DRAFT`, `CV-FLAGS`), never to `COL-*` directly — D-118's
+line between mechanical cleanup and human judgement holds. Setup/usage in
+`tools/cad-lisp/README.md`.
+
+| Command | Does |
+|---|---|
+| `CV-LAYERS` | creates the 8 `COL-*` layers + 3 `CV-*` scratch layers |
+| `CV-MERGE` | moves a selection onto `CV-MERGED`, dedupes via AutoCAD's `OVERKILL` |
+| `CV-HIDETEXT` / `CV-SHOWTEXT` | toggles all TEXT/MTEXT visibility, reversible |
+| `CV-CLOSE` | bridges small gaps, flags the rest on `CV-FLAGS`, auto-traces closed regions via `BOUNDARY` onto `CV-PLOT-DRAFT` |
+| `CV-NEXT` | zooms/highlights each flagged gap in turn |
+
+Phase 2 (not yet built): `CV-LABELS`, `CV-CHECK` (preflight validator mirroring the
+Python reader's own checks), `CV-DIST`, `CV-EXPORT`. Untested against a live AutoCAD
+session as of 2026-08-17 — Claude has no AutoCAD to verify against; see PROGRESS.md.
 
 ## apps/map — layer boundaries
 

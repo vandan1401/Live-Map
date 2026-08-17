@@ -31,6 +31,20 @@
   synthetic DXF, including its error path (missing `north_deg`) and its success path
   (ring/label counts, resolved `north_deg`).
 
+- **`tools/cad-lisp/` added (2026-08-17, standalone, not tied to a milestone/spec).**
+  AutoLISP toolkit (`cv-tools.lsp` + `README.md`) to speed up the manual AutoCAD
+  normalisation procedure in `docs/cad-layer-standard.md` — the exact step M10's
+  criteria 1–2 are blocked on (owner hasn't normalised the real Shree Vatika DWG yet).
+  No dependency on `contract/`, `apps/map`, or `tools/pipeline`; writes only to scratch
+  layers (`CV-MERGED`, `CV-PLOT-DRAFT`, `CV-FLAGS`), never to `COL-*` directly, so
+  D-118's "judgement stays in AutoCAD" line holds. Phase 1 (5 commands): `CV-LAYERS`,
+  `CV-MERGE` (dedupe overlapping lines via AutoCAD's `OVERKILL`), `CV-HIDETEXT`/
+  `CV-SHOWTEXT`, `CV-CLOSE` (auto-trace closed regions via `BOUNDARY`, bridging small
+  gaps and flagging the rest). **Untested against a real drawing** — written from
+  documented AutoLISP/command behavior only; Claude has no AutoCAD to run it against.
+  Phase 2 planned once Phase 1 is exercised on a real colony: `CV-LABELS`, `CV-CHECK`
+  (preflight validator mirroring the Python reader's checks), `CV-DIST`, `CV-EXPORT`.
+
 - **In-app colony onboarding complete (2026-08-17, `docs/plans/11.md`, Tier 1).** All 12
   acceptance criteria run and passing — plan marked `**Status:** complete`. D-025's
   design (below) is now real code, not just docs: `colonies.svg` is a runtime `text`
@@ -65,6 +79,23 @@
   DB after a full test run (the leak from finding 3 is confirmed fixed, not just patched).
 
 ## Log
+
+- **Done:** Added `tools/cad-lisp/` (`cv-tools.lsp`, `README.md`) — AutoLISP toolkit,
+  Phase 1 (`CV-LAYERS`, `CV-MERGE`, `CV-HIDETEXT`/`CV-SHOWTEXT`, `CV-CLOSE`, `CV-NEXT`),
+  to speed up the manual `docs/cad-layer-standard.md` normalisation procedure.
+- **Next:** Owner loads it into AutoCAD 2013 (setup steps in the README) and runs it
+  against a real messy colony DWG; report back what worked/broke so Phase 2
+  (`CV-LABELS`, `CV-CHECK`, `CV-DIST`, `CV-EXPORT`) can be built against real behavior.
+- **Surprises:** none — this is standalone tooling outside `contract/apps/map/pipeline`,
+  so it carries no repo risk tier, but it's also untestable by Claude (no AutoCAD),
+  which is itself worth flagging: this is the first piece of "source" in the repo that
+  ships unverified-by-execution, on principle, not by oversight.
+- **Verified:** `make gate`'s steps run manually (`make` isn't on this shell's PATH) —
+  contract 2/2, `apps/map` typecheck/lint clean, tests 152/153 then 153/153 on retry
+  (the documented `subscribePlots.test.ts` DB-warm-up flake, unrelated to this diff),
+  clean build; `tools/pipeline` ruff/mypy/pytest (21 passed, 1 skipped) and golden
+  (1 skipped, expected — M14 not built) clean. The `.lsp` file itself: not run —
+  paren/quote balance and every `defun` arg list checked by script instead.
 
 - **Done:** Built M10 (`pipeline/extract/dxf.py` + `types.py`), wired `make ingest` in
   both Makefiles, created `colonies/shree-vatika-2.json`, wrote `tests/test_dxf.py`
@@ -904,6 +935,18 @@
 
 ## Deferred
 
+- **`make` is not on this machine's Git Bash PATH.** `/wrap` (2026-08-17) had to run
+  `make gate`'s steps by hand instead (contract pytest, `apps/map` typecheck/lint/test/
+  build, `tools/pipeline` verify/golden) — same commands, just invoked directly rather
+  than through the root Makefile. Not chased further: works fine, just means `make ...`
+  itself can't be typed literally in this shell until `make` (or `mingw32-make`, already
+  referenced by an old PROGRESS.md entry) is on PATH.
+- **`tools/cad-lisp/cv-tools.lsp` has never been run against a real AutoCAD session.**
+  Written from documented AutoLISP/command-line behavior only (see D-119, PROGRESS.md's
+  `## Current`) — the owner needs to load it (README has setup steps) and exercise it
+  against a real messy colony DWG before Phase 2 (`CV-LABELS`/`CV-CHECK`/`CV-DIST`/
+  `CV-EXPORT`) gets built on top of unverified assumptions about `-BOUNDARY`/`-OVERKILL`
+  prompt behavior.
 - **M10 acceptance criteria 1–2 (the golden fixture) blocked on `fixtures/shree-vatika-2/
   colony.dxf`, which doesn't exist.** The owner needs to normalise the real Shree Vatika
   DWG per `docs/cad-layer-standard.md` and drop the result there. This also blocks M12's
