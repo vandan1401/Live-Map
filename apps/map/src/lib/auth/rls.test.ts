@@ -27,7 +27,7 @@ async function createScratchPlot(): Promise<{ plotId: string; colonyId: string }
   const admin = serviceRoleClient();
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const colonyId = `test-rls-${suffix}`;
-  await insertColony(admin, { id: colonyId, name: "RLS scratch colony", verified: false });
+  await insertColony(admin, { id: colonyId, name: "RLS scratch colony", verified: false, svg: "<svg></svg>" });
   const [plot] = await insertPlots(admin, [
     {
       colony_id: colonyId,

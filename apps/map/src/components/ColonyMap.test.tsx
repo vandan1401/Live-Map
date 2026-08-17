@@ -1,7 +1,21 @@
+/// <reference types="node" />
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ColonyMap } from "./ColonyMap";
+
+// The fixture's SVG is no longer compiled into the app (docs/plans/11.md — it arrives via
+// the colonySvg prop, sourced from colonies.svg at runtime). This test file reads it with
+// plain fs, not a `?raw` import (/review finding: a `?raw` import here is exactly the
+// build-time-fixture-path pattern acceptance criterion 1 grep-checks apps/map/src for —
+// same reasoning scripts/import-seed.ts already follows for the same file).
+const fixtureSvg = readFileSync(
+  resolve(dirname(fileURLToPath(import.meta.url)), "../../../../fixtures/shree-vatika-2/colony.svg"),
+  "utf-8",
+);
 
 afterEach(() => {
   cleanup();
@@ -36,6 +50,7 @@ describe("ColonyMap", () => {
         client={createFakeSupabaseClient()}
         actor="test-actor"
         colonyId="shree-vatika-2"
+        colonySvg={fixtureSvg}
         onBack={vi.fn()}
       />,
     );
@@ -48,6 +63,7 @@ describe("ColonyMap", () => {
         client={createFakeSupabaseClient()}
         actor="test-actor"
         colonyId="shree-vatika-2"
+        colonySvg={fixtureSvg}
         onBack={vi.fn()}
       />,
     );
@@ -66,6 +82,7 @@ describe("ColonyMap", () => {
         client={createFakeSupabaseClient()}
         actor="test-actor"
         colonyId="shree-vatika-2"
+        colonySvg={fixtureSvg}
         onBack={vi.fn()}
       />,
     );
@@ -79,6 +96,7 @@ describe("ColonyMap", () => {
         client={createFakeSupabaseClient()}
         actor="test-actor"
         colonyId="shree-vatika-2"
+        colonySvg={fixtureSvg}
         onBack={onBack}
       />,
     );

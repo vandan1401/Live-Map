@@ -29,6 +29,17 @@ scratch colony with `verified: true`, the *only* test file in the repo that does
 by `fetchVerifiedColonies`. Also collides with invariant 2 / D-108 ("no code path sets it
 true") — a test file *is* a code path. Nothing in the test needed `true`.
 
+**Recurred 2026-08-17, plan 11 (3rd time)** — and now *structurally*, not by choice:
+`create_colony_from_manifest()` sets `verified = true` unconditionally (no `p_verified`, by
+design — invariant 2), so `lib/colony/createColonyFromManifest.test.ts`'s five live-integration
+cases each mint a `verified: true` "Test Upload Colony". Measured: 15 such rows already sat
+above `shree-vatika-2` in the local DB, +5 per run, each rendering an empty map from its
+`<svg><path id="plot-A-01"/></svg>`. Note the teardown constraint: `plots` cascade-deletes to
+`plot_history`, whose BEFORE DELETE trigger raises for **every** role — so `delete` cannot
+work even with the service-role key. The only workable teardown is
+`serviceRoleClient()` + `update colonies set verified = false` (service_role does hold
+`update` on `colonies`, M8 line 149).
+
 **How to apply:** grep every new `insertColony(` in a `*.test.ts` for `verified: true` — the
 default must be `false`. The fix that fits this schema is not `delete` (not granted) — it is
 either leaving the scratch row `verified: false` and flipping it true only for the assertion,

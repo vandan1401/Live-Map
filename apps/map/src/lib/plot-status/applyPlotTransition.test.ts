@@ -46,7 +46,7 @@ async function createScratchPlot(client: SupabaseClient): Promise<{
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const colonyId = `test-m4-${suffix}`;
   const svgId = `plot-A-${suffix.slice(0, 8)}`;
-  await insertColony(client, { id: colonyId, name: "M4 scratch colony", verified: false });
+  await insertColony(client, { id: colonyId, name: "M4 scratch colony", verified: false, svg: "<svg></svg>" });
   const [plot] = await insertPlots(client, [
     {
       colony_id: colonyId,

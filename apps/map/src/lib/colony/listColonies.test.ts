@@ -21,6 +21,7 @@ async function createScratchColony(
     id: colonyId,
     name: `list-colonies scratch (${verified ? "verified" : "unverified"})`,
     verified,
+    svg: "<svg></svg>",
   });
   return colonyId;
 }

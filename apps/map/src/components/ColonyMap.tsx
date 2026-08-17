@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState, type MouseEvent } from "react";
-import L from "leaflet";
+import type L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AnimatePresence } from "framer-motion";
-import colonySvgRaw from "../../../../fixtures/shree-vatika-2/colony.svg?raw";
-import { attachSync } from "../lib/sync/attachSync.ts";
 import type { PlotStatus } from "../lib/db/types.ts";
 import { PlotDetailSheet } from "../features/plot-detail/PlotDetailSheet.tsx";
 import { PlotSearch } from "../features/search/PlotSearch.tsx";
@@ -12,36 +10,10 @@ import { ShareSummary } from "../features/share-summary/ShareSummary.tsx";
 import { PlotTableView } from "../features/plot-table/PlotTableView.tsx";
 import { FreshnessIndicator } from "./FreshnessIndicator.tsx";
 import { StatusLegend } from "./StatusLegend.tsx";
-import { buildDimensionArrowMarker } from "./plotDimensionOverlay.ts";
-import { buildGardenPatternDefs, buildRoadPatternDefs, buildWorldGroundSvg, computeWorldLayerBounds } from "./mapTexturePatterns.ts";
-import { addFeatureLabelChips } from "./mapLabelChips.ts";
 import { useSelectedPlotOverlay } from "./useSelectedPlotOverlay.ts";
-import grassPhotoUrl from "../assets/textures/grass-satellite.jpg";
+import { useColonyMapMount } from "./useColonyMapMount.ts";
 
 const ALL_STATUSES: PlotStatus[] = ["available", "booked", "registered"];
-// Margin below the fit-to-bounds zoom, not an absolute zoom level — a hardcoded
-// absolute threshold (spec/06: "hide tree canopies and plot labels below a zoom
-// threshold") went stale the moment the fixture's aspect ratio changed (/review
-// finding: the M6 build measured "0" against a 1000x720 viewBox, and the M-Vatika-2
-// real-layout swap in this same session changed it to 1000x1390, silently moving the
-// fit zoom below that fixed number). Deriving it from map.getBoundsZoom() each mount
-// means it tracks whatever fixture is actually loaded.
-const ZOOM_DETAIL_MARGIN = 0.3;
-
-function parseColonySvg(raw: string): SVGSVGElement {
-  const doc = new DOMParser().parseFromString(raw, "image/svg+xml");
-  const svg = doc.documentElement as unknown as SVGSVGElement;
-  svg.classList.add("colony-svg-root");
-  svg.appendChild(buildDimensionArrowMarker());
-  // Only .garden (fill: url(#texture-garden)) reads from this — the ground itself
-  // comes from the separate world-ground layer beneath (see the mount effect below),
-  // not a rect painted inside this SVG, so the same one photo texture shows through
-  // consistently both inside and outside the site's own boundary with no seam or
-  // phase mismatch between two separately-tiled patterns.
-  svg.appendChild(buildGardenPatternDefs(grassPhotoUrl));
-  svg.appendChild(buildRoadPatternDefs()); // only ever referenced by .road, this doc only
-  return svg;
-}
 
 interface Props {
   // From App.tsx's single app-lifetime client (docs/plans/09.md) — no longer created
@@ -54,12 +26,17 @@ interface Props {
   // From App.tsx's ColonyPicker selection — the picker only offers verified colonies
   // (D-108), so this is always a colony this component is allowed to read.
   colonyId: string;
+  // From the already-loaded colony row (docs/plans/11.md, D-025) — no separate fetch.
+  // string | null since the DB column itself is nullable; null renders a fallback
+  // message instead of feeding an empty string to DOMParser (which would white-screen
+  // the app the way the sixth bug in docs/plans/10.md did for an unrelated reason).
+  colonySvg: string | null;
   // Returns to the colony picker (owner feedback, 2026-08-15 iPhone session: opening a
   // colony was previously one-way). App.tsx owns selectedColonyId and clears it here.
   onBack: () => void;
 }
 
-export function ColonyMap({ client, actor, colonyId, onBack }: Props) {
+export function ColonyMap({ client, actor, colonyId, colonySvg, onBack }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -78,86 +55,10 @@ export function ColonyMap({ client, actor, colonyId, onBack }: Props) {
   // containerRef) never tears down and reinitialises when this toggles.
   const [tableViewOpen, setTableViewOpen] = useState(false);
 
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    // CRS.Simple + a plain SVG overlay (D-009): Leaflet only ever manages pan and
-    // zoom on the container. It never touches the plot paths, so nothing here can
-    // write the inline styles that would beat colony-theme.css (D-004).
-    const map = L.map(el, {
-      crs: L.CRS.Simple,
-      minZoom: -2,
-      maxZoom: 4,
-      zoomSnap: 0.1,
-      attributionControl: false,
-    });
-
-    const svgEl = parseColonySvg(colonySvgRaw);
-    svgRef.current = svgEl;
-    mapRef.current = map;
-    // Read straight off the parsed SVG's own viewBox rather than a hand-maintained
-    // constant — a stale copy here previously letterboxed a taller fixture into the
-    // wrong bounds and threw off the selection auto-pan math (/review finding, M6).
-    const { width: viewBoxWidth, height: viewBoxHeight } = svgEl.viewBox.baseVal;
-    const siteBounds: L.LatLngBoundsExpression = [
-      [0, 0],
-      [viewBoxHeight, viewBoxWidth],
-    ];
-
-    // World-ground layer (owner correction, 2026-08-15: panning/zooming should feel
-    // like the whole ground is moving, not just this rectangle) — a second, larger
-    // svgOverlay added *before* the site's own, so it paints beneath it and shares this
-    // same map's coordinate transform. See mapTexturePatterns.ts's computeWorldLayerBounds
-    // and buildWorldGroundSvg for the sizing and why it's a separate SVG rather than
-    // padding the site's own viewBox.
-    const { worldWidth, worldHeight, worldBounds } = computeWorldLayerBounds(viewBoxWidth, viewBoxHeight);
-    const worldSvg = buildWorldGroundSvg(grassPhotoUrl, worldWidth, worldHeight);
-    worldSvg.classList.add("colony-world-ground");
-    L.svgOverlay(worldSvg, worldBounds).addTo(map);
-
-    L.svgOverlay(svgEl, siteBounds).addTo(map);
-    // getBBox() right here still measures 0x0 — attached isn't the same as laid out, and
-    // nothing forces that pass synchronously (found live: every chip pinned to (0, 0)).
-    const labelChipFrame = requestAnimationFrame(() => addFeatureLabelChips(svgEl));
-    map.fitBounds(siteBounds);
-    const zoomDetailThreshold = map.getBoundsZoom(siteBounds) - ZOOM_DETAIL_MARGIN;
-
-    // Zoom-dependent detail (spec/06): trees and plot labels look better and pan
-    // faster on older phones when hidden while zoomed out. Applied once for the
-    // initial fit, then on every zoom change.
-    const applyZoomDetail = () => {
-      svgEl.classList.toggle("is-zoomed-out", map.getZoom() < zoomDetailThreshold);
-    };
-    applyZoomDetail();
-    map.on("zoomend", applyZoomDetail);
-
-    // attachSync (lib/sync/) owns the subscription, the connection signals, the
-    // reconnect refetch, and the freshness tick. This component only supplies the DOM
-    // writes and state setters it asks for — colony-theme.css's [data-status]
-    // selectors do the rest. The client is created once, app-wide, in App.tsx
-    // (docs/plans/09.md) and passed down as a prop — no longer created per colony mount.
-    const detachSync = attachSync(client, colonyId, {
-      applyStatuses: (statuses) => {
-        for (const [svgId, status] of Object.entries(statuses)) {
-          svgEl.querySelector(`#${svgId}`)?.setAttribute("data-status", status);
-        }
-      },
-      applyStatus: (svgId, status) => {
-        svgEl.querySelector(`#${svgId}`)?.setAttribute("data-status", status);
-      },
-      setOffline,
-      setFreshnessLabel,
-    });
-
-    return () => {
-      cancelAnimationFrame(labelChipFrame);
-      detachSync();
-      map.off("zoomend", applyZoomDetail);
-      mapRef.current = null;
-      map.remove();
-    };
-  }, [client, colonyId]);
+  // Leaflet init, the world-ground layer, and attachSync's subscription — split into
+  // useColonyMapMount.ts (invariant 7's 250-line cap; same split useSelectedPlotOverlay.ts
+  // already does for selection styling below).
+  useColonyMapMount(containerRef, svgRef, mapRef, client, colonyId, colonySvg, setOffline, setFreshnessLabel);
 
   // Legend filter (spec/06) — classes on the SVG root, not per-plot writes, so the
   // dimming stays correct even when a realtime status change (M5) alters which plots
@@ -207,6 +108,17 @@ export function ColonyMap({ client, actor, colonyId, onBack }: Props) {
       return next;
     });
   };
+
+  if (!colonySvg) {
+    return (
+      <div className="colony-map-container">
+        <p className="colony-scale-note">This colony has no map data.</p>
+        <button type="button" className="colony-back-button" onClick={onBack}>
+          ← Colonies
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="colony-map-container">

@@ -1,11 +1,11 @@
 - [Autonomous skill loop](project-autonomous-loop.md) — approval gates removed on purpose; flag the fallout, not the decision.
 - [Review diff blind spots](review-diff-blind-spots.md) — `diff-head` hides untracked files *and* sweeps in unplanned work; check `git status --short` + the plan's task list.
 - [Docs vs enforcement drift](review-docs-vs-enforcement-drift.md) — 5x: prose/config/migration claims a guarantee the runtime doesn't have. Check `docker inspect` + `information_schema`, not the file.
-- [Vacuous acceptance tests](review-vacuous-acceptance-tests.md) — 3x: tests passing for the wrong reason; also read vitest's *exit code*, not the green `Tests N passed` line.
+- [Vacuous acceptance tests](review-vacuous-acceptance-tests.md) — 4x: tests passing for the wrong reason; read vitest's *exit code*; assert `error.code`, not `error != null`.
 - [Attribution fallbacks](review-attribution-fallbacks.md) — 7x: `??` placeholders, bogus `confidence`, `import` rows, sticky `owner_name`, a self-writable `user_metadata` JWT claim. Ask who can write it.
 - [Fixture geometry unchecked](review-fixture-geometry-unchecked.md) — 3x: nothing checks overlap, viewBox drift, or derived `facing`/`is_corner`; recompute them from `colony.svg` yourself.
 - [Fixture plot-count drift](review-fixture-plot-count-drift.md) — the fixture's plot count is a literal in ~8 spec/README files; grep the old count on any fixture change.
 - [Comments assert what code doesn't do](review-comment-asserts-unimplemented.md) — 4x: intent comments (CSS cascade, SW cache-versioning, "this corner is free") the code doesn't deliver; do the cascade/position arithmetic yourself.
-- [Optimistic defaults](review-optimistic-defaults.md) — 9x: initial state, a missing `catch`/`finally`, stale cache, a frozen age, a stuck error flag, a `() => {}` sync handler.
-- [Unstyled new components](review-unstyled-new-components.md) — grep every new `className` against `src/styles/*.css` + the `index.css` imports; nothing else catches it.
-- [Scratch rows leak into UI](review-scratch-rows-leak-into-ui.md) — 2x: tests insert permanent DB rows (no DELETE grant); grep every new test's `insertColony` for `verified: true`.
+- [Optimistic defaults](review-optimistic-defaults.md) — 10x: initial state, missing `catch`/`finally`, frozen age, stuck error flag, `() => {}` handler, a sticky confirm checkbox.
+- [Unstyled new components](review-unstyled-new-components.md) — 2x: grep new `className`s against `src/styles/*.css`; SVG rendered outside `ColonyMap` loses its defs/ground/`data-status`.
+- [Scratch rows leak into UI](review-scratch-rows-leak-into-ui.md) — 3x: tests mint permanent `verified: true` colonies; `delete` is impossible, teardown must `update … verified = false`.

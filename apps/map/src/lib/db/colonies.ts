@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ColonyInsert, ColonyRow } from "./types.ts";
+import type { ColonyInsert, ColonyManifestPlot, ColonyRow, CreateColonyResult } from "./types.ts";
 
 export async function insertColony(
   client: SupabaseClient,
@@ -34,4 +34,40 @@ export async function fetchVerifiedColonies(client: SupabaseClient): Promise<Col
   const { data, error } = await client.from("colonies").select("*").eq("verified", true);
   if (error) throw new Error(`fetchVerifiedColonies failed: ${error.message}`);
   return (data as ColonyRow[] | null) ?? [];
+}
+
+// The only place create_colony_from_manifest() is called (docs/plans/11.md, D-025) — the
+// only place `.rpc("create_colony_from_manifest", ...)` may appear (NAVIGATION.md's
+// "supabase.from/.rpc only in lib/db/" rule). Domain shaping (manifest -> args) happens
+// one layer up in lib/colony/createColonyFromManifest.ts, same split as
+// bulkImportInitialPlotData.ts / plots.ts's callBulkSetInitialPlotData.
+export async function callCreateColonyFromManifest(
+  client: SupabaseClient,
+  args: {
+    colonyId: string;
+    colonyName: string;
+    sourceFile: string;
+    generated: string;
+    svg: string;
+    plots: ColonyManifestPlot[];
+    replace: boolean;
+  },
+): Promise<CreateColonyResult> {
+  const { data, error } = await client.rpc("create_colony_from_manifest", {
+    p_colony_id: args.colonyId,
+    p_colony_name: args.colonyName,
+    p_source_file: args.sourceFile,
+    p_generated: args.generated,
+    p_svg: args.svg,
+    p_plots: args.plots,
+    p_replace: args.replace,
+  });
+  if (error) throw new Error(`callCreateColonyFromManifest failed: ${error.message}`);
+  const result = data as
+    | { ok: true; colony_id: string }
+    | { ok: false; reason: "colony_exists" }
+    | { ok: false; reason: "would_orphan_history"; missing_svg_ids: string[] };
+  if (result.ok) return { ok: true, colonyId: result.colony_id };
+  if (result.reason === "colony_exists") return { ok: false, reason: "colony_exists" };
+  return { ok: false, reason: "would_orphan_history", missingSvgIds: result.missing_svg_ids };
 }

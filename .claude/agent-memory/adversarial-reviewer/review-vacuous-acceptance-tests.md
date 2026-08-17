@@ -39,6 +39,15 @@ the green summary line reads as success. **Rule: read vitest's exit code and the
 line, never just `Tests N passed`.** The same run also failed one real test 1 time in ~6 —
 run the suite at least twice before calling it green.
 
+**4th recurrence, 2026-08-17 (plan 11).** Every `security definer` RPC here opens with
+`if auth.uid() is null then raise exception 'not authenticated'`, so an "anon call is
+rejected" test that only asserts `expect(error).not.toBeNull()` passes identically whether
+the `revoke execute … from public` landed or not — it cannot prove the criterion it is
+cited for ("an anon client gets `42501`"). **Rule: a grant/permission criterion must assert
+`error.code`, and a review should confirm the grant out of band
+(`select grantee, privilege_type from information_schema.routine_privileges where
+routine_name = '…'`) rather than from the test.**
+
 **How to apply:** the local Supabase Docker stack is usually up
 (`docker exec supabase_db_colony-map psql -U postgres -d postgres -c "..."`). Postgres's
 `CONTEXT:` line names the exact failing SQL statement — one command settles it. For a

@@ -33,6 +33,7 @@ describe("offlineCache", () => {
         verified: true,
         source_file: null,
         generated: null,
+        svg: "<svg></svg>",
         created_at: new Date("2020-01-01").toISOString(),
       },
     ];

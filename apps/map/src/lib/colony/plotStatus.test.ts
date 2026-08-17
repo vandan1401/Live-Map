@@ -19,7 +19,7 @@ async function createScratchColony(
 ): Promise<string> {
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const colonyId = `test-verified-gate-${suffix}`;
-  await insertColony(client, { id: colonyId, name: "verified-gate scratch", verified });
+  await insertColony(client, { id: colonyId, name: "verified-gate scratch", verified, svg: "<svg></svg>" });
   await insertPlots(client, [
     {
       colony_id: colonyId,

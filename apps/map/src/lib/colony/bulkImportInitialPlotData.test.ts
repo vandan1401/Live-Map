@@ -26,7 +26,7 @@ async function createScratchColonyWithImportedPlots(
   // applyPlotTransition.test.ts/rls.test.ts/subscribePlots.test.ts's own precedent). This
   // RPC and fetchPlotBySvgId/fetchPlotHistory don't gate on colonies.verified, so the
   // tests below need nothing else changed.
-  await insertColony(client, { id: colonyId, name: "Bulk import scratch colony", verified: false });
+  await insertColony(client, { id: colonyId, name: "Bulk import scratch colony", verified: false, svg: "<svg></svg>" });
   const inserted = await insertPlots(
     client,
     svgIds.map((svgId, i) => ({

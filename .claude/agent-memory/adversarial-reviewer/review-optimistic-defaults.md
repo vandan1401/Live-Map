@@ -98,6 +98,14 @@ Occurrences so far:
    X clause by clause — catch blocks, `finally`, and every callback the shared primitive
    offers. A handler body of `() => {}` on a Tier-1 sync/error primitive is a finding.**
 
+10. 2026-08-17 (plan 11, colony upload) — the *tenth* shape: **a confirmation flag that stays
+    ticked across a stage change into a more destructive action**. `ColonyUploadScreen.tsx`
+    resets `confirmed` before the `ready` stage but not before `exists`, and the `exists`
+    stage reuses the same `confirmed` state for its "Replace this colony's geometry" checkbox
+    — so the second gate arrives pre-ticked and the destructive button enabled, from the
+    first gate's click. **Check: for every multi-step confirm flow, each stage that reuses a
+    shared boolean must reset it on entry; grep every `setStage(` for a matching reset.**
+
 **How to apply:** the fix is a nullable initial value plus an explicit "not yet" render
 ("Not synced yet"), or deriving initial state from the real signal at effect start rather
 than a hopeful literal. Related: [[review-vacuous-acceptance-tests]].

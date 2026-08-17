@@ -18,6 +18,20 @@ ships green. 2026-08-14 (plan 07, M7): `InstallInstructions.tsx` used
 `install-instructions-overlay` / `-card` / `-dismiss`; no such rules existed anywhere and no
 new stylesheet was added. That component is the *first screen every user sees* on first open.
 
+**2nd shape, 2026-08-17 (plan 11): the classes existed, the *cascade context* did not.**
+`ColonyUploadScreen.tsx` mounts the uploaded `colony.svg` into a new container instead of
+reusing `ColonyMap.tsx`'s `parseColonySvg`. The fixture SVG carries no presentation
+attributes at all (invariant 1 — verified: zero `fill=`/`stroke=`/`style=` in
+`fixtures/shree-vatika-2/colony.svg`), so *every* visible pixel comes from three things the
+new mount point silently lacks: the runtime-injected `<defs>` (`.road`/`.garden` are
+`fill: url(#texture-road|garden)` → unresolved reference → nothing paints), the Leaflet
+world-ground layer beneath (`--colony-plot-stroke` is `#f7f4e8` on the panel's `#ffffff`),
+and the DB-driven `data-status` attribute (the only rule that ever gives `.plot` a fill —
+`.plot` itself is `fill: none`). **Rule: whenever a diff renders colony SVG anywhere other
+than `ColonyMap`, resolve each class against `colony-theme.css` by hand and ask where its
+paint comes from — `url(#…)` fills, an ancestor `.colony-svg-root`, a `[data-status]`
+attribute, and the layer painted underneath are all invisible in the JSX.**
+
 **How to apply:** one grep per new component, every review. Related:
 [[review-comment-asserts-unimplemented]] (same family: everything that could catch it is
 green, so only reading catches it).

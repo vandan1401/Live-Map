@@ -2,6 +2,38 @@
 
 ## Current
 
+- **In-app colony onboarding built (2026-08-17, `docs/plans/11.md`, Tier 1).** D-025's
+  design (below) is now real code, not just docs: `colonies.svg` is a runtime `text`
+  column, `create_colony_from_manifest()` is live (fresh create, geometry-only replace,
+  orphan-history refusal, always sets `verified: true`), and
+  `features/colony-upload/ColonyUploadScreen.tsx` is reachable from the colony picker.
+  `ColonyMap.tsx` no longer imports any fixture SVG at build time — `scripts/import-seed.ts`
+  was updated to populate the new column so the shared fixture keeps working.
+  **`/review` found 6 issues, all fixed and re-verified against a fresh `supabase db
+  reset`:** the verification preview rendered a blank/uncoloured SVG (no garden/road
+  pattern defs — the one gate D-025 exists for was effectively invisible); the "replace"
+  confirmation checkbox arrived pre-ticked; the live-integration tests permanently leaked
+  `verified: true` scratch colonies into the real picker (15 found live, no DELETE grant
+  exists to remove them — fixed with an `afterAll` that flips them back to `false`, the
+  only viable cleanup); the anon-rejection test asserted `error !== null`, which also
+  passes for the RPC's own "not authenticated" exception and proves nothing about the
+  grant; acceptance criterion 1's own grep still matched a `?raw` fixture import inside a
+  test file; and a duplicated `svg_id` in an uploaded manifest silently dropped a plot
+  with no error shown. `ColonyMap.tsx` was also split (`useColonyMapMount.ts`,
+  `parseColonySvg.ts`) after review fixes pushed it over the 250-line cap.
+  **Not run this session — need a human:** acceptance criterion 2 (upload the fixture's two
+  files through the real browser overlay against a reset DB) and criterion 11 (a family
+  member completes the flow on their own phone, owner watching). Marked in `## Deferred`;
+  the plan is **not** marked complete until both are done.
+  **Still upstream of a real (non-fixture) colony:** `tools/pipeline`'s M10–M13 (DXF →
+  manifest/SVG) don't exist yet — this plan's live-integration tests and the fixture are
+  the only things exercised so far.
+  **Verified:** `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` from
+  `apps/map` — 28/28 files, **153/153** tests (130 at session start), clean build, re-run
+  clean after a fresh `supabase db reset` + reseed. `psql`: `create_colony_from_manifest`'s
+  execute grant is `authenticated`-only; only `shree-vatika-2` is `verified: true` in the
+  DB after a full test run (the leak from finding 3 is confirmed fixed, not just patched).
+
 - **Colony onboarding designed as an in-app upload (2026-08-17, docs only). New
   `D-025-colony-onboarding-in-app.md` + `spec/15-map-colony-upload.md` (Tier 1, unbuilt).**
   Owner asked for "a website so I can upload colony maps without depending on Claude Code or
@@ -50,9 +82,9 @@
   evidence) and `.claude/rules/tier-1.md`'s export section (adding a "Mark verified" button
   back to the verify page is now explicitly a review finding). `D-108`'s own body is left as
   written, matching how D-101/D-107 were handled — the Status line carries the amendment.
-  **Next action:** unchanged and still upstream of all of this — the owner produces
-  `fixtures/shree-vatika-2/colony.dxf`. M15 is Tier 1 and can be planned in parallel, but it
-  has nothing real to upload until the pipeline (M10–M13) exists.
+  **Superseded by the entry above (2026-08-17):** M15 is now built against the fixture,
+  not just planned. The owner still needs to produce `fixtures/shree-vatika-2/colony.dxf`
+  before a *real* (non-fixture) colony can go through this path — that part is unchanged.
 
 - **Pipeline re-scoped to CAD-first (2026-08-17, docs only — no code written).** The owner
   raised that they are experienced in AutoCAD and could trace a colony there directly,
@@ -811,6 +843,14 @@
 
 ## Deferred
 
+- **docs/plans/11.md acceptance criteria 2 and 11 need a human in a browser/phone, not
+  run this session.** Criterion 2 ("uploading the fixture's two files creates a colony
+  visible in the picker, against a reset DB") is covered indirectly by
+  `createColonyFromManifest.test.ts`'s live-integration create/replace/refusal cases and
+  `ColonyUploadScreen.test.tsx`'s client-side validation cases, but nobody has clicked
+  through the real overlay in a real browser yet. Criterion 11 ("a family member completes
+  the whole flow on their own phone") is explicitly owner-only per the plan. Both need a
+  human pass before this plan can be marked complete.
 - **Owner feedback mid-session (2026-08-16), not yet clarified or acted on:** "one
   important change area is no where visible — make sure to keep the area also in view or
   popup or info." Said while looking at the new table view (docs/plans/10.md). Best guess,
@@ -1013,6 +1053,31 @@
 ## Log
 
 <!-- Append-only. Four lines per entry: Done / Next / Surprises / Verified. -->
+
+### 2026-08-17 — In-app colony onboarding built (docs/plans/11.md, Tier 1)
+- Done: `colonies.svg` runtime column, `create_colony_from_manifest()` RPC (create/replace/
+  orphan-refusal), `ColonyUploadScreen`, and the `ColonyMap.tsx` build-time-import removal —
+  `/plan → /build → /review`, all 6 `/review` findings fixed and re-verified live (blank
+  preview render, pre-ticked replace checkbox, permanent scratch-colony leak into the real
+  picker, a vacuous anon-rejection assertion, a lingering `?raw` fixture import, a
+  duplicate-`svg_id` silent drop).
+- Next: acceptance criteria 2 and 11 need a human (browser click-through against a reset
+  DB, then the owner's phone) before this plan can be marked complete — see `## Deferred`.
+  Once cleared, the owner still needs to produce `fixtures/shree-vatika-2/colony.dxf`
+  before a real (non-fixture) colony can use this path — `tools/pipeline` M10–M13 don't
+  exist yet.
+- Surprises: the live-integration test leak (finding 3) wasn't a bug in this session's new
+  code alone — it's a structural gap this whole test style has (`colonies`/`plots` have no
+  DELETE grant, `plot_history`'s trigger rejects even a service-role delete), and every
+  prior RPC-adding plan's test file happened to avoid it by never setting `verified: true`.
+  This is the first RPC whose entire job is setting that flag, so the gap finally surfaced.
+  Worth flagging for a future session: `bulk_set_initial_plot_data`'s test file has the
+  same DELETE-grant limitation, it's just never been exercised because that RPC never
+  touches `verified`.
+- Verified: `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` from
+  `apps/map` — 28/28 files, 153/153 tests (130 at session start), clean build; re-run clean
+  after a fresh `supabase db reset` + reseed; `psql` confirmed the RPC's grant shape and
+  that the colony-verified leak is gone (only `shree-vatika-2` is `verified: true`).
 
 ### 2026-08-17 — /wrap plan 10 (docs/plans/10.md, Tier 1 bookkeeping)
 - Done: closed the completion-marker gap `/start` flagged — plan 10's code, tests, and

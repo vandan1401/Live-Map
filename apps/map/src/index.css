@@ -8,6 +8,7 @@
 @import "./styles/map-toolbar.css";
 @import "./styles/plot-selection.css";
 @import "./styles/plot-table.css";
+@import "./styles/colony-upload.css";
 
 html,
 body,

@@ -1,0 +1,117 @@
+/* Colony upload screen (docs/plans/11.md, D-025) — reuses colony-theme.css's tokens, no
+ * new colours introduced. Own file (invariant 7's 250-line cap), mirrors bulk-import's
+ * layout in plot-table.css without sharing class names. */
+
+.colony-upload-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 1rem;
+}
+
+.colony-upload-panel {
+  position: relative;
+  width: 100%;
+  max-width: 32rem;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: #ffffff;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.colony-upload-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  font-size: 1.5rem;
+  line-height: 1;
+  background: none;
+  border: none;
+  color: var(--colony-site-boundary);
+}
+
+.colony-upload-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.colony-upload-hint {
+  font-size: 0.85rem;
+  color: var(--colony-site-boundary);
+  margin: 0;
+}
+
+.colony-upload-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.colony-upload-continue,
+.colony-upload-confirm,
+.colony-upload-retry {
+  font-weight: 600;
+  border-radius: 0.5rem;
+  border: none;
+  padding: 0.6rem 1rem;
+  background: #863bff;
+  color: #ffffff;
+}
+
+.colony-upload-continue:disabled,
+.colony-upload-confirm:disabled {
+  background: var(--colony-plot-stroke);
+  color: var(--colony-site-boundary);
+}
+
+.colony-upload-error {
+  font-size: 0.85rem;
+  color: var(--colony-status-hold);
+  margin: 0;
+}
+
+.colony-upload-error-list {
+  font-size: 0.8rem;
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.colony-upload-summary {
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.colony-upload-preview {
+  border: 1px solid var(--colony-plot-stroke);
+  border-radius: 0.5rem;
+  max-height: 20rem;
+  overflow: auto;
+  /* Plot strokes are var(--colony-plot-stroke) (near-white) — matches the map's own
+   * ground so an uploaded colony's outlines are actually visible before confirmation,
+   * not invisible against the panel's white background (/review finding). */
+  background: var(--colony-ground-base);
+}
+
+.colony-upload-preview svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.colony-upload-confirm-check {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}

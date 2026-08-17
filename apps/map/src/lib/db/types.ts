@@ -19,10 +19,17 @@ export interface ColonyInsert {
   verified: boolean;
   source_file?: string | null;
   generated?: string | null;
+  // Runtime SVG markup (D-025, docs/plans/11.md) — every writer supplies it; nullable only
+  // at the column level (a schema migration can't backfill a file that lives on disk).
+  svg: string;
 }
 
-export interface ColonyRow extends ColonyInsert {
+export interface ColonyRow extends Omit<ColonyInsert, "svg"> {
   created_at: string;
+  // string | null, not ColonyInsert's required string — the column itself is nullable
+  // (docs/plans/11.md §2.1: no backfill migration), so a read must stay honest about that
+  // even though every current writer supplies it. ColonyMap.tsx guards the null case.
+  svg: string | null;
 }
 
 export interface PlotInsert {
@@ -91,3 +98,36 @@ export interface BulkImportResult {
   applied: string[];
   skipped: BulkImportSkip[];
 }
+
+// The subset of contract/colony.schema.json's manifest shape apps/map actually reads
+// (docs/plans/11.md §1 — confirmed by grep that nothing else, e.g. viewbox/scale/
+// north_deg/features/centroid/confidence, is used anywhere in this app). Schema
+// conformance itself is checked by Ajv against the real schema file
+// (lib/colony/parseColonyManifest.ts), not by this type — this only shapes what the rest
+// of the upload path is allowed to read off an already-validated manifest.
+export interface ColonyManifestPlot {
+  svg_id: string;
+  block: string;
+  number: string;
+  area_sqft: number;
+  length_ft: number;
+  breadth_ft: number;
+  facing: Facing;
+  is_corner: boolean;
+}
+
+export interface ColonyManifest {
+  colony: {
+    id: string;
+    name: string;
+    verified: boolean;
+    generated: string;
+    source: { file: string };
+  };
+  plots: ColonyManifestPlot[];
+}
+
+export type CreateColonyResult =
+  | { ok: true; colonyId: string }
+  | { ok: false; reason: "colony_exists" }
+  | { ok: false; reason: "would_orphan_history"; missingSvgIds: string[] };

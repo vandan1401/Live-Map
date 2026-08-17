@@ -9,6 +9,7 @@ import { createDbClient } from "../src/lib/db/client.ts";
 import { insertColony } from "../src/lib/db/colonies.ts";
 import { insertPlotHistory } from "../src/lib/db/plotHistory.ts";
 import { insertPlots } from "../src/lib/db/plots.ts";
+import { extractSvgPlotIds } from "../src/lib/colony/svgPlotIds.ts";
 import { parseNullablePaise } from "../src/shared/parsePaise.ts";
 import type { Facing, PlotInsert, PlotStatus } from "../src/lib/db/types.ts";
 
@@ -70,7 +71,7 @@ if (manifest.colony.verified !== true) {
 
 const svgPath = resolve(manifestPath, "..", "colony.svg");
 const svgRaw = readFileSync(svgPath, "utf-8");
-const svgPlotIds = new Set([...svgRaw.matchAll(/id="(plot-[A-Z]+-\d+)"/g)].map((m) => m[1]));
+const svgPlotIds = extractSvgPlotIds(svgRaw);
 const manifestPlotIds = new Set(manifest.plots.map((p) => p.svg_id));
 
 const inManifestNotSvg = [...manifestPlotIds].filter((id) => !svgPlotIds.has(id));
@@ -164,6 +165,7 @@ async function main() {
     verified: manifest.colony.verified,
     source_file: manifest.colony.source.file,
     generated: manifest.colony.generated,
+    svg: svgRaw,
   }).catch((error: unknown) => fail(`colony insert failed, nothing else attempted: ${errMsg(error)}`));
 
   const insertedPlots = await insertPlots(client, plotInserts).catch((error: unknown) =>

@@ -61,3 +61,13 @@
   font-size: 0.9rem;
   color: var(--colony-site-boundary);
 }
+
+/* docs/plans/11.md — reachable by every signed-in family member, no role gating (D-007). */
+.colony-picker-upload {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #863bff;
+  background: none;
+  border: none;
+  padding: 0.5rem;
+}
