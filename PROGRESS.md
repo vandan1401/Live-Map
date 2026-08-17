@@ -1014,6 +1014,23 @@
 
 <!-- Append-only. Four lines per entry: Done / Next / Surprises / Verified. -->
 
+### 2026-08-17 — /wrap plan 10 (docs/plans/10.md, Tier 1 bookkeeping)
+- Done: closed the completion-marker gap `/start` flagged — plan 10's code, tests, and
+  `/review` fixes were already committed (43fa9b1) but the plan file never got its
+  `**Status:** complete` line. Re-ran the full gate clean and appended the marker.
+- Next: D-025's in-app colony-upload feature (`spec/15-map-colony-upload.md`) is the real
+  next unit of work, still blocked upstream on the owner producing
+  `fixtures/shree-vatika-2/colony.dxf` (unchanged from the existing Current entry above).
+- Surprises: `apps/map/.env`'s `VITE_SUPABASE_URL` pointed at a LAN IP
+  (`192.168.0.177`) that no longer resolves on this machine — the network's DHCP lease
+  changed since it was last set (likely for phone-verification testing, per
+  `391af4c`). Updated to the current LAN IP (`172.20.10.4`), confirmed with the owner
+  first since it wasn't obviously safe to guess at.
+- Verified: `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` from
+  `apps/map` — 24/24 files, 130/130 tests, clean build. One realtime test
+  (`subscribePlots.test.ts`) timed out on the first full-suite run under contention,
+  passed in isolation and on re-run — the documented DB-warm-up flake, not a regression.
+
 ### 2026-08-16 — In-app plot-status table view + CSV initial import (docs/plans/10.md, Tier 1)
 - Done: `bulk_set_initial_plot_data` RPC (a second, narrowly-scoped write path for the
   one-time initial-data event only), a full table view for ongoing per-row status/owner
