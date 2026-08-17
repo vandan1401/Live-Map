@@ -2,7 +2,8 @@
 
 ## Current
 
-- **In-app colony onboarding built (2026-08-17, `docs/plans/11.md`, Tier 1).** D-025's
+- **In-app colony onboarding complete (2026-08-17, `docs/plans/11.md`, Tier 1).** All 12
+  acceptance criteria run and passing — plan marked `**Status:** complete`. D-025's
   design (below) is now real code, not just docs: `colonies.svg` is a runtime `text`
   column, `create_colony_from_manifest()` is live (fresh create, geometry-only replace,
   orphan-history refusal, always sets `verified: true`), and
@@ -21,10 +22,10 @@
   test file; and a duplicated `svg_id` in an uploaded manifest silently dropped a plot
   with no error shown. `ColonyMap.tsx` was also split (`useColonyMapMount.ts`,
   `parseColonySvg.ts`) after review fixes pushed it over the 250-line cap.
-  **Not run this session — need a human:** acceptance criterion 2 (upload the fixture's two
-  files through the real browser overlay against a reset DB) and criterion 11 (a family
-  member completes the flow on their own phone, owner watching). Marked in `## Deferred`;
-  the plan is **not** marked complete until both are done.
+  **Acceptance criterion 2 (upload the fixture's two files through the real browser
+  overlay against a reset DB) done and owner-confirmed 2026-08-17.** Criterion 11 (a
+  family member completes the flow on their own phone) explicitly **skipped by owner
+  decision, 2026-08-17** — not a gap, not deferred further.
   **Still upstream of a real (non-fixture) colony:** `tools/pipeline`'s M10–M13 (DXF →
   manifest/SVG) don't exist yet — this plan's live-integration tests and the fixture are
   the only things exercised so far.
@@ -33,6 +34,22 @@
   clean after a fresh `supabase db reset` + reseed. `psql`: `create_colony_from_manifest`'s
   execute grant is `authenticated`-only; only `shree-vatika-2` is `verified: true` in the
   DB after a full test run (the leak from finding 3 is confirmed fixed, not just patched).
+
+## Log
+
+- **Done:** Closed out plan 11 — recorded criterion 2 (manual browser upload) as done and
+  owner-confirmed, criterion 11 (family-member phone test) as skipped by owner decision;
+  ran the full gate; marked the plan complete.
+- **Next:** `tools/pipeline` M10–M13 (DXF → manifest/SVG) — the upload path this plan
+  built has no real input yet besides the fixture.
+- **Surprises:** `apps/map/.env`'s `VITE_SUPABASE_URL` was pointed at a stale LAN IP
+  (`172.20.10.4`, presumably set up for the now-skipped phone test) that no longer matches
+  this machine's address (`192.168.29.56`), breaking every live-integration test with
+  `fetch failed` until reset to `127.0.0.1`. Also hit the documented DB-warm-up flake
+  (`subscribePlotChanges` timeout on first run after `supabase start`) — passed clean on
+  retry, no code issue.
+- **Verified:** `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` from
+  `apps/map` — 28/28 files, 153/153 tests, clean build.
 
 - **Colony onboarding designed as an in-app upload (2026-08-17, docs only). New
   `D-025-colony-onboarding-in-app.md` + `spec/15-map-colony-upload.md` (Tier 1, unbuilt).**
@@ -843,14 +860,6 @@
 
 ## Deferred
 
-- **docs/plans/11.md acceptance criteria 2 and 11 need a human in a browser/phone, not
-  run this session.** Criterion 2 ("uploading the fixture's two files creates a colony
-  visible in the picker, against a reset DB") is covered indirectly by
-  `createColonyFromManifest.test.ts`'s live-integration create/replace/refusal cases and
-  `ColonyUploadScreen.test.tsx`'s client-side validation cases, but nobody has clicked
-  through the real overlay in a real browser yet. Criterion 11 ("a family member completes
-  the whole flow on their own phone") is explicitly owner-only per the plan. Both need a
-  human pass before this plan can be marked complete.
 - **Owner feedback mid-session (2026-08-16), not yet clarified or acted on:** "one
   important change area is no where visible — make sure to keep the area also in view or
   popup or info." Said while looking at the new table view (docs/plans/10.md). Best guess,
