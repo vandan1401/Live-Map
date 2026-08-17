@@ -2,6 +2,35 @@
 
 ## Current
 
+- **M10 — DXF ingest built (2026-08-17, `spec/10-pipe-ingest.md`, Tier 2).**
+  `pipeline/extract/dxf.py` reads a conforming DXF's modelspace into the neutral
+  intermediate structure (`pipeline/extract/types.py`: `Ring`, `Label`, `ColonyConfig`,
+  `DxfIngestResult`) — strict, per D-118: every rejection names the layer and entity
+  handle, nothing is repaired or guessed. `make ingest COLONY=<id> DXF=<path>` (both
+  Makefiles) is wired to it. `tools/pipeline/colonies/shree-vatika-2.json` created from
+  the example in `docs/cad-layer-standard.md`.
+  **9 of spec/10's 11 acceptance criteria pass** against synthetic DXFs built in-memory
+  with `ezdxf` (`tests/test_dxf.py`, same style as `test_pdf_io.py`'s synthetic PDFs) —
+  open-polyline/CIRCLE/two-COL-SITE rejections, ignored non-standard layers, `north_deg`
+  resolution (line-only, config-only, both-agreeing, both-disagreeing-by->1°), MTEXT
+  formatting-code stripping. **Criteria 1–2 (the golden fixture) still blocked**:
+  `fixtures/shree-vatika-2/colony.dxf` doesn't exist — the owner hasn't normalised the
+  real Shree Vatika DWG yet, exactly as spec/10's own "Depends on" section anticipated.
+  **Criterion 7 adapted**: it names `pipeline/geom`, which doesn't exist (M11 unbuilt) —
+  the import-purity test instead targets `pipeline.extract.types` (see NAVIGATION.md).
+  **Side quest that ate real time:** adding `ezdxf` transitively pulled in `numpy` 2.5,
+  whose bundled stub uses a PEP 695 `type` statement unconditionally — a hard parse error
+  under this project's pinned `mypy` `python_version = "3.11"` that blocked the *entire*
+  gate, not just the new code. Fixed by pinning `numpy<2.3` and adding `implicit_reexport`
+  mypy overrides for `ezdxf`/`ezdxf.entities` (same class of issue as the existing
+  pymupdf override — a third-party package not shaped for strict re-export checking).
+  **Verified:** `make gate` from repo root — contract 2/2, `apps/map` 28/28 files 153/153
+  tests + clean build, `tools/pipeline` verify (ruff clean, mypy `Success: no issues found
+  in 9 source files`, pytest `21 passed, 1 skipped`), golden `1 skipped` (same fixture
+  blocker as criteria 1–2). Smoke-tested `make ingest` end-to-end against a hand-built
+  synthetic DXF, including its error path (missing `north_deg`) and its success path
+  (ring/label counts, resolved `north_deg`).
+
 - **In-app colony onboarding complete (2026-08-17, `docs/plans/11.md`, Tier 1).** All 12
   acceptance criteria run and passing — plan marked `**Status:** complete`. D-025's
   design (below) is now real code, not just docs: `colonies.svg` is a runtime `text`
@@ -36,6 +65,21 @@
   DB after a full test run (the leak from finding 3 is confirmed fixed, not just patched).
 
 ## Log
+
+- **Done:** Built M10 (`pipeline/extract/dxf.py` + `types.py`), wired `make ingest` in
+  both Makefiles, created `colonies/shree-vatika-2.json`, wrote `tests/test_dxf.py`
+  against synthetic ezdxf-built fixtures, fixed a `numpy`/`mypy` incompatibility the new
+  `ezdxf` dependency exposed. `/check` table: 9/11 spec/10 criteria pass, `make gate` clean.
+- **Next:** M11 (`spec/11-pipe-geometry.md`) can start now — it only needs M10's output
+  shape, not the real fixture. The real fixture is still a separate, owner-only blocker
+  (produce `fixtures/shree-vatika-2/colony.dxf`) that unblocks criteria 1–2 here and M12's
+  golden test later; it does not block M11.
+- **Surprises:** `ezdxf` transitively depends on `numpy`, and the currently-latest numpy
+  (2.5.x) ships a stub that hard-fails to parse under this project's pinned mypy
+  `python_version = "3.11"` — not a missing-stub warning, a blocking syntax error that
+  took the whole `tools/pipeline` gate down with it, not just the new module. Pinned
+  `numpy<2.3`; worth remembering next time any new dependency is added here.
+- **Verified:** `make gate` from repo root, real output in the Current entry above.
 
 - **Done:** Closed out plan 11 — recorded criterion 2 (manual browser upload) as done and
   owner-confirmed, criterion 11 (family-member phone test) as skipped by owner decision;
@@ -860,6 +904,10 @@
 
 ## Deferred
 
+- **M10 acceptance criteria 1–2 (the golden fixture) blocked on `fixtures/shree-vatika-2/
+  colony.dxf`, which doesn't exist.** The owner needs to normalise the real Shree Vatika
+  DWG per `docs/cad-layer-standard.md` and drop the result there. This also blocks M12's
+  golden test later. Does not block M11, which only needs M10's output shape.
 - **Owner feedback mid-session (2026-08-16), not yet clarified or acted on:** "one
   important change area is no where visible — make sure to keep the area also in view or
   popup or info." Said while looking at the new table view (docs/plans/10.md). Best guess,

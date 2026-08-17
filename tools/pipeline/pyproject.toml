@@ -6,8 +6,13 @@ requires-python = ">=3.11"
 dependencies = [
     "pymupdf>=1.24",
     "shapely>=2.0",
-    "numpy>=1.26",
+    # <2.3 pinned: 2.5's bundled __init__.pyi uses PEP 695 `type` statements unconditionally,
+    # which fails to parse under this project's pinned mypy python_version = "3.11" (a hard
+    # parse error, not a missing-stub warning — surfaced once M10 imported ezdxf, which pulls
+    # numpy in transitively; nothing in pipeline/ imports numpy directly yet).
+    "numpy>=1.26,<2.3",
     "jsonschema>=4.21",
+    "ezdxf>=1.3",
 ]
 
 [project.optional-dependencies]
@@ -36,6 +41,14 @@ files = ["pipeline"]
 [[tool.mypy.overrides]]
 module = "pymupdf"
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# ezdxf's own __init__.py and ezdxf/entities/__init__.py don't declare `__all__`, so
+# strict mode's implicit-reexport check rejects `ezdxf.readfile`/`DXFError`/`DXFGraphic`
+# imported the way ezdxf's own docs use them. Same class of issue as the pymupdf override
+# below — a third-party package whose public API isn't shaped for strict re-export checking.
+module = ["ezdxf", "ezdxf.entities"]
+implicit_reexport = true
 
 [[tool.mypy.overrides]]
 # pymupdf ships partial/inconsistent stubs (D-117-adjacent: an external C-extension,

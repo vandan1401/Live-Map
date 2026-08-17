@@ -122,6 +122,9 @@ targets (`verify-pipe`, `contract`, `gate`, `inspect`) delegate to this nested M
 |---|---|---|
 | `triage_pdf(path)` | `tools/pipeline/pipeline/io/pdf.py` | Opens a PDF/JPEG/PNG/TIFF and returns one `PageTriage` per page — vector-or-raster, drawing-path count, text-span count, bbox, rotation. Rejects any other extension with `UnreadablePdfError` before ever calling PyMuPDF (it happily parses Markdown/other formats too — out of scope for a site-plan triage tool, a real gap M9's own test caught). Never raises a raw PyMuPDF exception. |
 | `classify_document(pages)` | `tools/pipeline/pipeline/cli/inspect.py` | `"vector"` if every page is vector, `"raster"` if none are, else `"mixed"` — the M9/spec-04 fork point (`make inspect`'s whole reason to exist). |
+| `ingest_dxf(dxf_path, config)` | `tools/pipeline/pipeline/extract/dxf.py` | M10 (D-118): reads a conforming DXF's modelspace into `DxfIngestResult` (rings + labels + resolved `north_deg`), strict — every rejection names the layer and entity handle, never repairs or guesses. `ezdxf` types never cross past this module (tier-2.md, "format code stays at the edge"). |
+| `load_colony_config(colony_id, colonies_dir)` | `tools/pipeline/pipeline/extract/dxf.py` | Loads and types `tools/pipeline/colonies/<id>.json` into `ColonyConfig`. |
+| `Ring`, `Label`, `ColonyConfig`, `DxfIngestResult` | `tools/pipeline/pipeline/extract/types.py` | The neutral intermediate structure M11/M12 will consume — plain dataclasses, deliberately importable with no `ezdxf` dependency (asserted by `tests/test_dxf.py::test_intermediate_types_do_not_need_ezdxf`, standing in for spec/10 criterion 7's `pipeline/geom` import test until M11 exists). |
 
 ## Reusable functions
 

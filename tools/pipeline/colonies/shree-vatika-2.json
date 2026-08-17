@@ -1,0 +1,16 @@
+{
+  "id": "shree-vatika-2",
+  "name": "Shree Vatika Phase 2",
+  "units": "ft",
+  "expected_plots": 26,
+  "blocks": ["A"],
+  "number_width": 2,
+  "number_range": [1, 60],
+  "north_deg": null,
+  "source": {
+    "file": "shree-vatika-2-as-sold.dwg",
+    "revision": "Rev D (as sold)",
+    "plan_date": "2019-11-04",
+    "method": "dxf"
+  }
+}

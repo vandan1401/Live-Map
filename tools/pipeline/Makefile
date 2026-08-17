@@ -36,8 +36,8 @@ gate: verify golden
 inspect: $(VENV)/pyvenv.cfg  ## triage only — what is this file? make inspect PDF=../../fixtures/demo-plan.pdf
 	$(PY) -m pipeline.cli.inspect $(PDF)
 
-ingest:    ## make ingest COLONY=<id> DXF=<path> — the real pipeline entry (D-118)
-	@echo "ingest not built yet (M10 — pipeline/extract/dxf.py)"; exit 1
+ingest: $(VENV)/pyvenv.cfg  ## make ingest COLONY=<id> DXF=<path> — the real pipeline entry (D-118)
+	$(PY) -m pipeline.cli.ingest --colony $(COLONY) --dxf $(DXF)
 
 export:
 	@echo "export not built yet (M13 — pipeline/export/)"; exit 1
