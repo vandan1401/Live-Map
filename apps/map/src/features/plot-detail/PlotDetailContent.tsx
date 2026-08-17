@@ -27,6 +27,10 @@ export function PlotDetailContent({ plot, history }: PlotDetail) {
           <dt>Breadth</dt>
           <dd>{plot.breadth_ft} ft</dd>
         </div>
+        <div>
+          <dt>Area</dt>
+          <dd>{plot.area_sqft} sq ft</dd>
+        </div>
         {plot.status === "booked" && (
           <div>
             <dt>Owner</dt>
