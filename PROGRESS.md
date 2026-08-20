@@ -2,6 +2,45 @@
 
 ## Current
 
+- **M14 — the local verify page built (2026-08-21, `spec/14-pipe-verify-page.md`, Tier 2,
+  no plan file).** `tools/pipeline/verify/{index.html,verify.css,verify.js}` — a
+  no-build-step, three-file `file://`/`make serve` page (D-114) that fetches
+  `../out/<colony>/colony.{svg,json}` and `../colonies/<id>.json` and renders exactly what
+  the app will: it reuses the app's real `colony-theme.css`/`plot-selection.css`/
+  `map-texture.css` unmodified, and hand-ports `mapTexturePatterns.ts` + `parseColonySvg.ts`
+  into vanilla JS (kept in sync by hand — no bundler, so no import) for the road/garden
+  pattern defs. Both root and `tools/pipeline/Makefile`'s `serve` targets were repointed to
+  serve the **repo root** (not just `verify/`) so relative fetches can reach `../out/`,
+  `../colonies/`, and `apps/map/src/**` — the original targets only served the `verify/`
+  subdirectory, which cannot see any of that. **No "Mark verified" button** (confirmed
+  correct against spec/14's stale acceptance-criterion #3, which still says "disables Mark
+  verified" — the Build section and the D-025 decision log both already say the button
+  was dropped entirely; the mismatch banner is the whole criterion now). Read-only: no
+  code path in this page (or anywhere in `tools/pipeline`) ever writes `"verified": true`.
+  **Live-verified in a real browser this session** (Chrome via claude-in-chrome, after the
+  user started `py -m http.server 8080` — `make`/`make serve` aren't Claude's to run,
+  CLAUDE.md/guard.sh) against `fixtures/shree-vatika-2/` copied into a scratch
+  `tools/pipeline/out/shree-vatika-2/` (gitignored, left in place) plus two synthetic
+  colonies for the failure-mode criteria: a doctored 25-plot manifest (`expected_plots:
+  26`) and a Y-flipped export with a `source.png` overlay screenshotted from the correct
+  render. All 6 of spec/14's acceptance criteria pass with live evidence.
+  **Two real bugs found and fixed live, not by static review:** `map-texture.css` — the
+  file that actually defines `.texture-road-base`/`.texture-road-fleck-*`/
+  `.texture-garden-tint`, the classes the ported pattern defs paint — wasn't linked in
+  `index.html`, so every road rendered solid black instead of the app's asphalt texture;
+  and selecting a plot hid *every* plot-number label instead of just the others, because
+  `plot-selection.css`'s `.has-selection .plot-label { display: none }` needs the clicked
+  plot's own label marked `.is-focused-label` (the real app's `useSelectedPlotOverlay.ts`
+  job) to stay visible — `attachPlotHandlers` in `verify.js` now does this.
+  **Verified:** full `mingw32-make gate` from repo root (Docker/Supabase brought up fresh
+  via `/db-up` first, `subscribePlots.test.ts`'s realtime warm-up needs it) — contract 2/2,
+  apps/map typecheck/lint clean, **153/153 tests** (no flake this run, DB was already warm),
+  production build clean; `tools/pipeline` verify (ruff clean, mypy strict clean 26 files,
+  **90 passed, 1 skipped** — unchanged count, this milestone added no `.py`), golden 1
+  passed/1 skipped (unchanged, still blocked on the missing `colony.dxf` golden fixture —
+  pre-existing M13 gap, not touched here). Plus the spec/14-specific live-browser pass above,
+  which `make gate` cannot exercise on its own.
+
 - **M13 — pipeline/derive and pipeline/export built (2026-08-21, `spec/13-pipe-derive-export.md`,
   `docs/plans/14.md`, Tier 1).** The pipeline is now wired end to end for the first time:
   `pipeline.export.run.orchestrate_export` calls `load_colony_config` → `ingest_dxf` → layer
@@ -83,12 +122,34 @@
 - **In-app colony onboarding complete (2026-08-17, `docs/plans/11.md`, Tier 1, M15).**
   All 12 acceptance criteria passed, `/review` findings fixed and re-verified. Stable,
   no open issues. `tools/pipeline` now has a full DXF-to-manifest path (M13, shipped
-  2026-08-21) — the remaining gap before a real, non-fixture colony reaches the app is a
-  real colony's normalised DXF (Jai Dev Residency is the closest candidate, still blocked
-  on the owner's block/number-collision call — see above) and the local preview page
-  (spec/14, M14, not started).
+  2026-08-21) and a local verify page (M14, shipped 2026-08-21, see above) — the
+  remaining gap before a real, non-fixture colony reaches the app is a real colony's
+  normalised DXF (Jai Dev Residency is the closest candidate, still blocked on the
+  owner's block/number-collision call — see above).
 
 ## Log
+
+- **Done:** Built M14, the local verify page (`spec/14-pipe-verify-page.md`, Tier 2,
+  `tools/pipeline/verify/`) — three files, no build step, reuses the app's own CSS and a
+  hand-ported copy of its texture-pattern JS, repointed both `serve` Makefile targets to
+  the repo root so it can reach `out/`/`colonies/`/`apps/map/src`. All 6 acceptance
+  criteria live-verified in a real browser; two real bugs found and fixed in that pass
+  (missing `map-texture.css` link → black roads; missing `.is-focused-label` wiring →
+  every plot number vanished on selection, not just the others).
+- **Next:** a real colony's normalised DXF is now the only thing left before a
+  non-fixture colony can reach the app end to end — Jai Dev Residency, still blocked on
+  the owner's block/number-collision call (`## Current`). Separately, the pre-existing
+  `tests/test_golden.py` skip (M13, not this session) stays open until that DXF exists.
+- **Surprises:** `make`/`mingw32-make` genuinely aren't the same binary as what the
+  user's own PowerShell has — `make` isn't on their PATH at all, only `py` (not
+  `python3`) is. Static review (grep, `node --check`, reading CSS files) missed both real
+  bugs; only actually clicking a plot in a live browser surfaced them — the ported
+  texture/selection JS depends on CSS files (`map-texture.css`, `.is-focused-label`) that
+  aren't obvious from reading `parseColonySvg.ts`/`mapTexturePatterns.ts` in isolation.
+- **Verified:** Full `mingw32-make gate` from repo root (details in `## Current`) —
+  contract 2/2, apps/map typecheck/lint/153 tests/build, tools/pipeline verify (90
+  passed, 1 skipped) + golden (1 passed, 1 skipped) — plus a live Chrome pass against all
+  6 of spec/14's acceptance criteria (not something `make gate` itself can check).
 
 - **Done:** Built M13 (`pipeline/derive`, `pipeline/export`, `docs/plans/14.md`) — the
   pipeline's first real end-to-end orchestration, `make export`, a blocking QA gate now

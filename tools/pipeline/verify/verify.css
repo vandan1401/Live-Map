@@ -1,0 +1,101 @@
+/* Chrome around the app's own rendering — quiet on purpose (tier-3.md: "the pass/fail
+   distinction is the only thing on screen that matters"). Never redefines a colony-theme.css
+   token or targets a .plot/.road/.garden/etc selector — that would defeat the point of
+   reusing the app's real stylesheet. */
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  background: #f4f3ee;
+  color: #201c14;
+}
+
+.vp-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  background: #fff;
+  border-bottom: 1px solid #ddd;
+}
+.vp-header input[type="text"] { padding: 0.25rem 0.4rem; }
+
+.vp-badge {
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+/* Pass/fail pairs a shape (border) with the colour so it never depends on hue alone
+   (tier-3.md: "pair the colour with a shape or an outline weight"). */
+.vp-badge.is-ok { background: #e3f4e1; color: #1f6b2c; border: 1px solid #1f6b2c; }
+.vp-badge.is-bad {
+  background: #fbe4e1;
+  color: #a3251b;
+  border: 2px dashed #a3251b;
+}
+
+.vp-overlay-toggle { font-size: 0.85rem; margin-left: auto; }
+
+.vp-error {
+  margin: 0.75rem 1rem 0;
+  padding: 0.6rem 0.8rem;
+  background: #fbe4e1;
+  border: 2px dashed #a3251b;
+  color: #a3251b;
+  font-size: 0.9rem;
+}
+
+.vp-main {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  align-items: flex-start;
+}
+
+.vp-svg-stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  background: var(--colony-ground-base, #5a9450);
+}
+.vp-svg-container svg { display: block; width: 100%; height: auto; }
+
+.vp-source-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.vp-panel {
+  flex: 0 0 20rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.vp-counters, .vp-plot-detail {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 0.35rem;
+  padding: 0.75rem 1rem;
+}
+.vp-counters h2, .vp-plot-detail h2 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #6b6858;
+}
+dl { margin: 0; }
+dl div { display: flex; justify-content: space-between; padding: 0.15rem 0; font-size: 0.9rem; }
+dl dt { color: #6b6858; }
+dl dd { margin: 0; font-weight: 600; }
+
+.vp-counter-mismatch dd { color: #a3251b; }
+
+#plot-detail-empty { color: #6b6858; font-size: 0.85rem; margin: 0; }

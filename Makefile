@@ -53,5 +53,5 @@ ingest:    ## make ingest COLONY=<id> DXF=fixtures/<id>/colony.dxf — the real 
 export:    ## make export COLONY=<id> DXF=fixtures/<id>/colony.dxf — writes out/<id>/colony.{svg,json} (M13)
 	$(MAKE) -C tools/pipeline export COLONY=$(COLONY) DXF=../../$(DXF)
 
-serve:     ## I run this, not Claude — see .claude/hooks/guard.sh
-	cd tools/pipeline/verify && python3 -m http.server 8080
+serve:     ## I run this, not Claude — see .claude/hooks/guard.sh. Open http://localhost:8080/tools/pipeline/verify/
+	python3 -m http.server 8080

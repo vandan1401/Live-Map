@@ -44,7 +44,7 @@ so a bad export is caught during the AutoCAD loop rather than at upload.
 |---|---|---|
 | 1 | Opens from `file://` with no build step | Manual |
 | 2 | Shree Vatika fixture renders 26 plots, counters agree with the manifest | Manual, after `make ingest COLONY=shree-vatika-2` |
-| 3 | A manifest doctored to 25 plots against `expected_plots: 26` shows the mismatch and disables "Mark verified" | Manual with a doctored manifest |
+| 3 | A manifest doctored to 25 plots against `expected_plots: 26` shows the mismatch loudly | Manual with a doctored manifest |
 | 4 | A deliberately Y-flipped export is visibly mirrored against the source overlay | Manual |
 | 5 | Nothing in `tools/pipeline` ever writes `verified: true` | `grep` across `tools/pipeline` |
 | 6 | Opening the page leaves the manifest byte-identical | `diff` before and after |

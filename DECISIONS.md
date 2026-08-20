@@ -61,6 +61,7 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-118 | CAD-first — a normalised DXF is the only built input | accepted |
 | D-119 | Pre-normalisation AutoLISP toolkit writes only to scratch layers, never `COL-*` directly | accepted |
 | D-120 | `px_per_ft` is derived at export time (`1000 / site_width_ft`), never read from colony config | accepted |
+| D-121 | Verify page's `make serve` targets serve the repo root, not just `verify/` | accepted |
 
 ## Both
 

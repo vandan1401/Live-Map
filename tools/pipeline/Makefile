@@ -42,5 +42,5 @@ ingest: $(VENV)/pyvenv.cfg  ## make ingest COLONY=<id> DXF=<path> — the real p
 export: $(VENV)/pyvenv.cfg  ## make export COLONY=<id> DXF=<path> — the real pipeline entry (M13, D-118)
 	$(PY) -m pipeline.cli.export --colony $(COLONY) --dxf $(DXF)
 
-serve:     ## I run this, not Claude — see .claude/hooks/guard.sh
-	python3 -m http.server 8080 --directory verify
+serve:     ## I run this, not Claude — see .claude/hooks/guard.sh. Open http://localhost:8080/tools/pipeline/verify/
+	python3 -m http.server 8080 --directory ../..

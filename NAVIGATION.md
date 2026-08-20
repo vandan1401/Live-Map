@@ -95,8 +95,17 @@ nothing downstream ever edits geometry.
 
 `extract → geom → matching → derive → export` is fully wired as of M13 (2026-08-21) — the
 one orchestration entry point is `pipeline.export.run.orchestrate_export`, called by
-`pipeline/cli/export.py` (`make export COLONY=<id> DXF=<path>`). `verify/index.html`
-(spec/14, M14) is the only piece of this diagram not built yet.
+`pipeline/cli/export.py` (`make export COLONY=<id> DXF=<path>`). `tools/pipeline/verify/`
+(spec/14, M14, built 2026-08-21) is a plain three-file, no-build-step page — no
+orchestration entry point, nothing else calls into it. It fetches `../out/<id>/
+colony.{svg,json}` and `../colonies/<id>.json` directly via `fetch()`, and reuses
+`apps/map/src/styles/{colony-theme,plot-selection,map-texture}.css` unmodified (relative
+`<link>`s) plus a hand-ported copy of `apps/map/src/components/{mapTexturePatterns,
+parseColonySvg}.ts`'s pattern-def logic in `verify.js` (no import — that module is
+TypeScript compiled by the app's bundler). Both `serve` Makefile targets (root and
+`tools/pipeline/Makefile`) serve the **repo root**, not just `verify/`, so those relative
+fetches can resolve. Diagram above still holds: this is a read-only preview, never the
+`verified: true` write — that stays the app's upload screen (M15, D-025).
 
 `pipeline/geom/` imports no file-format library — no ezdxf, no fitz, no cv2, no PIL. That purity is
 what makes it cheap to test, and every other module depends on it.
