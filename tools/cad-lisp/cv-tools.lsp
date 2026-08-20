@@ -191,12 +191,35 @@
 
 (defun c:CV-HELP ()
   (princ "\nCV Tools -- commands:")
-  (princ "\n  CV-LAYERS    create the COL-* and CV-* working layers")
-  (princ "\n  CV-MERGE     merge selected geometry onto CV-MERGED, remove overlaps/duplicates")
-  (princ "\n  CV-HIDETEXT  hide all TEXT/MTEXT (toggle with CV-SHOWTEXT)")
-  (princ "\n  CV-SHOWTEXT  restore hidden TEXT/MTEXT")
-  (princ "\n  CV-CLOSE     auto-trace closed regions from CV-MERGED onto CV-PLOT-DRAFT")
-  (princ "\n  CV-NEXT      zoom to the next flagged (unclosed) gap on CV-FLAGS")
+  (princ "\n  CV-LAYERS         create the COL-* and CV-* working layers")
+  (princ "\n  CV-MERGE          merge selected geometry onto CV-MERGED, remove overlaps/duplicates")
+  (princ "\n  CV-HIDETEXT       hide all TEXT/MTEXT (toggle with CV-SHOWTEXT)")
+  (princ "\n  CV-SHOWTEXT       restore hidden TEXT/MTEXT")
+  (princ "\n  CV-EXPLODE-BLOCKS   explode every block reference in the drawing (nested too)")
+  (princ "\n  CV-SELECT-BY-PERIMETER  select (and optionally move) closed polylines on any layer by perimeter")
+  (princ "\n  CV-CLOSE          retired -- use tools/cad-lisp/close_polygons.py instead")
+  (princ "\n  CV-NEXT           zoom to the next flagged (unclosed) gap on CV-FLAGS")
+  (princ)
+)
+
+;; Explodes every INSERT in the drawing, repeating until none remain (handles a
+;; block that itself contains nested block references). For placing a phase you
+;; just INSERTed at the right spot -- explode it here, then CV-MERGE picks up
+;; whatever geometry it exposed, same as any other loose entities.
+(defun c:CV-EXPLODE-BLOCKS ( / ss total pass)
+  (cv:undo-begin)
+  (setq total 0 pass 0)
+  (while (and (setq ss (ssget "X" '((0 . "INSERT")))) (< pass 20))
+    (setq total (+ total (sslength ss)))
+    (command "_.explode" ss "")
+    (setq pass (1+ pass))
+  )
+  (if (>= pass 20)
+    (princ "\nCV-EXPLODE-BLOCKS: stopped after 20 passes -- a block may not be exploding (dynamic block or unbound xref). Check manually.")
+  )
+  (cv:log (strcat "CV-EXPLODE-BLOCKS: exploded " (itoa total) " block reference(s) over " (itoa pass) " pass(es)"))
+  (princ (strcat "\nCV-EXPLODE-BLOCKS: exploded " (itoa total) " block reference(s)."))
+  (cv:undo-end)
   (princ)
 )
 
@@ -340,6 +363,55 @@
       (setq *cv-flag-idx* (1+ *cv-flag-idx*))
     )
   )
+  (princ)
+)
+
+;; Selects closed LWPOLYLINEs on a given layer by perimeter rather than area -- a long
+;; thin sliver (a road/pathway strip) can have a small area but a large perimeter, so
+;; area alone lets it hide among real plots. Optionally moves the match straight to a
+;; target layer in the same command -- select and reclassify in one shot, nothing left
+;; to do by hand in Properties.
+(defun c:CV-SELECT-BY-PERIMETER ( / ss n i ent obj len threshold mode final count target source)
+  (setq source (getstring "\nSelect from layer <CV-PLOT-DRAFT>: "))
+  (if (= source "") (setq source "CV-PLOT-DRAFT"))
+  (initget 1)
+  (setq threshold (getreal "\nPerimeter threshold, drawing units: "))
+  (initget "Above Below")
+  (setq mode (getkword "\nSelect perimeter [Above/Below] threshold <Above>: "))
+  (if (not mode) (setq mode "Above"))
+  (setq target (getstring "\nMove matches to layer (Enter to just select, not move): "))
+  (setq ss (ssget "X" (list '(0 . "LWPOLYLINE") (cons 8 source)
+                              '(-4 . "&") '(70 . 1))))
+  (setq final (ssadd) count 0)
+  (if ss
+    (progn
+      (setq n (sslength ss) i 0)
+      (while (< i n)
+        (setq ent (ssname ss i))
+        (setq obj (vlax-ename->vla-object ent))
+        (setq len (vlax-get obj 'Length))
+        (if (or (and (= mode "Above") (> len threshold))
+                (and (= mode "Below") (< len threshold)))
+          (progn (setq final (ssadd ent final)) (setq count (1+ count)))
+        )
+        (setq i (1+ i))
+      )
+    )
+  )
+  (sssetfirst nil final)
+  (if (and (/= target "") (> count 0))
+    (progn
+      (cv:undo-begin)
+      (cv:chlayer final target)
+      (cv:undo-end)
+    )
+  )
+  (cv:log (strcat "CV-SELECT-BY-PERIMETER: " (itoa count) " of " (itoa (if ss (sslength ss) 0))
+                    " on " source " selected, perimeter " mode " " (rtos threshold 2 2)
+                    (if (/= target "") (strcat ", moved to " target) "")))
+  (princ (strcat "\nCV-SELECT-BY-PERIMETER: " (itoa count) " selected from " source
+                   " (perimeter " mode " " (rtos threshold 2 2) ")"
+                   (if (/= target "") (strcat ", moved to " target ".") ".")))
   (princ)
 )
 

@@ -19,24 +19,45 @@ manifest are the only things that cross.
 
 ## tools/cad-lisp — pre-normalisation AutoCAD toolkit
 
-Standalone AutoLISP commands (`cv-tools.lsp`) that speed up the manual procedure in
+Standalone tooling (AutoLISP + Python) that speeds up the manual procedure in
 `docs/cad-layer-standard.md`, run *before* a DXF ever reaches `make ingest`. No
 dependency on `contract/`, `apps/map`, or `tools/pipeline`; writes only to scratch
-layers (`CV-MERGED`, `CV-PLOT-DRAFT`, `CV-FLAGS`), never to `COL-*` directly — D-118's
-line between mechanical cleanup and human judgement holds. Setup/usage in
+layers (`CV-MERGED`, `CV-PLOT-DRAFT`, `CV-FLAGS`, `CV-SITE-DRAFT`,
+`CV-FEATURE-LABELS-DRAFT`), never to `COL-*` directly — D-118's line between mechanical
+cleanup and human judgement holds. No CLAUDE.md risk tier applies here (no `/plan`/
+`/review` gate) — the only verification available without a real DXF/AutoCAD session is
+byte-compiling and `--help`-smoke-testing the Python scripts. Setup/usage in
 `tools/cad-lisp/README.md`.
+
+`cv-tools.lsp` commands (in-AutoCAD, run in this order):
 
 | Command | Does |
 |---|---|
 | `CV-LAYERS` | creates the 8 `COL-*` layers + 3 `CV-*` scratch layers |
 | `CV-MERGE` | moves a selection onto `CV-MERGED`, dedupes via AutoCAD's `OVERKILL` |
 | `CV-HIDETEXT` / `CV-SHOWTEXT` | toggles all TEXT/MTEXT visibility, reversible |
-| `CV-CLOSE` | bridges small gaps, flags the rest on `CV-FLAGS`, auto-traces closed regions via `BOUNDARY` onto `CV-PLOT-DRAFT` |
-| `CV-NEXT` | zooms/highlights each flagged gap in turn |
+| `CV-CLOSE` | **retired, do not use on a real colony (D-119 follow-up)** — has hung/crashed AutoCAD on real colony sizes; use `close_polygons.py` instead |
+| `CV-NEXT` | zooms/highlights each flagged gap in turn — only useful if flagging gaps some other way, since `close_polygons.py` reports its own flags |
+| `CV-EXPLODE-BLOCKS` | explodes inserted blocks so their geometry can be selected/moved onto `COL-*` layers |
+| `CV-SELECT-BY-PERIMETER` | selects entities by a perimeter/window pick, for bulk layer moves |
 
-Phase 2 (not yet built): `CV-LABELS`, `CV-CHECK` (preflight validator mirroring the
-Python reader's own checks), `CV-DIST`, `CV-EXPORT`. Untested against a live AutoCAD
-session as of 2026-08-17 — Claude has no AutoCAD to verify against; see PROGRESS.md.
+Standalone Python scripts (run on an exported DXF, reimport via `PASTEORIG` — no
+dependency on `cv-tools.lsp`; `pip install -r tools/cad-lisp/requirements.txt` or reuse
+`tools/pipeline`'s venv, which already has `ezdxf`/`shapely`):
+
+| Script | Does |
+|---|---|
+| `close_polygons.py` | Replaces `CV-CLOSE` — bridges small gaps, traces every closed region onto `CV-PLOT-DRAFT` in one pass instead of a blind grid sweep, flags unresolved gaps onto `CV-FLAGS` |
+| `derive_site.py` | Drafts a `COL-SITE` boundary onto `CV-SITE-DRAFT` by unioning every closed plot/garden/amenity/water/draft ring, buffering outward, falling back to a convex hull if clusters are still disconnected |
+| `check_layers.py` | Preflight — mirrors `pipeline/extract/dxf.py`'s conformance checks (entity type, closure, `COL-SITE` count, one-label-per-polygon) directly against the working DXF, before a real `make ingest` run. Does not check north agreement or feature-label keyword classification (that's `pipeline.matching.classify`, M12) |
+| `fill_missing_labels.py` | Auto-places `COL-FEATURE-NO` labels (a configurable default per layer) onto `CV-FEATURE-LABELS-DRAFT` for any `COL-GARDEN`/`COL-AMENITY` polygon that doesn't have one yet |
+| `trace_site.py`, `triage_report.py`, `export_blocks.py` | Site-boundary tracing, a summary/triage report, and block-export helpers — see `tools/cad-lisp/README.md` for each script's own usage |
+| `polygonize.py`, `labels.py`, `output.py` | Shared helpers (ring-tracing/gap-bridging, label reading, DXF-writing) reused by the scripts above — not run directly |
+
+Phase 2 (not yet built): `CV-LABELS`, `CV-DIST`, `CV-EXPORT`. Untested against a live
+AutoCAD session — Claude has no AutoCAD to verify against; the Python scripts were
+smoke-tested by the owner against a real colony DWG (Jai Dev Residency, 2026-08-20), not
+verified by Claude beyond byte-compiling — see PROGRESS.md.
 
 ## apps/map — layer boundaries
 

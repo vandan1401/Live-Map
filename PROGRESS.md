@@ -54,7 +54,7 @@
   subdivision/cutout, confirmed by the owner) exposed a standard gap — see Deferred.
 
 - **`tools/cad-lisp/` grew from Phase-1-only to a real toolkit exercised against a real
-  colony (2026-08-20) — but the new scripts are UNCOMMITTED.** `close_polygons.py`
+  colony (2026-08-20), now committed (2026-08-20 wrap).** `close_polygons.py`
   (Python replacement for the AutoCAD-crashing `CV-CLOSE`), `derive_site.py` (union-based
   `COL-SITE` derivation, closing-morphology not a naive buffer, after a convex-hull
   first attempt badly overshot — see `docs/plans/` git history for the back-and-forth),
@@ -62,16 +62,42 @@
   minus north/keyword checks), `fill_missing_labels.py`, `trace_site.py`,
   `triage_report.py`, `export_blocks.py`, plus the shared `polygonize.py`/`labels.py`/
   `output.py`. `cv-tools.lsp` gained `CV-EXPLODE-BLOCKS` and `CV-SELECT-BY-PERIMETER`.
-  All individually smoke-tested against the real Jai Dev Residency file this session
-  (superseding the old "Untested against a real drawing" note), but never `git add`ed or
-  run through `/review` as a body of work — see Deferred.
+  All individually smoke-tested against the real Jai Dev Residency file the session that
+  wrote them (superseding the old "Untested against a real drawing" note); this wrap
+  additionally byte-compiled and `--help`-smoke-tested all 10 scripts (no real DXF
+  available to Claude in this repo) and fixed one small dead-computation bug in
+  `fill_missing_labels.py::_label_point` (an unused `text` strip, harmless but wasted
+  work) — no `/review` run as a body of work, since this is standalone tooling outside
+  `contract/apps/map/tools/pipeline`'s risk tiers (no CLAUDE.md tier applies to AutoLISP/
+  standalone-script changes).
 
 - **In-app colony onboarding complete (2026-08-17, `docs/plans/11.md`, Tier 1, M15).**
   All 12 acceptance criteria passed, `/review` findings fixed and re-verified. Stable,
   no open issues. Still upstream of a real (non-fixture) colony reaching the app:
-  `tools/pipeline`'s M12/M13 (matching, derive, export) don't exist yet.
+  `tools/pipeline`'s M13 (derive, export) doesn't exist yet — M12 (matching) shipped
+  2026-08-20.
 
 ## Log
+
+- **Done:** Committed the `tools/cad-lisp/` toolkit that had been sitting uncommitted
+  across the last two sessions' `/review` flags — `close_polygons.py`, `derive_site.py`,
+  `check_layers.py`, `fill_missing_labels.py`, `trace_site.py`, `triage_report.py`,
+  `export_blocks.py`, `polygonize.py`, `labels.py`, `output.py`, `requirements.txt`, plus
+  `cv-tools.lsp`/`README.md` updates. Fixed one small dead-computation bug flagged by M12's
+  `/review` pass (`fill_missing_labels.py::_label_point` computed and discarded a text
+  string). Corrected two stale "needs M12, unbuilt" doc notes now that M12 shipped.
+- **Next:** M13 (`pipeline/derive` + `pipeline/export`). Separately: the owner's Jai Dev
+  Residency block/`expected_plots` questions are still open (see `## Current`).
+- **Surprises:** None of this diff touches `contract/`, `apps/map`, or `tools/pipeline` —
+  no CLAUDE.md risk tier applies, so there was no `/plan`/`/review` gate to run. The only
+  verification available without a real DXF or AutoCAD was byte-compiling and `--help`-
+  smoke-testing all 10 scripts against the pipeline's own venv; that's not the same as
+  proving correctness against real geometry, and is worth remembering as this toolkit's
+  standing limit, not something to try to routinely close.
+- **Verified:** `mingw32-make gate` from repo root, full clean pass (contract 2/2, apps/map
+  28/28 files 153/153 tests + build, tools/pipeline verify 68 passed 1 skipped + golden 1
+  skipped). `tools/cad-lisp/*.py` — `py_compile` and `--help` clean on all 10 files (no
+  real DXF available to Claude to exercise them further).
 
 - **Done:** Built M12 (`pipeline/matching`, `docs/plans/13.md`) — `assign.py` (plot
   identity, block/number resolution) and `classify.py` (feature class/kind), sharing one
@@ -1023,15 +1049,14 @@
   than through the root Makefile. Not chased further: works fine, just means `make ...`
   itself can't be typed literally in this shell until `make` (or `mingw32-make`, already
   referenced by an old PROGRESS.md entry) is on PATH.
-- **10 new `tools/cad-lisp/*.py` files (~1,315 lines) are untracked, not yet
-  `git add`ed.** `close_polygons.py`, `derive_site.py`, `check_layers.py`,
-  `fill_missing_labels.py`, `trace_site.py`, `triage_report.py`, `export_blocks.py`,
-  `polygonize.py`, `labels.py`, `output.py`, plus `requirements.txt` — built this session
-  (2026-08-20) against the real Jai Dev Residency colony, each individually smoke-tested,
-  but never committed or run through `/review` as a body of work. `tools/cad-lisp/
-  README.md` (already modified this session) documents all of them by name, so it's
-  currently a tracked doc pointing at untracked code — `git add` them and run `/review`
-  before they're considered done, not folded silently into an unrelated commit.
+- ~~10 new `tools/cad-lisp/*.py` files were untracked, not yet `git add`ed.~~ **Resolved
+  (2026-08-20 wrap): committed as their own unit**, separately from the same day's M12
+  commit. No `/review` was run — this toolkit carries no CLAUDE.md risk tier (standalone,
+  no dependency on `contract/`/`apps/map`/`tools/pipeline`) — but this wrap did fix one
+  real bug `/review` happened to notice in passing (`fill_missing_labels.py`'s unused
+  `text` computation) and byte-compile/`--help`-smoke-test all 10 scripts. Still true and
+  still open: no real DXF or AutoCAD available to Claude, so none of this is verified
+  against real geometry — see the next entry.
 - **`tools/cad-lisp/cv-tools.lsp` has never been run against a real AutoCAD session.**
   Written from documented AutoLISP/command-line behavior only (see D-119, PROGRESS.md's
   `## Current`) — the owner needs to load it (README has setup steps) and exercise it
