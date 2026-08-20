@@ -48,6 +48,16 @@ cited for ("an anon client gets `42501`"). **Rule: a grant/permission criterion 
 (`select grantee, privilege_type from information_schema.routine_privileges where
 routine_name = '…'`) rather than from the test.**
 
+**5th recurrence, 2026-08-20 (plan 12, M11).** Not a negative test this time — a *range*
+assertion that the implementation makes unfalsifiable.
+`tests/test_geom.py::test_nearest_edge_bearing_in_range` asserts `0 <= bearing < 360`, but
+`nearest_edge_bearing` ends in `% 360`, so that holds for every finite input including a
+sign-flipped or swapped-argument `atan2`. The plan had singled out this exact function's
+convention ("so M12/M13 can combine this with `north_deg` without a sign/direction
+mismatch") and it was the one thing untested. **Rule: a test whose assertion is implied by
+the last line of the implementation proves nothing — assert the concrete value.** For
+bearings on a unit square: `(5,-5)→0`, `(-5,5)→90`, `(5,15)→180`, `(15,5)→270`.
+
 **How to apply:** the local Supabase Docker stack is usually up
 (`docker exec supabase_db_colony-map psql -U postgres -d postgres -c "..."`). Postgres's
 `CONTEXT:` line names the exact failing SQL statement — one command settles it. For a

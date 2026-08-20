@@ -24,6 +24,14 @@ tools/pipeline/out/
 # tools/pipeline/overrides/ is intentionally NOT ignored (D-107):
 # hand-made corrections keyed by centroid, cannot be regenerated.
 
+# --- tools/cad-lisp (standalone Python script, close_polygons.py) ---
+tools/cad-lisp/__pycache__/
+tools/cad-lisp/.venv/
+
+# --- client-provided source documents dropped at repo root, not project source ---
+# (root-level only -- fixtures/*.pdf are real, tracked fixtures, not ignored by this)
+/*.pdf
+
 # --- OS / editor ---
 .DS_Store
 Thumbs.db

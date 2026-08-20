@@ -58,6 +58,16 @@ Three checks that have each caught a real defect:
    **Check the runtime, not the file: `docker inspect` env for config.toml claims,
    `information_schema.role_table_grants` / `pg_policies` / `proacl` for migration claims.**
 
+6. **`docs/cad-layer-standard.md` is prose whose enforcing layer is
+   `contract/colony.schema.json`.** 2026-08-20 (plan 12): the standard's feature-keyword
+   table gained `RESERVED → reserved` and `OTHER → other`, but the schema's
+   `features[].kind` enum is still `["park","clubhouse","temple","tank","playground",
+   "parking"]` with `additionalProperties: false`, and `contract/SPEC.md` says a new
+   amenity kind needs a new `<symbol>`. A colony normalised per the updated standard emits
+   a manifest the contract rejects — CLAUDE.md invariant 1 ("changing it means changing
+   both halves in one commit"). **On any `docs/cad-layer-standard.md` diff, grep the
+   values it names against `contract/colony.schema.json`'s enums.**
+
 **How to apply:** on any review that touches `CLAUDE.md`, `.claude/settings.json`, or a
 skill file, open `.claude/hooks/guard.sh` and `_json.sh` and check the greps in the same
 pass. This has now recurred six times — worth a CLAUDE.md line or a guard.sh self-test.

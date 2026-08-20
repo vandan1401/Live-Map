@@ -20,6 +20,14 @@ another's. 2026-08-15 (plan 08) the diff carried two *other* deferred owner-feed
 (map→picker back button, branded picker heading) that appear nowhere in `docs/plans/08.md`
 §2 — and the only correctness bug in the diff was in that unplanned half.
 
+**2026-08-20 (plan 12, M11), both halves at once and worse.** The diff changed
+`docs/cad-layer-standard.md` — a file plan 12 §4 names verbatim as a non-goal ("No changes
+to `docs/cad-layer-standard.md` or `contract/`") and CLAUDE.md's risk table rates **Tier 1**.
+Meanwhile `git status --short` showed **ten untracked `tools/cad-lisp/*.py` files, 1,315
+lines**, three of which the tracked README change documents by name. **Rule: an explicit
+§4 non-goal appearing in the diff is a finding on its own, no further analysis needed** —
+and when a tracked doc names a file, check `git ls-files` for it, not just the filesystem.
+
 **How to apply:** every review, first tool call. If untracked files exist and are in scope
 for the plan, read them directly rather than reviewing only what the diff showed, and say
 in the report that the supplied diff was incomplete. Conversely, diff every changed file

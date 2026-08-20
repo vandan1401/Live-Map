@@ -2,83 +2,94 @@
 
 ## Current
 
-- **M10 — DXF ingest built (2026-08-17, `spec/10-pipe-ingest.md`, Tier 2).**
-  `pipeline/extract/dxf.py` reads a conforming DXF's modelspace into the neutral
-  intermediate structure (`pipeline/extract/types.py`: `Ring`, `Label`, `ColonyConfig`,
-  `DxfIngestResult`) — strict, per D-118: every rejection names the layer and entity
-  handle, nothing is repaired or guessed. `make ingest COLONY=<id> DXF=<path>` (both
-  Makefiles) is wired to it. `tools/pipeline/colonies/shree-vatika-2.json` created from
-  the example in `docs/cad-layer-standard.md`.
-  **9 of spec/10's 11 acceptance criteria pass** against synthetic DXFs built in-memory
-  with `ezdxf` (`tests/test_dxf.py`, same style as `test_pdf_io.py`'s synthetic PDFs) —
-  open-polyline/CIRCLE/two-COL-SITE rejections, ignored non-standard layers, `north_deg`
-  resolution (line-only, config-only, both-agreeing, both-disagreeing-by->1°), MTEXT
-  formatting-code stripping. **Criteria 1–2 (the golden fixture) still blocked**:
-  `fixtures/shree-vatika-2/colony.dxf` doesn't exist — the owner hasn't normalised the
-  real Shree Vatika DWG yet, exactly as spec/10's own "Depends on" section anticipated.
-  **Criterion 7 adapted**: it names `pipeline/geom`, which doesn't exist (M11 unbuilt) —
-  the import-purity test instead targets `pipeline.extract.types` (see NAVIGATION.md).
-  **Side quest that ate real time:** adding `ezdxf` transitively pulled in `numpy` 2.5,
-  whose bundled stub uses a PEP 695 `type` statement unconditionally — a hard parse error
-  under this project's pinned `mypy` `python_version = "3.11"` that blocked the *entire*
-  gate, not just the new code. Fixed by pinning `numpy<2.3` and adding `implicit_reexport`
-  mypy overrides for `ezdxf`/`ezdxf.entities` (same class of issue as the existing
-  pymupdf override — a third-party package not shaped for strict re-export checking).
-  **Verified:** `make gate` from repo root — contract 2/2, `apps/map` 28/28 files 153/153
-  tests + clean build, `tools/pipeline` verify (ruff clean, mypy `Success: no issues found
-  in 9 source files`, pytest `21 passed, 1 skipped`), golden `1 skipped` (same fixture
-  blocker as criteria 1–2). Smoke-tested `make ingest` end-to-end against a hand-built
-  synthetic DXF, including its error path (missing `north_deg`) and its success path
-  (ring/label counts, resolved `north_deg`).
+- **M11 — pipeline/geom built (2026-08-20, `spec/11-pipe-geometry.md`, `docs/plans/12.md`,
+  Tier 1).** The pure geometry core every later pipeline module depends on:
+  `validate_ring`/`validate_disjoint`/`validate_within` (raise `GeomError` naming the
+  entity handle, same idiom as `DxfConformanceError`), `simplify`, `contains`, `centroid`,
+  `area_sqft`, `nearest_edge_bearing`. No file-format import (`ezdxf`/`fitz`/`cv2`/`PIL`),
+  enforced by an AST-based test. All 8 of spec/11's acceptance criteria pass — criterion 6
+  (golden-manifest area match) adapted the same way M10 adapted its own blocked criteria,
+  since `fixtures/shree-vatika-2/colony.dxf` still doesn't exist: synthetic rectangular
+  rings built from the manifest's own `length_ft`×`breadth_ft`, not a live DXF→geom run.
+  **`/review` found 2 real issues in this build, both fixed and re-verified:** the
+  closure-check tolerance was a guessed fixed ceiling (`0.01 ft`) that silently passed a
+  `0.05 ft` botched `PEDIT`-close — replaced with a check relative to the ring's own
+  shortest drawn edge, not an absolute constant; and `nearest_edge_bearing`'s test only
+  asserted `0 <= bearing < 360`, which a sign-flipped/argument-swapped `atan2` would also
+  satisfy — replaced with four concrete expected values. Also added `types-shapely` as a
+  dev dependency (mypy strict had zero shapely stubs until this module needed them).
+  **`/review` also caught a real, pre-existing bug unrelated to this build**: an earlier
+  same-session doc edit to `docs/cad-layer-standard.md` (`RESERVED`/`OTHER` feature
+  keywords) contradicts `contract/colony.schema.json`'s `kind` enum — see Deferred, not
+  fixed here, out of plan 12's scope.
+  **Verified:** `mingw32-make gate` from repo root, full clean pass after bringing up the
+  local Supabase stack (`db-up`) — contract 2/2, `apps/map` 28/28 files 153/153 tests
+  (one `subscribePlots.test.ts` realtime-warmup flake, same documented class as prior
+  sessions, passed clean on retry) + production build, `tools/pipeline` verify (ruff
+  clean, mypy strict `Success: no issues found in 10 source files`, pytest
+  **37 passed, 1 skipped** — was 21+1, +16 new, 0 regressions), golden (1 skipped, same
+  fixture blocker, unrelated).
 
-- **`tools/cad-lisp/` added (2026-08-17, standalone, not tied to a milestone/spec).**
-  AutoLISP toolkit (`cv-tools.lsp` + `README.md`) to speed up the manual AutoCAD
-  normalisation procedure in `docs/cad-layer-standard.md` — the exact step M10's
-  criteria 1–2 are blocked on (owner hasn't normalised the real Shree Vatika DWG yet).
-  No dependency on `contract/`, `apps/map`, or `tools/pipeline`; writes only to scratch
-  layers (`CV-MERGED`, `CV-PLOT-DRAFT`, `CV-FLAGS`), never to `COL-*` directly, so
-  D-118's "judgement stays in AutoCAD" line holds. Phase 1 (5 commands): `CV-LAYERS`,
-  `CV-MERGE` (dedupe overlapping lines via AutoCAD's `OVERKILL`), `CV-HIDETEXT`/
-  `CV-SHOWTEXT`, `CV-CLOSE` (auto-trace closed regions via `BOUNDARY`, bridging small
-  gaps and flagging the rest). **Untested against a real drawing** — written from
-  documented AutoLISP/command behavior only; Claude has no AutoCAD to run it against.
-  Phase 2 planned once Phase 1 is exercised on a real colony: `CV-LABELS`, `CV-CHECK`
-  (preflight validator mirroring the Python reader's checks), `CV-DIST`, `CV-EXPORT`.
+- **Jai Dev Residency — a real, non-fixture colony, mid-normalisation in AutoCAD
+  (2026-08-20).** Owner working through `docs/cad-layer-standard.md`'s per-colony
+  procedure on a real DWG (`JAI DEV working v2.dwg`/`.dxf`) with heavy `tools/cad-lisp`
+  assistance this session (see below). Current state, per `check_layers.py`: `COL-SITE`
+  present (derived via `derive_site.py`'s morphological-closing union, not hand-traced —
+  no separate boundary was drawn on this plan), `COL-NORTH` present (0°, matches +Y),
+  units corrected from metres to feet (`$INSUNITS`/`$MEASUREMENT` fixed, every coordinate
+  and text height scaled by 3.280839895, verified against realistic plot areas before and
+  after), `COL-PLOT`/`COL-PLOT-NO` and `COL-GARDEN`/`COL-AMENITY`/`COL-FEATURE-NO`
+  containment all clean (0 issues). **Still open, owner's call, not proceeded on without
+  answers:** a bare-vs-`A`-block plot-number collision (bare `1`–`6` and explicit
+  `A-1`–`A-6` both exist) blocks writing `tools/pipeline/colonies/jai-dev-residency.json`
+  until the owner says which default block bare numbers should use; `expected_plots`
+  needs the sanctioned count, not a drawing count. 22 `CV-PLOT-DRAFT` entities left
+  un-promoted — owner said not to review, calling them trash. Plot `24`/`24-A` (a real
+  subdivision/cutout, confirmed by the owner) exposed a standard gap — see Deferred.
 
-- **In-app colony onboarding complete (2026-08-17, `docs/plans/11.md`, Tier 1).** All 12
-  acceptance criteria run and passing — plan marked `**Status:** complete`. D-025's
-  design (below) is now real code, not just docs: `colonies.svg` is a runtime `text`
-  column, `create_colony_from_manifest()` is live (fresh create, geometry-only replace,
-  orphan-history refusal, always sets `verified: true`), and
-  `features/colony-upload/ColonyUploadScreen.tsx` is reachable from the colony picker.
-  `ColonyMap.tsx` no longer imports any fixture SVG at build time — `scripts/import-seed.ts`
-  was updated to populate the new column so the shared fixture keeps working.
-  **`/review` found 6 issues, all fixed and re-verified against a fresh `supabase db
-  reset`:** the verification preview rendered a blank/uncoloured SVG (no garden/road
-  pattern defs — the one gate D-025 exists for was effectively invisible); the "replace"
-  confirmation checkbox arrived pre-ticked; the live-integration tests permanently leaked
-  `verified: true` scratch colonies into the real picker (15 found live, no DELETE grant
-  exists to remove them — fixed with an `afterAll` that flips them back to `false`, the
-  only viable cleanup); the anon-rejection test asserted `error !== null`, which also
-  passes for the RPC's own "not authenticated" exception and proves nothing about the
-  grant; acceptance criterion 1's own grep still matched a `?raw` fixture import inside a
-  test file; and a duplicated `svg_id` in an uploaded manifest silently dropped a plot
-  with no error shown. `ColonyMap.tsx` was also split (`useColonyMapMount.ts`,
-  `parseColonySvg.ts`) after review fixes pushed it over the 250-line cap.
-  **Acceptance criterion 2 (upload the fixture's two files through the real browser
-  overlay against a reset DB) done and owner-confirmed 2026-08-17.** Criterion 11 (a
-  family member completes the flow on their own phone) explicitly **skipped by owner
-  decision, 2026-08-17** — not a gap, not deferred further.
-  **Still upstream of a real (non-fixture) colony:** `tools/pipeline`'s M10–M13 (DXF →
-  manifest/SVG) don't exist yet — this plan's live-integration tests and the fixture are
-  the only things exercised so far.
-  **Verified:** `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` from
-  `apps/map` — 28/28 files, **153/153** tests (130 at session start), clean build, re-run
-  clean after a fresh `supabase db reset` + reseed. `psql`: `create_colony_from_manifest`'s
-  execute grant is `authenticated`-only; only `shree-vatika-2` is `verified: true` in the
-  DB after a full test run (the leak from finding 3 is confirmed fixed, not just patched).
+- **`tools/cad-lisp/` grew from Phase-1-only to a real toolkit exercised against a real
+  colony (2026-08-20) — but the new scripts are UNCOMMITTED.** `close_polygons.py`
+  (Python replacement for the AutoCAD-crashing `CV-CLOSE`), `derive_site.py` (union-based
+  `COL-SITE` derivation, closing-morphology not a naive buffer, after a convex-hull
+  first attempt badly overshot — see `docs/plans/` git history for the back-and-forth),
+  `check_layers.py` (the `CV-CHECK` preflight validator, mirrors `pipeline/extract/dxf.py`
+  minus north/keyword checks), `fill_missing_labels.py`, `trace_site.py`,
+  `triage_report.py`, `export_blocks.py`, plus the shared `polygonize.py`/`labels.py`/
+  `output.py`. `cv-tools.lsp` gained `CV-EXPLODE-BLOCKS` and `CV-SELECT-BY-PERIMETER`.
+  All individually smoke-tested against the real Jai Dev Residency file this session
+  (superseding the old "Untested against a real drawing" note), but never `git add`ed or
+  run through `/review` as a body of work — see Deferred.
+
+- **In-app colony onboarding complete (2026-08-17, `docs/plans/11.md`, Tier 1, M15).**
+  All 12 acceptance criteria passed, `/review` findings fixed and re-verified. Stable,
+  no open issues. Still upstream of a real (non-fixture) colony reaching the app:
+  `tools/pipeline`'s M12/M13 (matching, derive, export) don't exist yet.
 
 ## Log
+
+- **Done:** Built M11 (`pipeline/geom`, `docs/plans/12.md`) — ring validation, disjoint/
+  within checks, simplify, contains/centroid/area_sqft/nearest_edge_bearing. `/review`
+  found and fixed 2 real issues (closure-check tolerance, a weak bearing test); also
+  surfaced a pre-existing contract/schema mismatch from an earlier session, now in
+  Deferred. Also: heavy `tools/cad-lisp` work normalising the real Jai Dev Residency
+  colony (COL-SITE, COL-NORTH, units, all clean per `check_layers.py`), 6 new Python
+  scripts built and smoke-tested but not yet committed.
+- **Next:** Fix the `contract/colony.schema.json` kind-enum mismatch before M12 is built
+  against it. Separately: `git add` + `/review` the new `tools/cad-lisp/*.py` scripts as
+  their own unit. Separately: owner needs to answer the bare-vs-`A`-block collision and
+  give `expected_plots` before `tools/pipeline/colonies/jai-dev-residency.json` can be
+  written.
+- **Surprises:** A convex-hull fallback for a disconnected plot cluster badly overshot
+  (swallowed real open land as if it were site) — the fix was a proper morphological
+  closing (dilate-then-erode), not a bigger buffer. The DXF's `$INSUNITS` said metres
+  the whole time; nobody had checked it until a plot read 1600 sq *inches* instead of
+  sq ft made the mismatch impossible to miss. `validate_disjoint`'s O(n²) cost is real,
+  not theoretical: measured 41s at 1,500 plots naive vs 0.45s with an `STRtree` — owner
+  deferred the fix on purpose rather than premature-optimizing before M11 has a caller.
+- **Verified:** `mingw32-make gate` from repo root, full clean pass (contract 2/2,
+  apps/map 28/28 files 153/153 tests + build, tools/pipeline verify 37 passed 1 skipped
+  + golden). `tools/cad-lisp` scripts verified by direct execution against the real
+  colony DXF (check_layers.py output), not by reading code back.
 
 - **Done:** Added `tools/cad-lisp/` (`cv-tools.lsp`, `README.md`) — AutoLISP toolkit,
   Phase 1 (`CV-LAYERS`, `CV-MERGE`, `CV-HIDETEXT`/`CV-SHOWTEXT`, `CV-CLOSE`, `CV-NEXT`),
@@ -935,12 +946,53 @@
 
 ## Deferred
 
+- **`pipeline.geom.validate_disjoint` (M11, docs/plans/12.md) is a naive O(n²) pairwise
+  check.** Measured directly (2026-08-20), not estimated: 1,500 synthetic grid-arranged
+  plots (1,124,250 pairs) took **41.33s**; an `STRtree`-filtered version of the same
+  check (same tolerance, same result) took **0.45s**, checking only 5,762 candidate
+  pairs — a ~93x speedup, gap widens further as colony size grows. Fine today since
+  nothing calls this function yet (M11 has no caller, spec/11 scope) — 41s is a real
+  problem only once this is wired into a `make ingest` run. Owner explicitly deferred
+  the `STRtree` fix (2026-08-20) rather than doing it now; do it before wiring
+  `validate_disjoint` into M12/M13's real ingest path, not after.
+- **`docs/cad-layer-standard.md` has no concept of a plot subdivision/cutout suffix.**
+  Found on the Jai Dev Residency colony (2026-08-20): plot `24` was split, and the cutout
+  is labeled `24-A` on `COL-PLOT-NO` — both `24` and `24-A` are real, separate plots on
+  the drawing, confirmed by the owner. The standard's only non-bare format is a
+  letter-*prefix* block (`B-7`); a number-*suffix* like `24-A` doesn't fit that shape and
+  would be misclassified as "block A, number 24" if forced through the existing parser —
+  falsely associating it with the colony's real block-A section, which it has nothing to
+  do with. Doesn't block `make ingest` today because M13 (the block/number-parsing stage
+  that would even look at this) isn't built yet — M10 only checks DXF structure. Whoever
+  builds M13 needs a real design decision here (a new suffix/subdivision id shape in the
+  standard, distinct from the block-prefix scheme), not a one-off exception for this
+  colony.
+- **`docs/cad-layer-standard.md`'s `RESERVED`/`OTHER` keywords (2026-08-20) now contradict
+  `contract/colony.schema.json` — this is NOT doc-only, an earlier note here was wrong.**
+  `/review` caught it (2026-08-20, plan 12's review pass): `contract/colony.schema.json:74`
+  pins `"kind": {"enum": ["park", "clubhouse", "temple", "tank", "playground", "parking"]}`
+  under `"additionalProperties": false`, and `contract/SPEC.md` requires a `<symbol>` per
+  kind. A colony normalised per the updated standard (garden/amenity polygons labeled
+  `RESERVED`/`OTHER`) will, once M12 exists and emits a manifest, produce `kind` values the
+  contract itself rejects — invariant 1 ("changing `contract/` means changing both halves in
+  one commit") is already broken, just not yet exercised because M12 doesn't run. Fix before
+  M12 is built: add `reserved`/`other` to the schema's enum and a symbol for each in
+  `contract/SPEC.md`, in one commit — do not build M12 against the current schema as-is.
 - **`make` is not on this machine's Git Bash PATH.** `/wrap` (2026-08-17) had to run
   `make gate`'s steps by hand instead (contract pytest, `apps/map` typecheck/lint/test/
   build, `tools/pipeline` verify/golden) — same commands, just invoked directly rather
   than through the root Makefile. Not chased further: works fine, just means `make ...`
   itself can't be typed literally in this shell until `make` (or `mingw32-make`, already
   referenced by an old PROGRESS.md entry) is on PATH.
+- **10 new `tools/cad-lisp/*.py` files (~1,315 lines) are untracked, not yet
+  `git add`ed.** `close_polygons.py`, `derive_site.py`, `check_layers.py`,
+  `fill_missing_labels.py`, `trace_site.py`, `triage_report.py`, `export_blocks.py`,
+  `polygonize.py`, `labels.py`, `output.py`, plus `requirements.txt` — built this session
+  (2026-08-20) against the real Jai Dev Residency colony, each individually smoke-tested,
+  but never committed or run through `/review` as a body of work. `tools/cad-lisp/
+  README.md` (already modified this session) documents all of them by name, so it's
+  currently a tracked doc pointing at untracked code — `git add` them and run `/review`
+  before they're considered done, not folded silently into an unrelated commit.
 - **`tools/cad-lisp/cv-tools.lsp` has never been run against a real AutoCAD session.**
   Written from documented AutoLISP/command-line behavior only (see D-119, PROGRESS.md's
   `## Current`) — the owner needs to load it (README has setup steps) and exercise it
