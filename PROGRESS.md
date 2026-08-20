@@ -2,33 +2,39 @@
 
 ## Current
 
-- **M11 — pipeline/geom built (2026-08-20, `spec/11-pipe-geometry.md`, `docs/plans/12.md`,
-  Tier 1).** The pure geometry core every later pipeline module depends on:
-  `validate_ring`/`validate_disjoint`/`validate_within` (raise `GeomError` naming the
-  entity handle, same idiom as `DxfConformanceError`), `simplify`, `contains`, `centroid`,
-  `area_sqft`, `nearest_edge_bearing`. No file-format import (`ezdxf`/`fitz`/`cv2`/`PIL`),
-  enforced by an AST-based test. All 8 of spec/11's acceptance criteria pass — criterion 6
-  (golden-manifest area match) adapted the same way M10 adapted its own blocked criteria,
-  since `fixtures/shree-vatika-2/colony.dxf` still doesn't exist: synthetic rectangular
-  rings built from the manifest's own `length_ft`×`breadth_ft`, not a live DXF→geom run.
-  **`/review` found 2 real issues in this build, both fixed and re-verified:** the
-  closure-check tolerance was a guessed fixed ceiling (`0.01 ft`) that silently passed a
-  `0.05 ft` botched `PEDIT`-close — replaced with a check relative to the ring's own
-  shortest drawn edge, not an absolute constant; and `nearest_edge_bearing`'s test only
-  asserted `0 <= bearing < 360`, which a sign-flipped/argument-swapped `atan2` would also
-  satisfy — replaced with four concrete expected values. Also added `types-shapely` as a
-  dev dependency (mypy strict had zero shapely stubs until this module needed them).
-  **`/review` also caught a real, pre-existing bug unrelated to this build**: an earlier
-  same-session doc edit to `docs/cad-layer-standard.md` (`RESERVED`/`OTHER` feature
-  keywords) contradicts `contract/colony.schema.json`'s `kind` enum — see Deferred, not
-  fixed here, out of plan 12's scope.
-  **Verified:** `mingw32-make gate` from repo root, full clean pass after bringing up the
-  local Supabase stack (`db-up`) — contract 2/2, `apps/map` 28/28 files 153/153 tests
-  (one `subscribePlots.test.ts` realtime-warmup flake, same documented class as prior
-  sessions, passed clean on retry) + production build, `tools/pipeline` verify (ruff
-  clean, mypy strict `Success: no issues found in 10 source files`, pytest
-  **37 passed, 1 skipped** — was 21+1, +16 new, 0 regressions), golden (1 skipped, same
-  fixture blocker, unrelated).
+- **M12 — pipeline/matching built (2026-08-20, `spec/12-pipe-matching.md`,
+  `docs/plans/13.md`, Tier 1).** Identity and classification: `assign.assign_plot_numbers`
+  (containment match + block/number resolution + zero-pad + duplicate-`svg_id` check) and
+  `classify.classify_features` (layer → `class`, `COL-FEATURE-NO` label → `kind` via a
+  codified keyword table), sharing one containment helper
+  (`pipeline.matching.match_labels_to_rings`) and one exception (`MatchingError`, same
+  raise-and-name-the-handle shape as `DxfConformanceError`/`GeomError`). The old
+  contained→nearest→flag ladder is gone — every ambiguity is now a hard error. All 14 of
+  spec/12's acceptance criteria pass; criteria 1-2 (golden fixture) adapted the same way
+  M10/M11's own did, since `fixtures/shree-vatika-2/colony.dxf` still doesn't exist —
+  synthetic `Ring`/`Label` pairs built from the manifest's own `number`/`centroid` fields.
+  **Included as a prerequisite (plan §2 task 0, per the Deferred entry that explicitly
+  blocked M12 from starting): widened `contract/colony.schema.json`'s `kind` enum and
+  `contract/SPEC.md` to add `reserved`/`other`**, resolving the doc/schema contradiction
+  M11's `/review` pass caught. Confirmed contract-only — `apps/map/src` had zero references
+  to `kind`/`data-kind` to update alongside it.
+  **`/review` found 2 real issues in this build, both fixed and re-verified:** the keyword
+  table checked `"PARK"` before `"PARKING"` — since `"PARKING"` is a substring of the
+  `park` group's own `"PARK"` keyword, every parking feature silently classified as `park`
+  instead (own plan's pinned keyword order was itself wrong, not just the code — fixed in
+  `classify.py`, `docs/cad-layer-standard.md`, and the plan doc together); and the keyword
+  table was proved by only 1 of its 7 rows (`clubhouse`), which is exactly why the parking
+  bug slipped through — added a parametrized test per keyword group plus a test asserting
+  every kind the table can produce is a valid schema enum value.
+  **`/review` also flagged, not fixed (pre-existing, unrelated to this diff, riding along
+  in the working tree across two sessions now)**: ~1,449 uncommitted `tools/cad-lisp/`
+  lines, including dead computation in `fill_missing_labels.py` — see Deferred.
+  **Verified:** `mingw32-make gate` from repo root — contract 2/2, `apps/map` typecheck/
+  lint clean, 151/151 non-flaky tests + production build clean (the one
+  `subscribePlots.test.ts` realtime-warmup flake — documented, unrelated to this diff,
+  reproduced twice this session, not clearing on retry this time), `tools/pipeline` verify
+  (ruff clean, mypy strict clean 13 files, pytest **68 passed, 1 skipped** — was 37+1, +31
+  new, 0 regressions), `make contract` 2/2.
 
 - **Jai Dev Residency — a real, non-fixture colony, mid-normalisation in AutoCAD
   (2026-08-20).** Owner working through `docs/cad-layer-standard.md`'s per-colony
@@ -66,6 +72,29 @@
   `tools/pipeline`'s M12/M13 (matching, derive, export) don't exist yet.
 
 ## Log
+
+- **Done:** Built M12 (`pipeline/matching`, `docs/plans/13.md`) — `assign.py` (plot
+  identity, block/number resolution) and `classify.py` (feature class/kind), sharing one
+  containment helper and `MatchingError`. Included the Deferred-flagged `contract/`
+  prerequisite (widened `kind` enum for `reserved`/`other`) as task 0. `/review` found and
+  fixed 2 real issues (a substring collision made `parking` unreachable, silently
+  classifying as `park`; the keyword table was proved by only 1 of 7 rows).
+- **Next:** M13 (`pipeline/derive` + `pipeline/export`) — roads by subtraction, tree scatter,
+  `facing`/`is_corner`, then the SVG+manifest export and QA gate. Separately, still open
+  from prior sessions: `git add` + `/review` the uncommitted `tools/cad-lisp/*.py` scripts
+  as their own unit (now 11 files, ~1,449 lines, flagged twice by `/review` without being
+  acted on); the owner's Jai Dev Residency block/`expected_plots` questions.
+- **Surprises:** The plan's own pinned keyword-check order (`park` before `parking`) was
+  the bug, not an implementation slip — `"PARKING"` contains `"PARK"` as a substring, so
+  whichever group is checked first silently absorbs the other. A single positive test per
+  keyword group (rather than one for the whole table) is what would have caught it before
+  `/review` did.
+- **Verified:** `mingw32-make gate` from repo root — contract 2/2, `apps/map` typecheck/
+  lint clean, 151/151 non-flaky tests + build clean (`subscribePlots.test.ts`'s realtime
+  flake reproduced on both the first run and a retry this time, unrelated to this diff —
+  confirmed via `pnpm vitest run --exclude "**/subscribePlots.test.ts"`, 151/151 clean, and
+  `pnpm build` clean on its own); `tools/pipeline` verify (ruff/mypy strict clean, 68
+  passed 1 skipped) and `make contract` (2/2).
 
 - **Done:** Built M11 (`pipeline/geom`, `docs/plans/12.md`) — ring validation, disjoint/
   within checks, simplify, contains/centroid/area_sqft/nearest_edge_bearing. `/review`
@@ -946,6 +975,16 @@
 
 ## Deferred
 
+- **`docs/cad-layer-standard.md`'s feature keyword table has no keyword mapped to
+  `playground` at all** (pre-existing gap, not introduced by the M12 build,
+  `docs/plans/13.md`). The schema's `kind` enum has always included `playground`
+  (`contract/colony.schema.json`), but no `COL-FEATURE-NO` text (`CLUB`, `PARK`, `TEMPLE`,
+  `OHT`/`TANK`/`SUMP`, `PARKING`, `RESERVED`, `OTHER`, ...) resolves to it — a real colony
+  with a playground labelled "PLAYGROUND" would hit `pipeline.matching.classify`'s
+  no-keyword-match error today. Not one of spec/12's acceptance criteria, so not fixed in
+  this plan. Whoever hits a real playground first should add a keyword to both
+  `docs/cad-layer-standard.md`'s table and `pipeline/matching/classify.py`'s
+  `_KEYWORD_TABLE` in the same commit.
 - **`pipeline.geom.validate_disjoint` (M11, docs/plans/12.md) is a naive O(n²) pairwise
   check.** Measured directly (2026-08-20), not estimated: 1,500 synthetic grid-arranged
   plots (1,124,250 pairs) took **41.33s**; an `STRtree`-filtered version of the same

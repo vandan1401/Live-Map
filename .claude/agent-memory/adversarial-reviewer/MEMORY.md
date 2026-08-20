@@ -1,7 +1,7 @@
 - [Autonomous skill loop](project-autonomous-loop.md) — approval gates removed on purpose; flag the fallout, not the decision.
-- [Review diff blind spots](review-diff-blind-spots.md) — 3x: `diff-head` hides untracked files, sweeps in unplanned work, and carries files the plan's §4 forbids. Run `git status --short` first.
+- [Review diff blind spots](review-diff-blind-spots.md) — 4x: `diff-head` hides untracked files and sweeps in unplanned work (`tools/cad-lisp` twice running). Run `git status --short` first.
 - [Docs vs enforcement drift](review-docs-vs-enforcement-drift.md) — 6x: prose/config/migration/CAD-standard claims a guarantee the runtime or `contract/` enum doesn't have.
-- [Vacuous acceptance tests](review-vacuous-acceptance-tests.md) — 5x: tests passing for the wrong reason; an assertion implied by the implementation's last line proves nothing.
+- [Vacuous acceptance tests](review-vacuous-acceptance-tests.md) — 6x: tests passing for the wrong reason; an N-row table proved by one row; assertions implied by the implementation.
 - [Constants invented outside the plan](review-unpinned-constants.md) — a pinned tolerance grew a second, unpinned bound that silently widened the accept window.
 - [Attribution fallbacks](review-attribution-fallbacks.md) — 7x: `??` placeholders, bogus `confidence`, `import` rows, sticky `owner_name`, a self-writable `user_metadata` JWT claim. Ask who can write it.
 - [Fixture geometry unchecked](review-fixture-geometry-unchecked.md) — 3x: nothing checks overlap, viewBox drift, or derived `facing`/`is_corner`; recompute them from `colony.svg` yourself.

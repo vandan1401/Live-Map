@@ -21,14 +21,15 @@ Geometry only. `class`, `id`, `data-*`. **No `fill`, no `stroke`, no `style`, ev
 | `site-boundary` | outer perimeter | no |
 | `road` | negative space, one compound path | no |
 | `garden` | parks and open space | yes, info popup |
-| `amenity` | clubhouse, temple, tank, playground, parking | yes, info popup |
+| `amenity` | clubhouse, temple, tank, playground, parking, reserved/unplanned land, other | yes, info popup |
 | `water` | ponds and water bodies | no |
 | `plot` | one saleable parcel | yes, full detail sheet |
 | `tree` | `<use href="#tree-canopy">` decoration | no |
 | `plot-label`, `feature-label`, `entrance-label` | text | no |
 
 `data-kind` carries identity within a class: `clubhouse`, `temple`, `tank`, `playground`,
-`parking`, `park`. A new amenity type means a new `<symbol>`, not a new CSS rule.
+`parking`, `park`, `reserved`, `other`. A new amenity type means a new `<symbol>`, not a new
+CSS rule.
 
 Rules that break **silently** rather than loudly:
 

@@ -17,7 +17,7 @@ not name them one of these.
 | `COL-PLOT` | closed `LWPOLYLINE` | 1 per plot | A saleable plot |
 | `COL-PLOT-NO` | `TEXT` or `MTEXT` | 1 per plot | Plot number. Insertion point must fall **inside its own plot** |
 | `COL-GARDEN` | closed `LWPOLYLINE` | 0+ | Garden, park, open space, green |
-| `COL-AMENITY` | closed `LWPOLYLINE` | 0+ | Clubhouse, temple, playground, parking |
+| `COL-AMENITY` | closed `LWPOLYLINE` | 0+ | Clubhouse, temple, playground, parking, reserved/unplanned land, other |
 | `COL-WATER` | closed `LWPOLYLINE` | 0+ | Tank, sump, OHT |
 | `COL-FEATURE-NO` | `TEXT` or `MTEXT` | 1 per feature | Feature label. Insertion point inside its own feature |
 | `COL-NORTH` | one `LINE` | 0 or 1 | Tail → head points north. Sets `north_deg` |
@@ -87,9 +87,12 @@ after `101`.
 
 ### Feature labels
 
-Free text, matched case-insensitively against the same keywords the classifier already used:
-`CLUB`/`COMMUNITY` → clubhouse, `GARDEN`/`PARK`/`OPEN SPACE`/`GREEN` → park,
-`TEMPLE`/`MANDIR` → temple, `OHT`/`TANK`/`SUMP` → tank, `PARKING` → parking. A feature whose
+Free text, matched case-insensitively against the same keywords the classifier already used,
+checked in this order (`PARKING` before `PARK` — it is a substring of it, so the reverse
+order would silently classify every parking lot as a park):
+`CLUB`/`COMMUNITY` → clubhouse, `PARKING` → parking,
+`GARDEN`/`PARK`/`OPEN SPACE`/`GREEN` → park, `TEMPLE`/`MANDIR` → temple,
+`OHT`/`TANK`/`SUMP` → tank, `RESERVED` → reserved, `OTHER` → other. A feature whose
 label matches nothing is **rejected**, not defaulted — name it something recognisable.
 
 ## Units and scale

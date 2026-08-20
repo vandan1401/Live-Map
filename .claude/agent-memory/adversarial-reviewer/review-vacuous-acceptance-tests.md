@@ -58,6 +58,18 @@ mismatch") and it was the one thing untested. **Rule: a test whose assertion is 
 the last line of the implementation proves nothing — assert the concrete value.** For
 bearings on a unit square: `(5,-5)→0`, `(-5,5)→90`, `(5,15)→180`, `(15,5)→270`.
 
+**6th recurrence, 2026-08-20 (plan 13, M12).** A *lookup table* proved by one row.
+`classify.py`'s `_KEYWORD_TABLE` has 7 keyword groups; `tests/test_matching.py` asserted
+exactly one (`CLUB HOUSE` → `clubhouse`) plus the no-match error. The untested rows hid a
+hard bug: the table is an ordered case-insensitive **substring** match with `PARK` listed
+before `PARKING`, so `"PARKING"` resolves to `park` and the `parking` kind is unreachable —
+while `docs/cad-layer-standard.md` and `contract/colony.schema.json` both promise it.
+**Rule: when a constant is a table/enum/map, the test must be parametrised over every row,
+and a separate test must assert the table's outputs are a subset of the `contract/` enum it
+mirrors. Ordered substring tables also need a prefix-collision check (is any keyword a
+substring of a later keyword?).** Related: [[review-docs-vs-enforcement-drift]],
+[[review-unpinned-constants]].
+
 **How to apply:** the local Supabase Docker stack is usually up
 (`docker exec supabase_db_colony-map psql -U postgres -d postgres -c "..."`). Postgres's
 `CONTEXT:` line names the exact failing SQL statement — one command settles it. For a

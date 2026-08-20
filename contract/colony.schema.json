@@ -71,7 +71,7 @@
         "properties": {
           "svg_id": { "type": "string" },
           "class": { "enum": ["garden", "amenity", "water"] },
-          "kind": { "enum": ["park", "clubhouse", "temple", "tank", "playground", "parking"] },
+          "kind": { "enum": ["park", "clubhouse", "temple", "tank", "playground", "parking", "reserved", "other"] },
           "label": { "type": "string" },
           "centroid": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
           "area_sqft": { "type": "integer", "minimum": 0 }

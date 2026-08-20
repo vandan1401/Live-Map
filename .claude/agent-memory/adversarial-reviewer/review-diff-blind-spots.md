@@ -28,6 +28,15 @@ lines**, three of which the tracked README change documents by name. **Rule: an 
 §4 non-goal appearing in the diff is a finding on its own, no further analysis needed** —
 and when a tracked doc names a file, check `git ls-files` for it, not just the filesystem.
 
+**4th, 2026-08-20 (plan 13, M12).** The same `tools/cad-lisp` block is *still* riding along —
+now 11 `.py` files + `README.md` + `cv-tools.lsp`, ~1,450 lines, in a diff whose plan (13)
+never mentions the directory. It has now crossed two consecutive Tier 1 milestone commits
+without ever being the subject of a plan or a review. **Rule: if the same unplanned block
+appears in two reviews running, say so explicitly and recommend it be committed separately
+before it fuses to a Tier 1 commit** — and spot-check it anyway (this pass found a dead local
+in `fill_missing_labels.py` that no linter covers, since `ruff` only runs under
+`tools/pipeline/`).
+
 **How to apply:** every review, first tool call. If untracked files exist and are in scope
 for the plan, read them directly rather than reviewing only what the diff showed, and say
 in the report that the supplied diff was incomplete. Conversely, diff every changed file
