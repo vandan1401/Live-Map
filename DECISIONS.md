@@ -68,3 +68,4 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | ID | Decision | Status |
 |---|---|---|
 | D-201 | One repo, not two — the contract is a shared schema, not mirrored prose | accepted |
+| D-202 | Blockless plot IDs (`plot-{NN}`, `block: ""`) — a required, empty-string field, not an optional or omitted one | accepted |

@@ -42,6 +42,9 @@ export async function fetchPlotsByColony(
   // Postgres gives no ordering guarantee and a heap UPDATE (every status save, every
   // bulk_set_initial_plot_data run) can reshuffle the row on the next fetch — the table
   // view has no other way to find a plot in a several-hundred-row list.
+  // A blockless plot's svg_id is "plot-{NN}" (docs/plans/15.md) — lexically before every
+  // "plot-A-…" id (ASCII "0" < "A"), so blockless plots sort as a group ahead of every
+  // lettered block rather than interleaved by number. Accepted, not fixed (plan 15 §3).
   const { data, error } = await client
     .from("plots")
     .select("*")

@@ -7,6 +7,11 @@ describe("extractSvgPlotIds", () => {
     expect(extractSvgPlotIds(svg)).toEqual(new Set(["plot-A-01", "plot-A-02"]));
   });
 
+  it("extracts a blockless plot id (docs/plans/15.md)", () => {
+    const svg = `<svg><path id="plot-A-01"/><path id="plot-07"/></svg>`;
+    expect(extractSvgPlotIds(svg)).toEqual(new Set(["plot-A-01", "plot-07"]));
+  });
+
   it("de-duplicates a repeated id", () => {
     const svg = `<svg><path id="plot-A-01"/><path id="plot-A-01"/></svg>`;
     expect(extractSvgPlotIds(svg)).toEqual(new Set(["plot-A-01"]));

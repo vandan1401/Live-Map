@@ -93,11 +93,16 @@ export function ColonyUploadStageView({
   }
 
   if (stage.kind === "ready") {
+    // A blockless plot (contract/SPEC.md, docs/plans/15.md) carries block: "" — drop it
+    // from the set so it doesn't show as a stray blank entry between commas.
+    const blocks = [...new Set(stage.manifest.plots.map((p) => p.block))]
+      .filter((block) => block !== "")
+      .sort();
     return (
       <>
         <p className="colony-upload-summary">
-          {stage.manifest.colony.name} — {stage.manifest.plots.length} plot(s), blocks{" "}
-          {[...new Set(stage.manifest.plots.map((p) => p.block))].sort().join(", ")}
+          {stage.manifest.colony.name} — {stage.manifest.plots.length} plot(s)
+          {blocks.length > 0 && <>, blocks {blocks.join(", ")}</>}
         </p>
         <div ref={previewRef} className="colony-upload-preview" />
         <label className="colony-upload-confirm-check">

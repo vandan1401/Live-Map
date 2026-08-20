@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchPlotsByColony } from "../db/plots.ts";
 import type { PlotRow } from "../db/types.ts";
+import { formatPlotLabel } from "../../shared/format.ts";
 
 // Pure domain shaping — no DOM access, so this half of M6 (spec/06) is unit-testable
 // without a browser or a database. `loadSearchIndex` below is the only impure part.
@@ -14,7 +15,7 @@ export interface SearchEntry {
 export function buildSearchIndex(plots: PlotRow[]): SearchEntry[] {
   return plots.map((plot) => ({
     svgId: plot.svg_id,
-    label: `${plot.block}-${plot.number}`,
+    label: formatPlotLabel(plot),
     // owner_name is sticky at the DB layer (docs/plans/08.md §3 — it's never cleared on
     // an un-book, so Undo can restore it) — search must not surface a buyer name for a
     // plot that isn't currently booked, or an un-booked plot stays findable by, and

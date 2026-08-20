@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatActorName,
   formatDate,
+  formatPlotLabel,
   formatRelativeTime,
   formatRupees,
   formatStatusLabel,
@@ -68,6 +69,16 @@ describe("formatStatusLabel", () => {
 
   it("renders registered as 'Registry done'", () => {
     expect(formatStatusLabel("registered")).toBe("Registry done");
+  });
+});
+
+describe("formatPlotLabel", () => {
+  it("joins block and number for a lettered plot", () => {
+    expect(formatPlotLabel({ block: "A", number: "01" })).toBe("A-01");
+  });
+
+  it("shows just the number for a blockless plot", () => {
+    expect(formatPlotLabel({ block: "", number: "07" })).toBe("07");
   });
 });
 

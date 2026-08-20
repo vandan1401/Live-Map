@@ -61,6 +61,15 @@ describe("validateColonyManifest", () => {
     const result = validateColonyManifest(manifest);
     expect(result.ok).toBe(false);
   });
+
+  it("accepts a blockless plot (docs/plans/15.md)", () => {
+    const manifest = validManifest();
+    manifest.plots[0].svg_id = "plot-07";
+    manifest.plots[0].block = "";
+    manifest.plots[0].number = "07";
+    const result = validateColonyManifest(manifest);
+    expect(result.ok).toBe(true);
+  });
 });
 
 describe("checkManifestVerifiedFalse", () => {

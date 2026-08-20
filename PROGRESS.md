@@ -2,6 +2,42 @@
 
 ## Current
 
+- **Blockless plot IDs added to the contract (2026-08-21, `docs/plans/15.md`, Tier 1, no
+  spec — real-world trigger, not a pre-written milestone).** The contract's plot id format
+  was `plot-{BLOCK}-{NN}` with block required (`svg_id` pattern `^plot-[A-Z]+-[0-9]{2,}$`,
+  `block` pattern `^[A-Z]+$`); it now also accepts `plot-{NN}` with `"block": ""`. Trigger:
+  the Jai Dev Residency colony (mid-normalisation in AutoCAD, owner-confirmed this session)
+  has bare `1`–`6` and explicit `A-1`–`A-6` as genuinely separate plots, not the same plots
+  under two labels — the owner wants bare numbers to render with no block letter at all,
+  which the contract could not represent before this change.
+  **Both halves changed in one commit (invariant 1):** `contract/colony.schema.json` /
+  `contract/SPEC.md` widened (additive-only regex, no previously-valid id becomes invalid);
+  `ColonyConfig` gained `default_block: str | None` (required, no Python-level default — all
+  4 construction sites made explicit), resolved in `load_colony_config` from an optional
+  JSON key (absent → `blocks[0]`, matching every existing colony's behavior unchanged;
+  `null` → blockless) and validated against `blocks` so a bare number can't silently invent
+  an unvalidated block; `assign_plot_numbers` uses it instead of `blocks[0]` unconditionally.
+  `apps/map` gained a shared `formatPlotLabel()` (`shared/format.ts`) replacing four
+  duplicated `${block}-${number}` sites, and `extractSvgPlotIds`'s regex was widened to
+  match.
+  **`/review` (three rounds) found and fixed:** two new test files (`test_dxf.py`,
+  `test_matching.py`) would have pushed already-tracked invariant-7 (250-line) breaches
+  further — split into `test_colony_config.py`/`test_matching_blockless.py`; the new
+  `default_block`-not-in-`blocks` validation (added in response to round 1) initially
+  contradicted its own doc wording in `docs/cad-layer-standard.md` — fixed in round 2; a
+  real, un-pinned gap was found and *not* fixed (see Deferred) —
+  `pipeline/export/svg.py:86`'s on-map plot label renders the bare number only, so a
+  blockless `plot-01` and a lettered `plot-A-01` in the same colony show the identical
+  visible label "1".
+  `tools/pipeline/colonies/jai-dev-residency.json` is explicitly **not** written yet — no
+  `colony.dxf` for that colony exists in this repo (owner has it, mid-normalisation,
+  outside version control), so nothing can be exported against it regardless of this change.
+  **Verified:** full gate from repo root — `contract` 4/4 (1 fixture-driven + 3 new inline
+  schema tests), `apps/map` typecheck/lint/build clean, **157/157 tests** (one
+  `subscribePlots.test.ts` realtime-warmup flake on the first run, clean on retry — same
+  documented flake as prior wraps), `tools/pipeline` ruff/mypy clean, **97 passed, 1
+  skipped** (was 90+1, +7 new, 0 regressions).
+
 - **M14 — the local verify page built (2026-08-21, `spec/14-pipe-verify-page.md`, Tier 2,
   no plan file).** `tools/pipeline/verify/{index.html,verify.css,verify.js}` — a
   no-build-step, three-file `file://`/`make serve` page (D-114) that fetches
@@ -128,6 +164,27 @@
   owner's block/number-collision call — see above).
 
 ## Log
+
+- **Done:** Blockless plot IDs in the contract (`docs/plans/15.md`, Tier 1, no spec —
+  real-world trigger). Widened `contract/colony.schema.json`/`SPEC.md` (additive-only
+  regex) to allow `plot-{NN}`/`"block": ""` alongside `plot-{BLOCK}-{NN}`; added
+  `ColonyConfig.default_block` (required, validated against `blocks`) and wired it through
+  `load_colony_config`/`assign_plot_numbers`; added `apps/map`'s shared `formatPlotLabel()`
+  and widened `extractSvgPlotIds`'s regex. Three `/review` rounds, two real findings fixed
+  (invariant-7 file-size breaches worsened by new tests; a self-contradicting doc/code pair
+  from a round-1 fix) and one deliberately deferred (see Deferred).
+- **Next:** `tools/pipeline/colonies/jai-dev-residency.json` still can't be written — no
+  `colony.dxf` for that colony exists in this repo. That remains the real trigger colony
+  once the owner produces it.
+- **Surprises:** the plan's own §2 item 4 (validate `default_block` against `blocks`) was
+  never in the original plan text — it was a `/review` round-1 finding I fixed inline, which
+  then created a second-order finding in round 2 (the fix contradicted the doc line the same
+  diff had just rewritten). A one-line design addition mid-build needs its own doc-sync
+  check, not just a code-and-test check.
+- **Verified:** Full `mingw32-make gate` from repo root (`apps/map`'s realtime test flaked
+  once on the DB-warmup path, documented pre-existing behavior, clean on retry) — contract
+  4/4, apps/map typecheck/lint/157 tests/build, tools/pipeline ruff/mypy clean, 97 passed/1
+  skipped (was 90+1, +7 new, 0 regressions).
 
 - **Done:** Built M14, the local verify page (`spec/14-pipe-verify-page.md`, Tier 2,
   `tools/pipeline/verify/`) — three files, no build step, reuses the app's own CSS and a
@@ -1092,6 +1149,18 @@
 
 ## Deferred
 
+- **Blockless plot IDs (`docs/plans/15.md`, built 2026-08-21) render an ambiguous on-map
+  label when a colony mixes a blockless plot with a lettered one of the same number.**
+  `tools/pipeline/pipeline/export/svg.py:86` emits `int(plot.number)` as the `.plot-label`
+  text — for a colony with bare `1`–`6` and explicit `A-1`–`A-6` as distinct plots (Jai Dev
+  Residency's exact shape, still blocked on a real DXF — see the next entry), `plot-01` and
+  `plot-A-01` both render the visible label "1", indistinguishable on the map the family
+  actually looks at. `svg_id` collision is still caught (`assign.py`'s `seen` dict), but the
+  human-visible label is a separate string nothing currently disambiguates. `/review`
+  (2026-08-21, plan 15) caught this and it was deliberately not fixed in that plan — the fix
+  (emit `{block}-{number}` when `plot.block` is non-empty) changes every existing colony's
+  map labels and needs its own plan. Whoever exports a real mixed colony first needs to
+  either accept the ambiguity or land that fix first.
 - **M13 (`pipeline/derive`, `pipeline/export`, `docs/plans/14.md`, built 2026-08-21) has
   several first-cut numeric constants and one unverifiable sign convention, none checkable
   against a real DXF yet** (same golden-fixture blocker as M10-M12 — `fixtures/

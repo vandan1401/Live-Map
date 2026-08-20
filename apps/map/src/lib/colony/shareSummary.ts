@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchColonyById } from "../db/colonies.ts";
 import { fetchPlotsByColony } from "../db/plots.ts";
 import { fetchRecentHistoryForPlots } from "../db/plotHistory.ts";
-import { formatRelativeTime, formatStatusLabel } from "../../shared/format.ts";
+import { formatPlotLabel, formatRelativeTime, formatStatusLabel } from "../../shared/format.ts";
 import type { PlotStatus } from "../db/types.ts";
 
 // Enough to be useful in a WhatsApp message without turning it into a wall of text
@@ -37,7 +37,7 @@ export async function loadShareSummaryData(
   const labelByPlotId = new Map<string, string>();
   for (const plot of plots) {
     counts[plot.status] += 1;
-    labelByPlotId.set(plot.id, `${plot.block}-${plot.number}`);
+    labelByPlotId.set(plot.id, formatPlotLabel(plot));
   }
 
   const history = await fetchRecentHistoryForPlots(

@@ -35,12 +35,19 @@ def load_colony_config(colony_id: str, colonies_dir: Path) -> ColonyConfig:
         raise DxfConformanceError(f"no colony config at {path}")
     data: dict[str, Any] = json.loads(path.read_text())
     try:
+        blocks = tuple(data["blocks"])
+        default_block = data.get("default_block", blocks[0] if blocks else None)
+        if default_block is not None and default_block not in blocks:
+            raise DxfConformanceError(
+                f"{path}: default_block {default_block!r} is not in blocks {list(blocks)}"
+            )
         return ColonyConfig(
             id=data["id"],
             name=data["name"],
             units=data["units"],
             expected_plots=data["expected_plots"],
-            blocks=tuple(data["blocks"]),
+            blocks=blocks,
+            default_block=default_block,
             number_width=data["number_width"],
             number_range=tuple(data["number_range"]),
             north_deg=data.get("north_deg"),

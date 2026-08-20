@@ -2,6 +2,7 @@ import { isLegalTransition } from "../../lib/plot-status/transitions.ts";
 import {
   formatActorName,
   formatDate,
+  formatPlotLabel,
   formatRelativeTime,
   formatRupees,
   formatStatusLabel,
@@ -49,7 +50,7 @@ export function PlotTableRow({
   return (
     <tr className="plot-table-row">
       <td className="plot-table-cell-id">
-        {plot.block}-{plot.number}
+        {formatPlotLabel(plot)}
       </td>
       <td>
         <select

@@ -45,6 +45,7 @@ class ColonyConfig:
     units: str
     expected_plots: int
     blocks: tuple[str, ...]
+    default_block: str | None  # block a bare (unprefixed) plot number resolves to; None = no block
     number_width: int
     number_range: tuple[int, int]
     north_deg: float | None

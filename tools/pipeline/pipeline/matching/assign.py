@@ -3,8 +3,10 @@ spec/12-pipe-matching.md, docs/plans/13.md).
 
 The owner never renumbers a drawing by hand -- bare numbers (`7`, `11`, ...) and occasional
 explicit block prefixes (`B-7`) are read as-is and mechanically transformed into the
-contract's `plot-{BLOCK}-{NN}` shape. Judgement (is this really a plot number) stays a hard
-error; the transform itself (padding, prefix resolution) is the only thing this module does.
+contract's `plot-{BLOCK}-{NN}` shape, or `plot-{NN}` when the colony's bare numbers are
+genuinely blockless (`config.default_block is None`, docs/plans/15.md). Judgement (is this
+really a plot number) stays a hard error; the transform itself (padding, prefix resolution)
+is the only thing this module does.
 """
 
 from __future__ import annotations
@@ -68,7 +70,7 @@ def assign_plot_numbers(
                 )
             explicit_block_count += 1
         else:
-            block = config.blocks[0]
+            block = config.default_block or ""
             number_text = label.text
             default_block_count += 1
 
@@ -86,7 +88,7 @@ def assign_plot_numbers(
             )
 
         padded = str(number).zfill(config.number_width)
-        svg_id = f"plot-{block}-{padded}"
+        svg_id = f"plot-{block}-{padded}" if block else f"plot-{padded}"
         if svg_id in seen:
             raise MatchingError(
                 f"{ring.layer} {ring.handle} and {ring.layer} {seen[svg_id].handle} "

@@ -40,6 +40,7 @@ _CONFIG = ColonyConfig(
     units="ft",
     expected_plots=1,
     blocks=("A",),
+    default_block="A",
     number_width=2,
     number_range=(1, 60),
     north_deg=0.0,

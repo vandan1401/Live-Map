@@ -119,7 +119,8 @@ Specifically, in emitted SVGs:
 - No `fill`, no `stroke`, no `style`. Ever. Verified by grep in the QA gate.
 - `<use>` carries explicit `width` and `height`. Without them it defaults to 100% of the
   viewport and every tree covers the whole map. This already happened once.
-- Ids are `plot-{BLOCK}-{number}`, block uppercase, number zero-padded to two digits.
+- Ids are `plot-{BLOCK}-{number}`, block uppercase, number zero-padded to two digits — or
+  `plot-{number}` for a blockless plot (`block: ""` in the manifest, docs/plans/15.md).
 
 ### Y is flipped
 

@@ -39,14 +39,22 @@ This is real work you get to skip, not a limitation.
 **Leave them exactly as the plan already has them.** Bare numbers — `1`, `2`, … `10`, `11`,
 with no prefix — are the expected case. You never renumber anything by hand.
 
-The app's schema pins the *stored* format: `svg_id` matches `^plot-[A-Z]+-[0-9]{2,}$`, built
-from a block (`^[A-Z]+$`) and a number (`^[0-9]{2,}$`). Getting from a bare `7` to
-`plot-A-07` is a mechanical, lossless transform, so the pipeline does it — see "what belongs
-in AutoCAD" in D-118. Two config values control it:
+The app's schema pins the *stored* format: `svg_id` matches `^plot-(?:[A-Z]+-)?[0-9]{2,}$`,
+built from an optional block (`^[A-Z]*$`) and a number (`^[0-9]{2,}$`). Getting from a bare
+`7` to `plot-A-07` is a mechanical, lossless transform, so the pipeline does it — see "what
+belongs in AutoCAD" in D-118. Three config values control it:
 
-- **`blocks`** — the block letters this colony uses. The first entry is the default, applied
-  to every label with no prefix. A prefix outside this list is an error, so a stray `S-7`
-  cannot quietly invent a block.
+- **`blocks`** — every block letter this colony uses, whether from an explicitly prefixed
+  label (`B-7`) or as the target of `default_block` below. A prefix outside this list is an
+  error, so a stray `S-7` cannot quietly invent a block — and `default_block` is validated
+  against this same list, for the same reason.
+- **`default_block`** — the block a *bare* (unprefixed) label resolves to; must be one of
+  `blocks`, or config loading fails. Omit it and it defaults to `blocks[0]`, matching the
+  historical one-block-per-colony convention. Set it explicitly to `null` when bare numbers
+  are genuinely blockless plots, distinct from any lettered block — e.g. a colony where bare
+  `1`–`6` and explicit `A-1`–`A-6` are two different sets of real plots, not the same plots
+  under two labels (docs/plans/15.md). A bare label then resolves to `plot-{NN}` with
+  `"block": ""` in the manifest, never an omitted field.
 - **`number_width`** — how many digits every number is zero-padded to.
 
 With `"blocks": ["A"]` and `"number_width": 2`:

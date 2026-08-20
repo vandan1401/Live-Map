@@ -3,5 +3,7 @@
 // manifest's plot list agree with what the SVG actually contains") can never drift between
 // the two call sites.
 export function extractSvgPlotIds(svgRaw: string): Set<string> {
-  return new Set([...svgRaw.matchAll(/id="(plot-[A-Z]+-\d+)"/g)].map((m) => m[1]));
+  return new Set(
+    [...svgRaw.matchAll(/id="(plot-(?:[A-Z]+-)?\d+)"/g)].map((m) => m[1]),
+  );
 }

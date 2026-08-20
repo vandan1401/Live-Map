@@ -1,5 +1,10 @@
 import type { PlotDetail } from "../../lib/colony/plotDetail.ts";
-import { formatActorName, formatRelativeTime, formatStatusLabel } from "../../shared/format.ts";
+import {
+  formatActorName,
+  formatPlotLabel,
+  formatRelativeTime,
+  formatStatusLabel,
+} from "../../shared/format.ts";
 
 // Read-only display: dimensions, owner name only while booked (D-012 amended this
 // session — narrower than the original D-012 field list), plus the attribution line
@@ -13,7 +18,7 @@ export function PlotDetailContent({ plot, history }: PlotDetail) {
   return (
     <div className="plot-detail-content">
       <h2 className="plot-detail-heading">
-        {plot.block}-{plot.number}
+        {formatPlotLabel(plot)}
         {plot.is_corner && <span className="plot-detail-corner-badge">Corner plot</span>}
       </h2>
       <p className="plot-detail-attribution">{attribution}</p>

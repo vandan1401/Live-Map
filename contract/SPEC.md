@@ -41,7 +41,9 @@ Rules that break **silently** rather than loudly:
 - **Zero styling attributes.** One hardcoded fill and the "retheme every colony at once"
   guarantee is gone.
 
-ID format: `plot-{BLOCK}-{NN}` — block uppercase, number zero-padded to two digits.
+ID format: `plot-{BLOCK}-{NN}` — block uppercase, number zero-padded to two digits. A plot
+with no block (docs/plans/15.md) uses `plot-{NN}` instead, with `"block": ""` in the
+manifest — never an omitted field.
 viewBox width is always 1000; height follows the aspect ratio.
 
 ## colony.json
@@ -63,6 +65,10 @@ viewBox width is always 1000; height follows the aspect ratio.
     { "svg_id": "plot-A-14", "block": "A", "number": "14", "area_sqft": 1237,
       "length_ft": 35, "breadth_ft": 35,
       "centroid": [412, 288], "facing": "east", "is_corner": true,
+      "confidence": "contained | nearest | manual" },
+    { "svg_id": "plot-07", "block": "", "number": "07", "area_sqft": 1100,
+      "length_ft": 33, "breadth_ft": 33,
+      "centroid": [520, 310], "facing": "north", "is_corner": false,
       "confidence": "contained | nearest | manual" }
   ],
   "features": [

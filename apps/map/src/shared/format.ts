@@ -69,6 +69,12 @@ export function formatStatusLabel(status: string): string {
   return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
+// A blockless plot (contract/SPEC.md, docs/plans/15.md) carries block: "" — show just the
+// number rather than a leading "-".
+export function formatPlotLabel(plot: { block: string; number: string }): string {
+  return plot.block ? `${plot.block}-${plot.number}` : plot.number;
+}
+
 // scripts/import-seed.ts writes the literal "import" into updated_by/changed_by for
 // every M2 seed row (docs/plans/09.md's "system user" convention); the RPC
 // bulk_set_initial_plot_data (docs/plans/10.md) writes the literal "bulk_import" for the
