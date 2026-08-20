@@ -39,8 +39,8 @@ inspect: $(VENV)/pyvenv.cfg  ## triage only — what is this file? make inspect 
 ingest: $(VENV)/pyvenv.cfg  ## make ingest COLONY=<id> DXF=<path> — the real pipeline entry (D-118)
 	$(PY) -m pipeline.cli.ingest --colony $(COLONY) --dxf $(DXF)
 
-export:
-	@echo "export not built yet (M13 — pipeline/export/)"; exit 1
+export: $(VENV)/pyvenv.cfg  ## make export COLONY=<id> DXF=<path> — the real pipeline entry (M13, D-118)
+	$(PY) -m pipeline.cli.export --colony $(COLONY) --dxf $(DXF)
 
 serve:     ## I run this, not Claude — see .claude/hooks/guard.sh
 	python3 -m http.server 8080 --directory verify

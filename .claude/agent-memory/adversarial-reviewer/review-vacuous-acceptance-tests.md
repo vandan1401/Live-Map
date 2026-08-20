@@ -70,6 +70,18 @@ mirrors. Ordered substring tables also need a prefix-collision check (is any key
 substring of a later keyword?).** Related: [[review-docs-vs-enforcement-drift]],
 [[review-unpinned-constants]].
 
+**7th recurrence, 2026-08-20 (plan 14, M13).** The criterion's own qualifying clause was
+dropped by the test. Criterion 6 read "Two clean runs of `orchestrate_export` … are
+byte-identical, **tree positions included**"; `tests/test_export.py::
+test_two_clean_runs_are_byte_identical` calls `build_svg(..., trees=(), ...)` and never
+calls `orchestrate_export` at all — so the one seeded, non-deterministic-by-default part
+of the output is the part excluded. `test_svg_has_zero_styling_attributes` and
+`test_manifest_*` also all pass `trees=()`. Same pass: `orchestrate_export` (the Tier-1
+entry point, and the only place "both files or neither" lives) had **zero** tests, though
+plan §6 named the test explicitly. **Rule: for each acceptance criterion, grep the test
+file for the function the criterion names, and re-read the criterion's adverbial clauses
+("… included", "… end to end", "… on a re-export") against the arguments actually passed.**
+
 **How to apply:** the local Supabase Docker stack is usually up
 (`docker exec supabase_db_colony-map psql -U postgres -d postgres -c "..."`). Postgres's
 `CONTEXT:` line names the exact failing SQL statement — one command settles it. For a

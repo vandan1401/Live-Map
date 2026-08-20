@@ -1,12 +1,12 @@
 - [Autonomous skill loop](project-autonomous-loop.md) — approval gates removed on purpose; flag the fallout, not the decision.
 - [Review diff blind spots](review-diff-blind-spots.md) — 4x: `diff-head` hides untracked files and sweeps in unplanned work (`tools/cad-lisp` twice running). Run `git status --short` first.
-- [Docs vs enforcement drift](review-docs-vs-enforcement-drift.md) — 6x: prose/config/migration/CAD-standard claims a guarantee the runtime or `contract/` enum doesn't have.
-- [Vacuous acceptance tests](review-vacuous-acceptance-tests.md) — 6x: tests passing for the wrong reason; an N-row table proved by one row; assertions implied by the implementation.
+- [Docs vs enforcement drift](review-docs-vs-enforcement-drift.md) — 7x: prose/config/migration/CAD-standard/spec claims a guarantee the runtime, `contract/` enum, or `qa.py` doesn't have.
+- [Vacuous acceptance tests](review-vacuous-acceptance-tests.md) — 7x: tests passing for the wrong reason; a criterion's qualifying clause dropped; the named entry point never called.
 - [Constants invented outside the plan](review-unpinned-constants.md) — a pinned tolerance grew a second, unpinned bound that silently widened the accept window.
 - [Attribution fallbacks](review-attribution-fallbacks.md) — 7x: `??` placeholders, bogus `confidence`, `import` rows, sticky `owner_name`, a self-writable `user_metadata` JWT claim. Ask who can write it.
 - [Fixture geometry unchecked](review-fixture-geometry-unchecked.md) — 3x: nothing checks overlap, viewBox drift, or derived `facing`/`is_corner`; recompute them from `colony.svg` yourself.
 - [Fixture plot-count drift](review-fixture-plot-count-drift.md) — the fixture's plot count is a literal in ~8 spec/README files; grep the old count on any fixture change.
-- [Comments assert what code doesn't do](review-comment-asserts-unimplemented.md) — 4x: intent comments (CSS cascade, SW cache-versioning, "this corner is free") the code doesn't deliver; do the cascade/position arithmetic yourself.
+- [Comments assert what code doesn't do](review-comment-asserts-unimplemented.md) — 5x: intent comments (CSS cascade, SW cache-versioning, "this corner is free", a pipeline comment wrong about an app effect) the code doesn't deliver.
 - [Optimistic defaults](review-optimistic-defaults.md) — 10x: initial state, missing `catch`/`finally`, frozen age, stuck error flag, `() => {}` handler, a sticky confirm checkbox.
 - [Unstyled new components](review-unstyled-new-components.md) — 2x: grep new `className`s against `src/styles/*.css`; SVG rendered outside `ColonyMap` loses its defs/ground/`data-status`.
 - [Scratch rows leak into UI](review-scratch-rows-leak-into-ui.md) — 3x: tests mint permanent `verified: true` colonies; `delete` is impossible, teardown must `update … verified = false`.

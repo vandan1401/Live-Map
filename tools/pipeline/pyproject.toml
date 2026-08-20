@@ -44,6 +44,14 @@ module = "pymupdf"
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
+# jsonschema ships no inline types and no stub package is installed here (D-117-adjacent,
+# same class of issue as the pymupdf override below) -- tests/test_contract.py already
+# imported it unchecked (tests/ isn't in `files` above); pipeline/export/qa.py (M13) is the
+# first place it's imported from checked code.
+module = "jsonschema"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 # ezdxf's own __init__.py and ezdxf/entities/__init__.py don't declare `__all__`, so
 # strict mode's implicit-reexport check rejects `ezdxf.readfile`/`DXFError`/`DXFGraphic`
 # imported the way ezdxf's own docs use them. Same class of issue as the pymupdf override

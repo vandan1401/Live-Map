@@ -2,39 +2,48 @@
 
 ## Current
 
-- **M12 — pipeline/matching built (2026-08-20, `spec/12-pipe-matching.md`,
-  `docs/plans/13.md`, Tier 1).** Identity and classification: `assign.assign_plot_numbers`
-  (containment match + block/number resolution + zero-pad + duplicate-`svg_id` check) and
-  `classify.classify_features` (layer → `class`, `COL-FEATURE-NO` label → `kind` via a
-  codified keyword table), sharing one containment helper
-  (`pipeline.matching.match_labels_to_rings`) and one exception (`MatchingError`, same
-  raise-and-name-the-handle shape as `DxfConformanceError`/`GeomError`). The old
-  contained→nearest→flag ladder is gone — every ambiguity is now a hard error. All 14 of
-  spec/12's acceptance criteria pass; criteria 1-2 (golden fixture) adapted the same way
-  M10/M11's own did, since `fixtures/shree-vatika-2/colony.dxf` still doesn't exist —
-  synthetic `Ring`/`Label` pairs built from the manifest's own `number`/`centroid` fields.
-  **Included as a prerequisite (plan §2 task 0, per the Deferred entry that explicitly
-  blocked M12 from starting): widened `contract/colony.schema.json`'s `kind` enum and
-  `contract/SPEC.md` to add `reserved`/`other`**, resolving the doc/schema contradiction
-  M11's `/review` pass caught. Confirmed contract-only — `apps/map/src` had zero references
-  to `kind`/`data-kind` to update alongside it.
-  **`/review` found 2 real issues in this build, both fixed and re-verified:** the keyword
-  table checked `"PARK"` before `"PARKING"` — since `"PARKING"` is a substring of the
-  `park` group's own `"PARK"` keyword, every parking feature silently classified as `park`
-  instead (own plan's pinned keyword order was itself wrong, not just the code — fixed in
-  `classify.py`, `docs/cad-layer-standard.md`, and the plan doc together); and the keyword
-  table was proved by only 1 of its 7 rows (`clubhouse`), which is exactly why the parking
-  bug slipped through — added a parametrized test per keyword group plus a test asserting
-  every kind the table can produce is a valid schema enum value.
-  **`/review` also flagged, not fixed (pre-existing, unrelated to this diff, riding along
-  in the working tree across two sessions now)**: ~1,449 uncommitted `tools/cad-lisp/`
-  lines, including dead computation in `fill_missing_labels.py` — see Deferred.
-  **Verified:** `mingw32-make gate` from repo root — contract 2/2, `apps/map` typecheck/
-  lint clean, 151/151 non-flaky tests + production build clean (the one
-  `subscribePlots.test.ts` realtime-warmup flake — documented, unrelated to this diff,
-  reproduced twice this session, not clearing on retry this time), `tools/pipeline` verify
-  (ruff clean, mypy strict clean 13 files, pytest **68 passed, 1 skipped** — was 37+1, +31
-  new, 0 regressions), `make contract` 2/2.
+- **M13 — pipeline/derive and pipeline/export built (2026-08-21, `spec/13-pipe-derive-export.md`,
+  `docs/plans/14.md`, Tier 1).** The pipeline is now wired end to end for the first time:
+  `pipeline.export.run.orchestrate_export` calls `load_colony_config` → `ingest_dxf` → layer
+  split → `validate_ring`/`validate_within` → `assign_plot_numbers`/`classify_features` →
+  `derive_road`/`scatter_trees`/`resolve_facing`/`is_plot_corner` → `compute_transform` →
+  `build_svg`/`build_manifest` → `run_qa` → write `out/<id>/{colony.svg,colony.json}`, both
+  files or neither. `make export COLONY=<id> DXF=<path>` replaces the M13 stub in both
+  Makefiles. `px_per_ft` is **derived** at export time (`1000 / site_width_ft`), never read
+  from colony config — a deliberate, documented deviation from spec/13's literal text (see
+  `docs/plans/14.md` §3): the contract's own "viewBox width is always 1000" (D-110) cannot
+  hold if the scale is a fixed config constant for an arbitrary site size. Feature
+  `svg_id = f"{class}-{ring.handle.lower()}"` (a gap M12 explicitly left open) — DXF handle,
+  not label text, for stability across reruns.
+  **`/review` found 7 real issues, all fixed and re-verified:** the embedded fallback
+  `<style>` block was unscoped and would have out-cascaded `colony-theme.css`/
+  `plot-selection.css` for every colony once inlined into the live app DOM (fixed with a
+  `svg:root` prefix on every selector); trees carried no `class`, making the contract's
+  `tree` class unreachable by any CSS (added `class="tree"`/`"tree-crown"`); the
+  `stable_seed` determinism test was the exact weak version the plan warned against — passed
+  unchanged even with the salted builtin `hash()` (now pins a literal value); the
+  byte-identical-reruns test excluded tree positions, the one non-deterministic part, and
+  `orchestrate_export` itself had zero tests (added real end-to-end orchestration tests:
+  idempotency including trees, and both-files-or-neither on a QA failure, both fresh-dir and
+  corrupted-existing-dir); the "zero styling attributes" grep the rules/plan both claimed the
+  QA gate performs wasn't actually in `run_qa` (added, now blocking); the exported manifest
+  was never validated against `contract/colony.schema.json` (added, now the first QA check);
+  `Path.write_text` with no `encoding=` resolves to cp1252 on Windows, risking a mid-write
+  `UnicodeEncodeError` on a non-ASCII `COL-FEATURE-NO` label — the exact partial-write case
+  the plan pins against (fixed with explicit `encoding="utf-8"` on both writes).
+  **`validate_disjoint`'s known O(n²) cost (PROGRESS.md Deferred, flagged since M11) is now
+  wired into the real export path via `run_qa`, without the `STRtree` fix first** —
+  `/review`'s explicit verdict was re-defer, trigger set at a real colony's plot count (41s
+  was measured at 1,500 plots/1.1M pairs; ~300 plots is well under a second).
+  Golden criteria (1-3, 6) adapted the same way M10-M12's were —
+  `fixtures/shree-vatika-2/colony.dxf` still doesn't exist; synthetic DXF/Ring/Label data,
+  hand-computed expected values.
+  **Verified:** full `make gate` from repo root — `contract` 2/2, `apps/map` typecheck/lint
+  clean, 153/153 tests + production build clean (the one `subscribePlots.test.ts`
+  realtime-warmup flake reproduced once, cleared on retry — same documented flake as M12's
+  wrap), `tools/pipeline` verify (ruff clean, mypy strict clean 26 files, pytest **90
+  passed, 1 skipped** — was 68+1, +22 new, 0 regressions), `tools/pipeline` golden (1 passed,
+  1 skipped — the skip is expected), `make contract` 2/2.
 
 - **Jai Dev Residency — a real, non-fixture colony, mid-normalisation in AutoCAD
   (2026-08-20).** Owner working through `docs/cad-layer-standard.md`'s per-colony
@@ -73,11 +82,32 @@
 
 - **In-app colony onboarding complete (2026-08-17, `docs/plans/11.md`, Tier 1, M15).**
   All 12 acceptance criteria passed, `/review` findings fixed and re-verified. Stable,
-  no open issues. Still upstream of a real (non-fixture) colony reaching the app:
-  `tools/pipeline`'s M13 (derive, export) doesn't exist yet — M12 (matching) shipped
-  2026-08-20.
+  no open issues. `tools/pipeline` now has a full DXF-to-manifest path (M13, shipped
+  2026-08-21) — the remaining gap before a real, non-fixture colony reaches the app is a
+  real colony's normalised DXF (Jai Dev Residency is the closest candidate, still blocked
+  on the owner's block/number-collision call — see above) and the local preview page
+  (spec/14, M14, not started).
 
 ## Log
+
+- **Done:** Built M13 (`pipeline/derive`, `pipeline/export`, `docs/plans/14.md`) — the
+  pipeline's first real end-to-end orchestration, `make export`, a blocking QA gate now
+  covering schema validation and the SVG styling-attribute rule, and 7 `/review` findings
+  fixed (unscoped fallback `<style>` leak, unreachable `tree` CSS class, two weak tests,
+  two missing QA checks, a Windows encoding bug on write).
+- **Next:** M14, the local preview page (`spec/14-pipe-verify-page.md`, `tools/pipeline/
+  verify/`, Tier 2) — or, if a real DXF lands first, run `make export` against it and
+  fix whatever the synthetic tests couldn't predict (the `facing` sign convention
+  especially, flagged unverifiable in `docs/plans/14.md` §3/PROGRESS.md Deferred).
+- **Surprises:** The embedded fallback `<style>` block spec/13 asked for isn't inert once
+  the app inlines the SVG into the live DOM — an unscoped rule becomes a real document
+  stylesheet and silently out-cascades the app's own theme CSS for every colony on the
+  page, not just the QA-standalone case it was written for. Not something a synthetic
+  unit test on `build_svg`'s output alone would ever catch — only cross-referencing the
+  actual app CSS (`colony-theme.css`/`plot-selection.css`) during `/review` surfaced it.
+- **Verified:** Full `make gate` from repo root, all green (details in `## Current`) —
+  contract 2/2, apps/map typecheck/lint/153 tests/build, tools/pipeline verify (90
+  passed, 1 skipped) + golden.
 
 - **Done:** Committed the `tools/cad-lisp/` toolkit that had been sitting uncommitted
   across the last two sessions' `/review` flags — `close_polygons.py`, `derive_site.py`,
@@ -1001,6 +1031,18 @@
 
 ## Deferred
 
+- **M13 (`pipeline/derive`, `pipeline/export`, `docs/plans/14.md`, built 2026-08-21) has
+  several first-cut numeric constants and one unverifiable sign convention, none checkable
+  against a real DXF yet** (same golden-fixture blocker as M10-M12 — `fixtures/
+  shree-vatika-2/colony.dxf` still doesn't exist): `TREE_SPACING_FT`/`TREE_INSET_FT`/
+  `TREE_JITTER_FT` (`pipeline/derive/trees.py`), `ROAD_TOUCH_MIN_LENGTH_FT`/
+  `CORNER_ANGLE_TOLERANCE_DEG` (`pipeline/derive/corner.py`), and `PLOT_AREA_SQFT_MIN`/
+  `PLOT_AREA_SQFT_MAX` (`pipeline/export/qa.py`) are all reasoned first-cut values with no
+  real colony to tune against. More load-bearing: `pipeline/derive/facing.py`'s sign
+  convention (`true_bearing = raw_bearing + north_deg`, taken on spec/13's literal text,
+  not independently re-derived — see `docs/plans/14.md` §3) cannot be numerically verified
+  without a real north-marked DXF and should be sanity-checked against one the first time a
+  real colony with a non-zero `north_deg` reaches `make export`.
 - **`docs/cad-layer-standard.md`'s feature keyword table has no keyword mapped to
   `playground` at all** (pre-existing gap, not introduced by the M12 build,
   `docs/plans/13.md`). The schema's `kind` enum has always included `playground`
@@ -1012,14 +1054,19 @@
   `docs/cad-layer-standard.md`'s table and `pipeline/matching/classify.py`'s
   `_KEYWORD_TABLE` in the same commit.
 - **`pipeline.geom.validate_disjoint` (M11, docs/plans/12.md) is a naive O(n²) pairwise
-  check.** Measured directly (2026-08-20), not estimated: 1,500 synthetic grid-arranged
-  plots (1,124,250 pairs) took **41.33s**; an `STRtree`-filtered version of the same
-  check (same tolerance, same result) took **0.45s**, checking only 5,762 candidate
-  pairs — a ~93x speedup, gap widens further as colony size grows. Fine today since
-  nothing calls this function yet (M11 has no caller, spec/11 scope) — 41s is a real
-  problem only once this is wired into a `make ingest` run. Owner explicitly deferred
-  the `STRtree` fix (2026-08-20) rather than doing it now; do it before wiring
-  `validate_disjoint` into M12/M13's real ingest path, not after.
+  check, now wired into the real export path (2026-08-21, M13, `docs/plans/14.md`,
+  `pipeline/export/qa.py::run_qa`), NOT fixed first — explicitly re-deferred, not
+  forgotten.** Measured directly (2026-08-20): 1,500 synthetic grid-arranged plots
+  (1,124,250 pairs) took **41.33s**; an `STRtree`-filtered version of the same check took
+  **0.45s** — a ~93x speedup. This is a repeat of the owner's own earlier instruction ("do
+  it before wiring `validate_disjoint` into M12/M13's real ingest path, not after") not
+  being followed to the letter — M13's plan called for reusing `validate_disjoint` as the
+  QA gate's overlap check, and `/review` was asked to weigh in given that history.
+  **`/review`'s verdict (2026-08-21): re-defer, not fix now** — 41s was measured at 1,500
+  plots/1.1M pairs; a real colony of ~300 plots is ~45k pairs, well under a second. Trigger
+  for the `STRtree` fix is a real colony's plot count, not this session's fixture scale (26
+  plots) or the 1,500-plot synthetic benchmark. Jai Dev Residency (in progress, see
+  `## Current`) is the real candidate to size against once its plot count is final.
 - **`docs/cad-layer-standard.md` has no concept of a plot subdivision/cutout suffix.**
   Found on the Jai Dev Residency colony (2026-08-20): plot `24` was split, and the cutout
   is labeled `24-A` on `COL-PLOT-NO` — both `24` and `24-A` are real, separate plots on

@@ -41,6 +41,18 @@ Occurrences:
    grep `src/styles/*.css` for `position: absolute` and compare top/left/right/bottom +
    z-index yourself.**
 
+5. 2026-08-20 (plan 14, M13) — two in one diff, and the first one crosses the repo halves.
+   (a) `tools/pipeline/pipeline/export/svg.py`'s module docstring: "the one fallback
+   `<style>` block is a plain CSS text node, not a presentation attribute, so it does not
+   trip that rule." True about the grep, false about the effect — the block is emitted into
+   a file the app inlines into the live DOM, where it out-cascades `colony-theme.css` and
+   `plot-selection.css`. **A pipeline-side comment can be wrong about an `apps/map` effect;
+   the two halves' comments are never checked against each other.**
+   (b) `tools/pipeline/tests/test_derive.py:34-40` — comment says "Pinning the literal
+   expected value catches that", and the test body contains no literal, only
+   `stable_seed(x) == stable_seed(x)`. **When a test's comment explains why a weaker check
+   is insufficient, verify the stronger check is actually the one written.**
+
 **How to apply:** for CSS especially, do the specificity/cascade arithmetic yourself rather
 than accepting a comment's claim about which rule wins — `!important` scoped to one selector
 says nothing about selectors it does not match. Related:

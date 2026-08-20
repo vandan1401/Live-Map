@@ -68,8 +68,22 @@ Three checks that have each caught a real defect:
    both halves in one commit"). **On any `docs/cad-layer-standard.md` diff, grep the
    values it names against `contract/colony.schema.json`'s enums.**
 
+7. **`spec/*.md` sentences that describe the *other half's* behaviour are unenforced
+   assumptions.** 2026-08-20 (plan 14, M13): `spec/13-pipe-derive-export.md:49` says the
+   pipeline's embedded fallback `<style>` block is fine because "The app's stylesheet
+   overrides it". It does not — the app inlines the SVG into the live DOM
+   (`parseColonySvg.ts` → `L.svgOverlay`), so an SVG `<style>` becomes a **document-scoped**
+   sheet that loads *after* the bundled CSS and wins every equal-specificity tie
+   (`.road`, `.garden`, `.amenity`, `.plot`, `.plot-label`, `.site-boundary`). Same pass:
+   `.claude/rules/tier-1.md` says "No `fill`, no `stroke`, no `style`. Ever. **Verified by
+   grep in the QA gate**" — `pipeline/export/qa.py::run_qa` never receives the SVG string,
+   so that grep exists only in a unit test. **On any pipeline `export/` diff, check that
+   every guarantee tier-1.md attributes to "the QA gate" is actually a check in `qa.py`,
+   and treat any spec sentence about what `apps/map` will do as a claim to verify against
+   `apps/map/src/`.**
+
 **How to apply:** on any review that touches `CLAUDE.md`, `.claude/settings.json`, or a
 skill file, open `.claude/hooks/guard.sh` and `_json.sh` and check the greps in the same
-pass. This has now recurred six times — worth a CLAUDE.md line or a guard.sh self-test.
+pass. This has now recurred seven times — worth a CLAUDE.md line or a guard.sh self-test.
 Related: [[project-autonomous-loop]], [[review-diff-blind-spots]],
 [[review-fixture-plot-count-drift]].
