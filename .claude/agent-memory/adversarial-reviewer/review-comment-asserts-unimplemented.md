@@ -53,6 +53,23 @@ Occurrences:
    `stable_seed(x) == stable_seed(x)`. **When a test's comment explains why a weaker check
    is insufficient, verify the stronger check is actually the one written.**
 
+6. 2026-08-21 (plan 15) — `apps/map/src/lib/db/plots.ts:40-44`: "svg_id is
+   `plot-{BLOCK}-{NN}` with the number zero-padded to two digits, **so lexical order is
+   manifest order**", justifying `.order("svg_id")`. The same session's plan widened the
+   contract to allow `plot-07`, which sorts before every `plot-A-…` — the plan's §3 pinned
+   that consequence as accepted, but nothing was written at the code site that states the
+   guarantee. **When a plan "pins an accepted consequence", grep for the comment that
+   asserts the now-broken guarantee; accepted-in-the-plan is not recorded-in-the-code.**
+
+7. 2026-08-21 (plan 16) — the *inverse*: the comment is **narrower than the code**.
+   `tools/pipeline/pipeline/export/svg.py:84-86`: "A blockless and a lettered plot can share
+   the same padded number -- the block prefix is what keeps their on-map labels
+   distinguishable", above `f"{plot.block}-{int(plot.number)}" if plot.block else ...`, which
+   prefixes **unconditionally**. In a single-block colony there is nothing to distinguish, yet
+   every plot's visible map label changes (`1` → `A-1`). **A conditional-sounding rationale
+   over unconditional code hides a user-visible change to existing colonies — check the
+   comment's stated condition against the branch predicate actually written.**
+
 **How to apply:** for CSS especially, do the specificity/cascade arithmetic yourself rather
 than accepting a comment's claim about which rule wins — `!important` scoped to one selector
 says nothing about selectors it does not match. Related:

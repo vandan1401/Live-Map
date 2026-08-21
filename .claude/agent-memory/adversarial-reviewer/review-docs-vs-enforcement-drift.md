@@ -82,8 +82,28 @@ Three checks that have each caught a real defect:
    and treat any spec sentence about what `apps/map` will do as a claim to verify against
    `apps/map/src/`.**
 
+8. **A `contract/` change has four restatements, not two.** 2026-08-21 (plan 15): the plot
+   `svg_id` pattern was widened to allow a blockless `plot-07`, and `contract/SPEC.md` +
+   `docs/cad-layer-standard.md` were updated — but `.claude/rules/tier-1.md:122` ("Ids are
+   `plot-{BLOCK}-{number}`", under *The contract is shared*) and `NAVIGATION.md`'s
+   `assign_plot_numbers` row ("default = `config.blocks[0]`") still state the old contract.
+   Both are files CLAUDE.md tells the next session to read *instead of* the code.
+   **On any `contract/` diff, grep the old pattern repo-wide — at minimum
+   `.claude/rules/*.md`, `NAVIGATION.md`, `spec/*.md`, and module docstrings.**
+
+9. **Drift also runs the other way: enforcement stricter than the doc, added outside the
+   plan.** 2026-08-21 (plan 15 build): `pipeline/extract/dxf.py:40-43` added an unplanned
+   `default_block must be in blocks` `DxfConformanceError` (plan §2.4 pinned only the
+   `data.get(...)` resolution expression), while the same diff rewrote
+   `docs/cad-layer-standard.md:47` to say `blocks` lists the letters used for *explicitly
+   prefixed* labels — under which `"blocks": [], "default_block": "A"` is the natural config
+   and now hard-errors, and `"blocks": []` alone silently makes every plot blockless (it
+   used to `IndexError`). **When a build adds validation the plan didn't ask for, check the
+   doc it ships alongside actually states the new rule.**
+
 **How to apply:** on any review that touches `CLAUDE.md`, `.claude/settings.json`, or a
 skill file, open `.claude/hooks/guard.sh` and `_json.sh` and check the greps in the same
-pass. This has now recurred seven times — worth a CLAUDE.md line or a guard.sh self-test.
+pass. This has now recurred nine times — worth a CLAUDE.md line or a guard.sh self-test.
 Related: [[project-autonomous-loop]], [[review-diff-blind-spots]],
-[[review-fixture-plot-count-drift]].
+[[review-fixture-plot-count-drift]], [[review-line-cap-breaches]],
+[[review-contract-widening-consumers]].

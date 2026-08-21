@@ -82,6 +82,14 @@ plan §6 named the test explicitly. **Rule: for each acceptance criterion, grep 
 file for the function the criterion names, and re-read the criterion's adverbial clauses
 ("… included", "… end to end", "… on a re-export") against the arguments actually passed.**
 
+**8th recurrence, 2026-08-21 (plan 16).** A criterion quoting a count that was never
+measured: §5 says "`make contract` → **2/2** fixture manifests still validate". There is one
+fixture manifest (`fixtures/shree-vatika-2/colony.json`) and the target
+(`pytest tests/test_contract.py`) reports **4 passed** since plan 15 added three inline
+schema tests. A criterion nobody can match is a criterion that gets silently reinterpreted at
+wrap time. **Rule: every numeric expected output in §5 must be re-run before the review ends —
+`make contract` here is `cd tools/pipeline && .venv/Scripts/python -m pytest tests/test_contract.py -q`.**
+
 **How to apply:** the local Supabase Docker stack is usually up
 (`docker exec supabase_db_colony-map psql -U postgres -d postgres -c "..."`). Postgres's
 `CONTEXT:` line names the exact failing SQL statement — one command settles it. For a

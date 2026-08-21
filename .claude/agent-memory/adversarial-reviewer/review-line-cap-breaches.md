@@ -1,0 +1,35 @@
+---
+name: review-line-cap-breaches
+description: Invariant 7's 250-line cap gets breached by growth in files that were already near or over it — the filesize.sh hook is PostToolUse (advisory feedback, cannot undo the write), so a breach reaches the diff. Run wc -l on every touched file.
+metadata:
+  type: feedback
+---
+
+Check `wc -l` on every file a diff touches, and compare against `git show HEAD:<file> | wc -l`
+to see whether *this* diff crossed 250.
+
+**Why:** `.claude/hooks/filesize.sh` is a **PostToolUse** hook — its own header says
+"PostToolUse cannot undo the write, so it feeds the problem back for Claude to fix." A
+`{"decision":"block"}` there is a message, not a prevention; it can be (and has been)
+carried past. It also only checks `*.ts|*.tsx|*.js|*.jsx|*.py` — see
+[[review-docs-vs-enforcement-drift]] item 4 for the `.css` blind spot.
+
+**How to apply:** the repo's `tools/pipeline/tests/*.py` files sit right at the boundary and
+are the usual offenders, because "add a test per plan item" grows them a few lines at a time:
+
+- 2026-08-14 (M6): `apps/map/src/styles/colony-theme.css` 179 → 263 (unchecked extension).
+- 2026-08-21 (plan 15): `tools/pipeline/tests/test_dxf.py` 237 → **267**. Same diff grew
+  `test_matching.py` 263 → 298 and `test_export.py` 303 → 304, both already over — the hook's
+  own wording is "do not grow it further", so a pre-existing breach is not a licence.
+
+Smallest fix is almost always a new sibling test module (`test_colony_config.py`), not
+deleting coverage. **Confirmed working** — the plan 15 re-review found the sibling-module fix
+applied (`test_colony_config.py`, `test_matching_blockless.py`, each with a docstring naming
+the cap as the reason for the split), `test_dxf.py` back to 238, and the cross-module
+`from test_matching import _config, _label, _square_ring` collecting fine under the repo's
+pytest config. Recommend this fix without hedging.
+
+Note the residual: `test_export.py` (304) and `test_matching.py` (264) are *already* over the
+cap and every plan that adds a `ColonyConfig` field grows them by a line. Not worth flagging
+per-diff; worth flagging when a diff adds a whole test to one of them.
+Related: [[review-vacuous-acceptance-tests]].

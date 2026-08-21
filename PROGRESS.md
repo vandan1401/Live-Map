@@ -2,6 +2,36 @@
 
 ## Current
 
+- **Plot-label disambiguation for mixed-block colonies (2026-08-21, `docs/plans/16.md`,
+  Tier 1, no spec — a `PROGRESS.md` → Deferred item from plan 15's `/review`, not a
+  pre-written milestone).** `tools/pipeline/pipeline/export/svg.py`'s plot-label `<text>`
+  emission never read `plot.block` — every colony's on-map label was bare digits only. For
+  a colony mixing a blockless plot (plan 15) and a lettered one with the same padded number
+  (the exact Jai Dev Residency shape, still blocked on a real DXF), both rendered the same
+  visible text, e.g. `plot-01` and `plot-A-01` both showing "1" — indistinguishable on the
+  map a family member reads, even though `svg_id` collisions were already impossible
+  (`assign.py`'s `seen` dict, unaffected). Fixed: the block prefix (`{block}-{number}`, e.g.
+  `"A-1"`, number left unpadded to match the fixture's existing style) now only fires when
+  a colony actually mixes more than one distinct `block` value — a single-block colony
+  (every colony shipped so far, e.g. `shree-vatika-2`) renders exactly as before.
+  **`/review` (round 1) caught the first draft prefixing unconditionally** — it would have
+  silently changed every existing single-block colony's map labels with no owner ask on
+  record; fixed by gating on `len({p.block for p in plots}) > 1`. It also caught a bogus
+  acceptance criterion in the plan ("2/2 fixture manifests" — there is only 1 fixture
+  manifest; `test_contract.py` reports 4 passed, 3 of them plan 15's inline schema tests) —
+  corrected in the plan file. New tests in `tools/pipeline/tests/test_svg_labels.py` (not
+  added to `test_export.py`, already over the 250-line cap independent of this change — see
+  Deferred). `fixtures/shree-vatika-2/colony.svg` untouched and needs no future update
+  either, since the fix is a no-op for any single-block colony.
+  **Verified:** `mingw32-make gate` (root) — full gate: `contract` (4 passed),
+  `apps/map` typecheck/lint/test(157 passed)/build all clean, `tools/pipeline` verify
+  (ruff+mypy+pytest, 101 passed/1 skipped) + golden (1 passed/1 skipped) all clean. One
+  transient failure on the first gate run — `subscribePlots.test.ts`'s realtime live-
+  integration test timed out at 20000ms under full-suite parallel load, passed alone in
+  2.32s and passed on the gate's second full run — the same pre-existing, previously
+  root-caused flake recorded below (Docker/Supabase worker contention, owner said "leave
+  it" 2026-08-16), not caused by this diff (Tier 1, `tools/pipeline/pipeline/export/**`
+  only, nothing under `apps/map/src/lib/sync/`).
 - **Blockless plot IDs added to the contract (2026-08-21, `docs/plans/15.md`, Tier 1, no
   spec — real-world trigger, not a pre-written milestone).** The contract's plot id format
   was `plot-{BLOCK}-{NN}` with block required (`svg_id` pattern `^plot-[A-Z]+-[0-9]{2,}$`,
@@ -2334,4 +2364,25 @@
   `\d plots` → `rate_paise`/`booking_amount_paise` both `bigint`. M3:
   `pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build` all pass, 14/14 tests
   (11 new formatter tests). Not run: M2 criterion 5, M3 criteria 1/3/4 — all need a human
+
+- Done: `docs/plans/16.md` — plot-label text in `tools/pipeline/pipeline/export/svg.py`
+  now prefixes the block letter (`"A-1"`, unpadded number) only when a colony mixes more
+  than one distinct block, fixing plan 15's deferred label-collision bug for a colony like
+  Jai Dev Residency without touching any already-shipped single-block colony's labels.
+- Next: none from this plan — plan 16 is closed. Repo-wide next action is still whatever
+  `## Current`'s top entry says (currently: this plan, done; the item below it, plan 15/M12
+  onward, is still blocked on `fixtures/shree-vatika-2/colony.dxf`, which the owner hasn't
+  produced yet).
+- Surprises: the first implementation drafted an unconditional block prefix (matching the
+  literal wording of the Deferred note that spawned this plan) and `/review` caught that it
+  silently changes every single-block colony's map label with no owner ask on record —
+  gating on "more than one distinct block present" was the actual fix, not something the
+  plan brief had spelled out precisely enough on the first pass. `/review` also caught a
+  plan-file-only bug (an acceptance criterion citing a fixture-manifest count that was
+  never true): a reminder that `/plan`'s own acceptance criteria need the same scrutiny as
+  the code.
+- Verified: `mingw32-make gate` (root Makefile) — full gate green on the second run;
+  first run's sole failure (`subscribePlots.test.ts` realtime timeout) reproduced as the
+  documented pre-existing full-suite-parallelism flake (passed in 2.32s run alone). See
+  `## Current` for the itemized command output.
   in a browser.

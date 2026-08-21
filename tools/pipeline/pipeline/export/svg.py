@@ -79,11 +79,20 @@ def build_svg(
         d = polygon_to_path_d(Polygon(plot.ring.points), t)
         lines.append(f'<path class="plot" id="{plot.svg_id}" d="{d}"/>')
 
+    # A blockless and a lettered plot can share the same padded number (docs/plans/16.md) --
+    # only prefix with the block when the colony actually mixes blocks, so a normal
+    # single-block colony's labels are unchanged.
+    mixed_blocks = len({plot.block for plot in ordered_plots}) > 1
     for plot in ordered_plots:
         cx, cy = apply_transform(t, centroid(plot.ring))
+        label_text = (
+            f"{plot.block}-{int(plot.number)}"
+            if (plot.block and mixed_blocks)
+            else str(int(plot.number))
+        )
         lines.append(
             f'<text class="plot-label" data-plot="{plot.svg_id}" x="{cx:.2f}" '
-            f'y="{cy:.2f}">{int(plot.number)}</text>'
+            f'y="{cy:.2f}">{label_text}</text>'
         )
 
     for tx, ty in trees:
