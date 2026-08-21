@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { attachSync } from "../lib/sync/attachSync.ts";
 import { buildWorldGroundSvg, computeWorldLayerBounds } from "./mapTexturePatterns.ts";
 import { addFeatureLabelChips } from "./mapLabelChips.ts";
+import { alignPlotLabels } from "./alignPlotLabels.ts";
 import { parseColonySvg } from "./parseColonySvg.ts";
 import grassPhotoUrl from "../assets/textures/grass-satellite.jpg";
 
@@ -48,6 +49,17 @@ export function useColonyMapMount(
     const svgEl = parseColonySvg(colonySvg);
     svgRef.current = svgEl;
     mapRef.current = map;
+
+    // Built once so the bulk status callbacks below do a single tree walk (querySelectorAll)
+    // instead of one svgEl.querySelector('#id') per plot — found laggy on Jai Dev
+    // Residency's 675 plots (2026-08-21): 675 individual scoped-selector queries on mount
+    // measurably slowed the initial paint, on top of the 675-simultaneous-transition issue
+    // colony-theme.css's .no-transition rule addresses separately.
+    const plotsById = new Map<string, Element>();
+    for (const el of svgEl.querySelectorAll(".plot")) {
+      if (el.id) plotsById.set(el.id, el);
+    }
+    alignPlotLabels(svgEl);
     // Read straight off the parsed SVG's own viewBox rather than a hand-maintained
     // constant — a stale copy here previously letterboxed a taller fixture into the
     // wrong bounds and threw off the selection auto-pan math (/review finding, M6).
@@ -90,13 +102,18 @@ export function useColonyMapMount(
     // selectors do the rest. The client is created once, app-wide, in App.tsx
     // (docs/plans/09.md) and passed down as a prop — no longer created per colony mount.
     const detachSync = attachSync(client, colonyId, {
+      // Bulk load (initial mount + reconnect refetch) — every plot at once, so the
+      // per-plot fill transition is suppressed for this pass only (colony-theme.css's
+      // .no-transition); a single realtime update below still animates normally.
       applyStatuses: (statuses) => {
+        svgEl.classList.add("no-transition");
         for (const [svgId, status] of Object.entries(statuses)) {
-          svgEl.querySelector(`#${svgId}`)?.setAttribute("data-status", status);
+          plotsById.get(svgId)?.setAttribute("data-status", status);
         }
+        requestAnimationFrame(() => svgEl.classList.remove("no-transition"));
       },
       applyStatus: (svgId, status) => {
-        svgEl.querySelector(`#${svgId}`)?.setAttribute("data-status", status);
+        plotsById.get(svgId)?.setAttribute("data-status", status);
       },
       setOffline,
       setFreshnessLabel,

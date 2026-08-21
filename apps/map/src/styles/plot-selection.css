@@ -9,20 +9,22 @@
  * already each plot's centroid, but with no text-anchor/dominant-baseline the default
  * start-anchored, alphabetic-baseline text rendered off-centre. Owner's reference render
  * (2026-08-15) shows plain bold black numbers with no halo at all, sitting bare on flat
- * green — copied here (font, weight, no letter-spacing), but kept a thin halo rather
- * than dropping it outright: that reference's ground is one flat colour, ours is a photo
- * texture plus a status tint, busier underneath a number than a flat fill ever is. */
+ * green — copied here (font, weight, no letter-spacing).
+ *
+ * font-size and the stroke halo were tuned against the 26-plot fixture, where the
+ * average plot is tens of SVG units wide. Jai Dev Residency (2026-08-21, 675 plots on
+ * the same 1000-unit viewBox) has a median plot only ~9 units wide — the old 12px/
+ * 1.5px-stroke numbers were wider than the plots themselves, unreadable clutter, and
+ * (675 stroked text nodes) a real render cost. Owner asked directly for the stroke gone
+ * and the font smaller; a smaller plot on the fixture just reads smaller, so this is a
+ * strict improvement there too, not a per-colony special case. */
 .plot-label {
   font-family: ui-sans-serif, system-ui, sans-serif;
-  font-size: 12px;
+  font-size: 6px;
   font-weight: 700;
   fill: #1a1a1a;
   text-anchor: middle;
   dominant-baseline: central;
-  paint-order: stroke;
-  stroke: rgba(255, 255, 255, 0.75);
-  stroke-width: 1.5px;
-  stroke-linejoin: round;
   pointer-events: none;
 }
 
@@ -98,23 +100,22 @@
 }
 
 /* Length/breadth dimension callout for the selected plot (ColonyMap.tsx +
- * plotDimensionOverlay.ts) — architectural-style arrows and text, static decoration
- * so it's never hit-tested, same rule as every other non-.plot element. Reuses
- * --colony-plot-selected-stroke as its "ink" colour now that .plot.is-selected no
- * longer draws a border with it. */
+ * plotDimensionOverlay.ts) — static decoration so it's never hit-tested, same rule as
+ * every other non-.plot element. Thin, light, dashed line with no arrowheads (owner
+ * ask, 2026-08-21 — the previous arrow markers rendered far larger than a real plot on
+ * Jai Dev Residency's much smaller plots). */
 .plot-dimensions {
   pointer-events: none;
 }
 .plot-dim-line {
   stroke: var(--colony-plot-selected-stroke);
-  stroke-width: 1.5;
+  stroke-width: 0.4;
+  stroke-dasharray: 1.5 1.5;
+  stroke-opacity: 0.7;
   fill: none;
 }
-.plot-dim-arrowhead {
-  fill: var(--colony-plot-selected-stroke);
-}
 .plot-dim-label {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 3px;
+  font-weight: 400;
   fill: var(--colony-plot-selected-stroke);
 }

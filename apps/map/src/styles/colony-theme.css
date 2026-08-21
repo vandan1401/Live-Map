@@ -30,9 +30,11 @@
 
   /* Crisp warm white (owner: "the colour of boundary is not good" — was a flat grey
    * that read as muddy over the new green ground) — matches how plot boundaries are
-   * actually painted in the owner's own aerial-photo reference. */
+   * actually painted in the owner's own aerial-photo reference. Width dropped from 1.5
+   * (owner ask, 2026-08-21: too heavy once Jai Dev Residency's much smaller real plots
+   * made a fixture-tuned width look thick relative to plot size). */
   --colony-plot-stroke: #f7f4e8;
-  --colony-plot-stroke-width: 1.5;
+  --colony-plot-stroke-width: 0.5;
   --colony-plot-selected-stroke: #08060d;
 
   /* Legend: available=wheat, booked=blue, registered=orange — a saturated palette
@@ -149,6 +151,13 @@
    * than like a page reload; it is worth the effort. Same rule fires for the local
    * actor's own save (ColonyMap.tsx's handlePlotStatusChange), not a separate path. */
   transition: fill 400ms ease-out;
+}
+
+/* Suppresses the transition above for the bulk status load only (useColonyMapMount.ts's
+ * applyStatuses) — 675 plots mounting at once on Jai Dev Residency (2026-08-21) meant 675
+ * simultaneous fill transitions; a single realtime update still animates normally. */
+.colony-svg-root.no-transition .plot {
+  transition: none;
 }
 
 /* Leaflet's own stylesheet sets `.leaflet-pane > svg path { pointer-events: none }`

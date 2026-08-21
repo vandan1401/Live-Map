@@ -3,6 +3,7 @@ import type L from "leaflet";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchPlotBySvgId } from "../lib/db/plots.ts";
 import { buildDimensionGroup } from "./plotDimensionOverlay.ts";
+import { parsePlotPoints } from "../lib/colony/plotGeometry.ts";
 
 // Pulled out of ColonyMap.tsx to keep that file under the 250-line cap (CLAUDE.md
 // invariant 7). Everything here is DOM writes on the raw parsed SVG, same discipline
@@ -123,12 +124,11 @@ export function useSelectedPlotOverlay(
       .then((plot) => {
         if (cancelled || !plot) return;
         const currentSvg = svgRef.current;
-        const plotEl = currentSvg?.querySelector(`#${selectedId}`) as SVGGraphicsElement | null;
+        const plotEl = currentSvg?.querySelector(`#${selectedId}`);
         if (!currentSvg || !plotEl) return;
         currentSvg.querySelector(".plot-dimensions")?.remove();
-        currentSvg.appendChild(
-          buildDimensionGroup(plotEl.getBBox(), plot.length_ft, plot.breadth_ft),
-        );
+        const points = parsePlotPoints(plotEl.getAttribute("d") ?? "");
+        currentSvg.appendChild(buildDimensionGroup(points, plot.length_ft, plot.breadth_ft));
       })
       .catch((error: unknown) => {
         console.error("failed to load plot dimensions:", error);
