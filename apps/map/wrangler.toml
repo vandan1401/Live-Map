@@ -1,0 +1,5 @@
+# Cloudflare Pages deploy config (D-014). `wrangler pages deploy` reads this for the
+# project name and which built directory to upload -- run from apps/map after `pnpm build`.
+name = "colony-map"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-08-21"
