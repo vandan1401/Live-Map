@@ -120,13 +120,27 @@ def _read_label(entity: DXFGraphic, layer: str) -> Label:
         raise DxfConformanceError(
             f"{layer} entity {entity.dxf.handle} is a {dxftype}, not TEXT or MTEXT"
         )
-    text = entity.plain_text() if dxftype == "MTEXT" else entity.dxf.text  # type: ignore[attr-defined]
+    if dxftype == "MTEXT":
+        text = entity.plain_text()  # type: ignore[attr-defined]
+        # MTEXT can encode its angle either as a plain `rotation` value or as a
+        # `text_direction` vector -- when both are absent it defaults to 0, but when a
+        # vector IS present it is the authoritative one and `.dxf.rotation` alone silently
+        # reads 0 regardless (found on Jai Dev Residency, 2026-08-21: every one of its 675
+        # labels uses the vector form). get_rotation() resolves whichever is actually set.
+        rotation_deg = entity.get_rotation()  # type: ignore[attr-defined]
+        height = entity.dxf.get("char_height", None)
+    else:
+        text = entity.dxf.text
+        rotation_deg = entity.dxf.get("rotation", 0.0)
+        height = entity.dxf.get("height", None)
     point = entity.dxf.insert
     return Label(
         layer=layer,
         handle=entity.dxf.handle,
         text=text.strip(),
         point=(float(point[0]), float(point[1])),
+        rotation_deg=float(rotation_deg),
+        height=float(height) if height is not None else None,
     )
 
 

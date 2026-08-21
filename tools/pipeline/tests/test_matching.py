@@ -54,7 +54,7 @@ def _square_ring(handle: str, layer: str, center: tuple[float, float], half: flo
 
 
 def _label(handle: str, layer: str, text: str, point: tuple[float, float]) -> Label:
-    return Label(layer=layer, handle=handle, text=text, point=point)
+    return Label(layer=layer, handle=handle, text=text, point=point, rotation_deg=0.0, height=None)
 
 
 # -- criteria 1-2 (adapted): the golden fixture, reproduced synthetically -------------------

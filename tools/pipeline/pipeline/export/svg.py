@@ -90,8 +90,17 @@ def build_svg(
             if (plot.block and mixed_blocks)
             else str(int(plot.number))
         )
+        # data-rotation/data-label-height carry the CAD operator's own choice of how each
+        # label sits on its plot (docs/plans/17.md, 2026-08-21) -- data-* only, per
+        # invariant 1 (no style/transform baked into the SVG itself); apps/map applies
+        # them at runtime the same way it already applies data-status. Negated: DXF
+        # rotation is CCW from +X in a Y-up frame, and apply_transform flips Y, which
+        # mirrors rotation direction (tier-1.md: "Y is flipped ... needs its own test").
+        attrs = f' data-rotation="{-plot.label.rotation_deg:.2f}"'
+        if plot.label.height is not None:
+            attrs += f' data-label-height="{plot.label.height * t.scale:.2f}"'
         lines.append(
-            f'<text class="plot-label" data-plot="{plot.svg_id}" x="{cx:.2f}" '
+            f'<text class="plot-label" data-plot="{plot.svg_id}"{attrs} x="{cx:.2f}" '
             f'y="{cy:.2f}">{label_text}</text>'
         )
 

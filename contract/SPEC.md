@@ -31,6 +31,17 @@ Geometry only. `class`, `id`, `data-*`. **No `fill`, no `stroke`, no `style`, ev
 `parking`, `park`, `reserved`, `other`. A new amenity type means a new `<symbol>`, not a new
 CSS rule.
 
+A `plot-label` carries `data-plot` (its plot's `svg_id`, for pairing with the `<path
+class="plot">` it labels) and, when the source DXF label had them, `data-rotation` (degrees,
+already converted to SVG's Y-down frame — negated from the DXF value, since flipping Y
+mirrors rotation direction) and `data-label-height` (already scaled by the same transform as
+every other coordinate). Both are the CAD operator's own choice of how that label sits on its
+plot, read off the source entity, not derived (docs/plans/17.md, 2026-08-21) — `apps/map`
+applies them at runtime (`transform`/inline `font-size`), the same way `data-status` drives
+`colony-theme.css`'s `[data-status]` rules. Either or both may be absent (an older export, or
+a label whose source entity carried no rotation) — the app falls back to unrotated, CSS
+default size.
+
 Rules that break **silently** rather than loudly:
 
 - **`<use>` must carry explicit `width` and `height`.** With neither, it defaults to 100% of

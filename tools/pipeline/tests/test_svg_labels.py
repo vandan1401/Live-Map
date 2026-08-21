@@ -17,18 +17,38 @@ from pipeline.matching.assign import MatchedPlot
 _SITE = Ring(layer="COL-SITE", handle="S1", points=((0, 0), (200, 0), (200, 100), (0, 100)))
 
 
-def _plot(handle: str, svg_id: str, block: str, number: str, x0: float) -> MatchedPlot:
+def _plot(
+    handle: str,
+    svg_id: str,
+    block: str,
+    number: str,
+    x0: float,
+    rotation_deg: float = 0.0,
+    height: float | None = None,
+) -> MatchedPlot:
     ring = Ring(
         layer="COL-PLOT",
         handle=handle,
         points=((x0, 0), (x0 + 10, 0), (x0 + 10, 10), (x0, 10)),
     )
-    label = Label(layer="COL-PLOT-NO", handle=f"{handle}L", text=number, point=(x0 + 5, 5))
+    label = Label(
+        layer="COL-PLOT-NO",
+        handle=f"{handle}L",
+        text=number,
+        point=(x0 + 5, 5),
+        rotation_deg=rotation_deg,
+        height=height,
+    )
     return MatchedPlot(ring=ring, label=label, svg_id=svg_id, block=block, number=number)
 
 
 def _label_texts(svg: str) -> list[str]:
     return re.findall(r'class="plot-label"[^>]*>([^<]+)<', svg)
+
+
+def _label_attr(svg: str, attr: str) -> str | None:
+    m = re.search(rf'class="plot-label"[^>]*{attr}="([^"]*)"', svg)
+    return m.group(1) if m else None
 
 
 def test_single_block_colony_label_has_no_prefix() -> None:
@@ -67,3 +87,32 @@ def test_blockless_and_lettered_plots_with_the_same_number_get_distinct_labels()
     texts = _label_texts(svg)
     assert texts == ["1", "A-1"]
     assert len(set(texts)) == 2
+
+
+def test_label_rotation_is_negated_for_svgs_y_down_frame() -> None:
+    """docs/plans/17.md, 2026-08-21: DXF is Y-up, apply_transform flips Y, which mirrors
+    rotation direction (tier-1.md: "Y is flipped ... needs its own test", not a visual
+    glance) -- a 30deg DXF-space label must come out as -30 in SVG-space."""
+    plot = _plot("P1", "plot-A-01", "A", "01", 10, rotation_deg=30.0)
+    road = derive_road(_SITE, [plot.ring])
+    t = compute_transform(_SITE)
+    svg = build_svg(t, _SITE, road, [plot], [], (), "test-colony")
+    assert _label_attr(svg, "data-rotation") == "-30.00"
+
+
+def test_label_height_is_scaled_by_the_same_transform_as_geometry() -> None:
+    """_SITE is 200 units wide; VIEWBOX_WIDTH_PX (1000) / 200 = scale 5.0 -- a 4.0-unit
+    DXF-space char_height must come out as 20.00 in the 1000-wide SVG viewBox."""
+    plot = _plot("P1", "plot-A-01", "A", "01", 10, height=4.0)
+    road = derive_road(_SITE, [plot.ring])
+    t = compute_transform(_SITE)
+    svg = build_svg(t, _SITE, road, [plot], [], (), "test-colony")
+    assert _label_attr(svg, "data-label-height") == "20.00"
+
+
+def test_label_with_no_height_omits_the_attribute() -> None:
+    plot = _plot("P1", "plot-A-01", "A", "01", 10, height=None)
+    road = derive_road(_SITE, [plot.ring])
+    t = compute_transform(_SITE)
+    svg = build_svg(t, _SITE, road, [plot], [], (), "test-colony")
+    assert _label_attr(svg, "data-label-height") is None

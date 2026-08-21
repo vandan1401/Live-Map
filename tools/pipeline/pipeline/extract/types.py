@@ -28,12 +28,21 @@ class Ring:
 
 @dataclass(frozen=True)
 class Label:
-    """A text label and its insertion point, in drawing coordinates."""
+    """A text label and its insertion point, in drawing coordinates.
+
+    `rotation_deg` and `height` are read straight off the source entity (DXF-space:
+    rotation CCW from +X in a Y-up frame, height in drawing units) -- the CAD operator's
+    own choice of how a label sits on its plot, not derived. `height` is `None` when the
+    source entity carries none. Export (pipeline/export/svg.py) is what converts these
+    into SVG-space (docs/plans/17.md, 2026-08-21) -- this module stays raw DXF values,
+    same convention as `point`."""
 
     layer: str
     handle: str
     text: str
     point: Point
+    rotation_deg: float
+    height: float | None
 
 
 @dataclass(frozen=True)

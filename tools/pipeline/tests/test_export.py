@@ -49,13 +49,17 @@ _CONFIG = ColonyConfig(
 
 _SITE = Ring(layer="COL-SITE", handle="S1", points=((0, 0), (200, 0), (200, 100), (0, 100)))
 _PLOT_RING = Ring(layer="COL-PLOT", handle="P1", points=((0, 70), (20, 70), (20, 100), (0, 100)))
-_PLOT_LABEL = Label(layer="COL-PLOT-NO", handle="L1", text="1", point=(10, 85))
+_PLOT_LABEL = Label(
+    layer="COL-PLOT-NO", handle="L1", text="1", point=(10, 85), rotation_deg=0.0, height=None
+)
 _PLOT = MatchedPlot(ring=_PLOT_RING, label=_PLOT_LABEL, svg_id="plot-A-01", block="A", number="01")
 
 _GARDEN_RING = Ring(
     layer="COL-GARDEN", handle="G1", points=((150, 10), (180, 10), (180, 40), (150, 40))
 )
-_GARDEN_LABEL = Label(layer="COL-FEATURE-NO", handle="GL1", text="Garden", point=(165, 25))
+_GARDEN_LABEL = Label(
+    layer="COL-FEATURE-NO", handle="GL1", text="Garden", point=(165, 25), rotation_deg=0.0, height=None
+)
 _FEATURE = ClassifiedFeature(
     ring=_GARDEN_RING, label=_GARDEN_LABEL, feature_class="garden", kind="park"
 )

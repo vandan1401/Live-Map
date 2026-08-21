@@ -1,0 +1,17 @@
+{
+  "id": "jai-dev-residency",
+  "name": "Jai Dev Residency",
+  "units": "ft",
+  "expected_plots": 675,
+  "blocks": ["A", "S", "L", "E"],
+  "default_block": null,
+  "number_width": 3,
+  "number_range": [1, 523],
+  "north_deg": null,
+  "source": {
+    "file": "JAI DEV working v2.dwg",
+    "revision": "working v2",
+    "plan_date": "2026-08-21",
+    "method": "dxf"
+  }
+}
