@@ -131,6 +131,50 @@ function convexHull(points: Point[]): Point[] {
   return lower.concat(upper);
 }
 
+export interface RoundedCorner {
+  p1: Point; // point on the incoming edge, `radius` back from the corner
+  corner: Point; // the true polygon vertex
+  p2: Point; // point on the outgoing edge, `radius` forward from the corner
+  radius: number; // clamped to half the shorter adjacent edge, never the caller's raw ask
+}
+
+function dist(a: Point, b: Point): number {
+  return Math.hypot(b[0] - a[0], b[1] - a[1]);
+}
+
+// Moves `radius` units from `from` toward `to`. Degenerates to `from` itself (radius 0)
+// on a zero-length edge rather than dividing by zero.
+function pointToward(from: Point, to: Point, radius: number): Point {
+  const d = dist(from, to);
+  if (d === 0) return from;
+  const t = radius / d;
+  return [from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t];
+}
+
+// One rounded-corner spec per vertex, for the draw layer to turn into
+// moveTo/lineTo/arcTo calls (Path2D can't be built here — this module runs under jsdom,
+// which has neither Path2D nor getBBox, matching this directory's DOM-free convention).
+// `maxRadius` is clamped per-corner to half of each adjacent edge, so a tiny plot corner
+// never rounds past its own neighbour's corner (owner reference, 2026-08-22).
+export function roundedPolygonCorners(points: Point[], maxRadius: number): RoundedCorner[] {
+  const n = points.length;
+  if (n < 3) return [];
+  const corners: RoundedCorner[] = [];
+  for (let i = 0; i < n; i++) {
+    const prev = points[(i - 1 + n) % n];
+    const curr = points[i];
+    const next = points[(i + 1) % n];
+    const radius = Math.min(maxRadius, dist(prev, curr) / 2, dist(curr, next) / 2);
+    corners.push({
+      p1: pointToward(curr, prev, radius),
+      corner: curr,
+      p2: pointToward(curr, next, radius),
+      radius,
+    });
+  }
+  return corners;
+}
+
 export interface MinRect {
   angleRad: number; // direction of one pair of sides
   center: Point;

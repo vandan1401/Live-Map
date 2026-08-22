@@ -17,6 +17,14 @@ import {
   ZOOM_DETAIL_MARGIN,
 } from "./view.ts";
 import grassPhotoUrl from "../../assets/textures/grass-satellite.jpg";
+import { fetchCornerPlotIds } from "../../lib/db/plots.ts";
+
+// Selected plot lands at this fraction of the viewport's height, not 0.5 (owner ask,
+// 2026-08-22): the bottom toolbar/legend sheet covers the lower part of the screen, so
+// centring a plot at 50% put it half-hidden. 0.35 was chosen over the more literal "65%
+// from the bottom" phrasing because a screen fraction has to be measured from one edge,
+// and every other on-screen fraction in this codebase (viewport/label math) is top-down.
+const SELECT_VERTICAL_ANCHOR = 0.35;
 
 // Leaflet init, the canvas layer, attachSync's subscription, picking and the transition
 // clock — the canvas equivalent of useColonyMapMount.ts + useSelectedPlotOverlay.ts, which
@@ -60,6 +68,9 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
   const transitionsRef = useRef(new StatusTransitions());
   const fitZoomRef = useRef(0);
   const dimensionsRef = useRef<PlotDimensions | null>(null);
+  // is_corner never changes after import (tier-2.md's "Derived fields" rule), so this is
+  // one plain fetch at mount, not a realtime subscription like statusesRef.
+  const cornerPlotsRef = useRef<ReadonlySet<string>>(new Set());
   const [orphanCount, setOrphanCount] = useState(0);
 
   // Latest selection/filter without re-running the mount effect — the map must survive a
@@ -83,6 +94,7 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
       road: null,
       transitions: transitionsRef.current.progress(performance.now()),
       dimensions: dimensionsRef.current,
+      cornerPlots: cornerPlotsRef.current,
     });
   };
 
@@ -148,12 +160,23 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
           road: null,
           transitions: new Map(),
           dimensions: null,
+          cornerPlots: new Set<string>(),
         },
       });
       layer.addTo(map);
       layerRef.current = layer;
       pushState.current();
     });
+
+    void fetchCornerPlotIds(client, colonyId)
+      .then((ids) => {
+        if (cancelled) return;
+        cornerPlotsRef.current = ids;
+        pushState.current();
+      })
+      .catch((error: unknown) => {
+        console.error("failed to load corner plot ids:", error);
+      });
 
     // The layer redraws itself on move/zoom; only this knows whether labels are allowed at
     // the new zoom, so the detail threshold is re-evaluated here.
@@ -233,7 +256,20 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
     if (!plot) return;
     const cx = (plot.bbox.minX + plot.bbox.maxX) / 2;
     const cy = (plot.bbox.minY + plot.bbox.maxY) / 2;
-    map.setView([-cy, cx], SELECT_ZOOM, { animate: true });
+    const target: L.LatLngExpression = [-cy, cx];
+
+    // setView always puts its target at the exact centre (50% height) of the container.
+    // To land it at SELECT_VERTICAL_ANCHOR instead, project the target at the destination
+    // zoom, subtract where we actually want it to sit on screen, and unproject back to the
+    // latlng that belongs at the centre — standard Leaflet "pan to an offset point" maths;
+    // there is no setView option for this.
+    const size = map.getSize();
+    const desiredScreenPoint = L.point(size.x / 2, size.y * SELECT_VERTICAL_ANCHOR);
+    const targetPoint = map.project(target, SELECT_ZOOM);
+    const centerPoint = targetPoint.subtract(desiredScreenPoint).add(size.divideBy(2));
+    const center = map.unproject(centerPoint, SELECT_ZOOM);
+
+    map.setView(center, SELECT_ZOOM, { animate: true });
   }, [selectedId]);
 
 

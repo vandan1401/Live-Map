@@ -13,7 +13,12 @@ export interface ColonyTheme {
   groundBase: string;
   road: string;
   amenity: string;
+  amenityAccent: string;
+  water: string;
   gardenTint: string;
+  gardenBase: string;
+  gardenBlobLight: string;
+  plotBase: string;
   siteBoundary: string;
   plotStroke: string;
   plotStrokeWidth: number;
@@ -22,6 +27,12 @@ export interface ColonyTheme {
   featureLabelInk: string;
   plotLabelInk: string;
 }
+
+// The bold geometric sans the owner's map-render reference uses for plot numbers, road
+// names and feature labels (2026-08-22) — loaded from Google Fonts in index.html. The
+// system-font stack is the fallback for the one frame before it loads and for any
+// environment that blocks the font request.
+export const MAP_FONT_FAMILY = "'Poppins', ui-sans-serif, system-ui, sans-serif";
 
 function read(style: CSSStyleDeclaration, name: string): string {
   const value = style.getPropertyValue(name).trim();
@@ -35,7 +46,12 @@ export function resolveColonyTheme(root: Element = document.documentElement): Co
     groundBase: read(s, "--colony-ground-base"),
     road: read(s, "--colony-road"),
     amenity: read(s, "--colony-amenity"),
+    amenityAccent: read(s, "--colony-amenity-accent"),
+    water: read(s, "--colony-water"),
     gardenTint: read(s, "--colony-garden-tint"),
+    gardenBase: read(s, "--colony-garden-base"),
+    gardenBlobLight: read(s, "--colony-garden-blob-light"),
+    plotBase: read(s, "--colony-plot-base"),
     siteBoundary: read(s, "--colony-site-boundary"),
     plotStroke: read(s, "--colony-plot-stroke"),
     // 0.5 user units (docs/plans/18.md §3) — dropped from 1.5 once Jai Dev's small real

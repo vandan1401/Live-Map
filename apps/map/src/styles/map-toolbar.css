@@ -83,6 +83,39 @@
   padding: 0.5rem 0.6rem;
 }
 
+/* Fixed north indicator (owner ask, 2026-08-22). The map never rotates — Leaflet's
+ * bearing stays 0 always (D-009) — so this is a static badge, not a compass that tracks a
+ * live heading; "up" on screen is always the SVG's own up, whatever the source DXF's own
+ * north_deg happened to be (docs/plans/11.md §1 deliberately does not read that field into
+ * this app yet — see PROGRESS.md's Deferred note). */
+.colony-compass {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 1050;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.05rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 1px solid var(--colony-glass-border);
+  background: var(--colony-glass-bg-strong);
+  backdrop-filter: blur(var(--colony-glass-blur));
+  -webkit-backdrop-filter: blur(var(--colony-glass-blur));
+  pointer-events: none;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--colony-site-boundary);
+}
+
+.colony-compass-arrow {
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
 .colony-bottom-toolbar {
   position: absolute;
   right: 0.75rem;

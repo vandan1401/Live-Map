@@ -29,6 +29,24 @@ export async function fetchPlotStatuses(
   return statuses;
 }
 
+// svg_ids of every corner plot in a colony (owner ask, 2026-08-22: the map's new rounded
+// plot corners should not round an actual corner plot's own geometry). is_corner is
+// computed once at import and never recomputed (tier-2.md's "Derived fields" rule), so —
+// like fetchPlotStatuses's shape but unlike its data — this never needs a realtime
+// subscription: it cannot go stale after the one fetch at mount.
+export async function fetchCornerPlotIds(
+  client: SupabaseClient,
+  colonyId: string,
+): Promise<Set<string>> {
+  const { data, error } = await client
+    .from("plots")
+    .select("svg_id")
+    .eq("colony_id", colonyId)
+    .eq("is_corner", true);
+  if (error) throw new Error(`fetchCornerPlotIds failed: ${error.message}`);
+  return new Set((data ?? []).map((row) => row.svg_id as string));
+}
+
 // Full rows for a colony (M6) — search (owner/broker/number) and the share summary
 // (status counts, recent-changes labels) both need more than just status, and the
 // colony is only a few hundred rows, so one in-memory fetch beats a bespoke query per

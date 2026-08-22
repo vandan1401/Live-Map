@@ -58,6 +58,10 @@ export function renderColonyPreview(container: HTMLElement, svg: string): () => 
       road: buildRoadPattern(ctx, theme.road),
       transitions: new Map(),
       dimensions: null,
+      // is_corner lives on the `plots` table row, which does not exist yet at this stage
+      // (D-025's preview runs before import) — treated as "no corner plots" rather than
+      // blocking the preview on data that cannot exist yet.
+      cornerPlots: new Set<string>(),
     });
   };
 

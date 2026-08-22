@@ -1,5 +1,5 @@
 import { minAreaRect, polygonCentroid, simplifyNearCollinear, type Point } from "../../lib/colony/plotGeometry.ts";
-import type { ColonyTheme } from "./colonyTheme.ts";
+import { MAP_FONT_FAMILY, type ColonyTheme } from "./colonyTheme.ts";
 
 // The selected plot's dimension callout, ported from the deleted plotDimensionOverlay.ts
 // (docs/plans/18.md). The maths is unchanged — only the output moved from createElementNS
@@ -16,6 +16,11 @@ const LABEL_SIZE = 3;
 const LINE_WIDTH = 0.4;
 const DASH: [number, number] = [1.5, 1.5];
 const LINE_ALPHA = 0.7;
+// Short solid caps at each end of the dimension line (owner reference, 2026-08-22) —
+// architectural-drawing leader ticks, perpendicular to the edge itself (the same axis the
+// line is offset along), drawn solid so they read as a boundary even though the line
+// between them is dashed.
+const TICK_HALF = 0.7;
 
 function roundToHalf(n: number): number {
   return Math.round(n * 2) / 2;
@@ -47,6 +52,20 @@ function drawEdge(
   ctx.moveTo(lineX - dx, lineY - dy);
   ctx.lineTo(lineX + dx, lineY + dy);
   ctx.stroke();
+
+  // End ticks are solid, so the dash pattern above must not leak into them.
+  ctx.setLineDash([]);
+  const tickX = Math.cos(outwardAngle) * TICK_HALF;
+  const tickY = Math.sin(outwardAngle) * TICK_HALF;
+  for (const [ex, ey] of [
+    [lineX - dx, lineY - dy],
+    [lineX + dx, lineY + dy],
+  ]) {
+    ctx.beginPath();
+    ctx.moveTo(ex - tickX, ey - tickY);
+    ctx.lineTo(ex + tickX, ey + tickY);
+    ctx.stroke();
+  }
   ctx.restore();
 
   // Keep the label upright whichever way the edge vector points. This flip and the
@@ -66,7 +85,7 @@ function drawEdge(
   ctx.fillStyle = theme.selectedStroke;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.font = `400 ${LABEL_SIZE}px ui-sans-serif, system-ui, sans-serif`;
+  ctx.font = `400 ${LABEL_SIZE}px ${MAP_FONT_FAMILY}`;
   ctx.fillText(label, 0, 0);
   ctx.restore();
 }

@@ -99,6 +99,10 @@ export function ColonyMap({ client, actor, colonyId, colonySvg, onBack }: Props)
       </button>
       <p className="colony-scale-note">Indicative layout — not to scale</p>
       <FreshnessIndicator label={freshnessLabel} offline={offline} />
+      <div className="colony-compass" aria-hidden="true">
+        <span className="colony-compass-arrow">▲</span>
+        <span>N</span>
+      </div>
       <PlotSearch client={client} colonyId={colonyId} onSelect={setSelectedId} />
       <div className="colony-bottom-toolbar">
         <StatusLegend

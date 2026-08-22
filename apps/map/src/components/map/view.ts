@@ -26,13 +26,18 @@ export interface Viewport {
 // stale the moment a fixture's aspect ratio changed.
 export const ZOOM_DETAIL_MARGIN = 0.3;
 // Fly-to-plot lands at this ABSOLUTE Leaflet zoom, as it did before the canvas rewrite.
-// docs/plans/18.md §3 pins it at 2 and §4 forbids re-tuning it. A first pass here made it
-// relative to the fit zoom, reasoning that fit is near 0 — true on a desktop, false on a
-// phone: this repo's fixture is 1000x1390, so at 390x780 fit is about -1.36 and "fit + 2"
-// lands near 0.64, roughly 2.6x less zoomed than the owner ever approved (/review,
-// 2026-08-22). Not maxZoom either — the owner called 4 "too much zoomed in", losing the
-// surrounding context that makes a selection mean anything.
-export const SELECT_ZOOM = 2;
+// Raised from 2 to 3.4 same day (owner ask, 2026-08-22: "only a few nearby plots should be
+// visible" on selection) — this explicitly supersedes docs/plans/18.md §3/§4's earlier pin
+// at 2 and its "forbids re-tuning" note, which reflected an earlier, different owner
+// preference (see the historical account below). Still short of maxZoom (4 in
+// useColonyCanvas.ts) so a selection never hits the hard ceiling.
+//
+// History: a first pass made this relative to the fit zoom, reasoning that fit is near 0
+// — true on a desktop, false on a phone: this repo's fixture is 1000x1390, so at 390x780
+// fit is about -1.36 and "fit + 2" lands near 0.64, roughly 2.6x less zoomed than the owner
+// had approved at the time (/review, 2026-08-22). That review is why this stayed an
+// absolute number when it was raised again the same day.
+export const SELECT_ZOOM = 3.4;
 
 export function fitScale(model: ColonyModel, viewport: Viewport): number {
   if (viewport.width <= 0 || viewport.height <= 0) return 1;

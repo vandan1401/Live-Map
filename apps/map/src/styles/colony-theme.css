@@ -7,44 +7,68 @@
   --colony-ground: #eef0e6;
   --colony-site-boundary: #8a8f7c;
 
-  /* Warm mid-grey asphalt (owner reference, 2026-08-15 — replaces an earlier near-
-   * black repaint that swallowed the width labels). No stroke: a first pass added
-   * one for a "curb" look and it drew a visible border at every join between the
-   * compound path's rectangle segments (owner: "no borderline between the roads") —
-   * .road has no separate centerline path in the fixture, so a stroke traces each
-   * segment's own outline, not a lane marking; a dashed centerline needs a pipeline/
-   * geometry change, not a theme one. */
-  --colony-road: #7c7466;
-  --colony-amenity: #cbb994;
+  /* Dark charcoal asphalt (owner ask, 2026-08-22 — supersedes the 2026-08-15 warm
+   * mid-grey: the owner supplied a marketing-render reference showing near-black
+   * roads and asked to "copy everything exactly"). Still no stroke, same reason as
+   * before — .road has no separate centerline path, so a stroke would trace each
+   * compound-path segment's own outline rather than draw a lane marking. */
+  --colony-road: #2c2924;
+  /* Neutral structure grey (clubhouse building, temple, tank, parking, reserved/other
+   * land) — kept visually distinct from the green recreational amenities below so a
+   * built structure doesn't read as open space. */
+  --colony-amenity: #a89a7c;
+  /* Bright recreational green (owner reference, 2026-08-22): amenity polygons whose
+   * data-kind is "clubhouse" or "playground" — the open club/party-plot/court areas —
+   * get this instead of --colony-amenity. See drawColony.ts's amenityFillFor(). */
+  --colony-amenity-accent: #6f9450;
+  /* Ponds (`class="water"`) got the garden's grass texture by omission until now —
+   * split out so a water body reads as water, not a park. */
+  --colony-water: #6f93b0;
   --colony-tree-crown: #4f7a44;
   --colony-tree-shadow: rgba(0, 0, 0, 0.12);
 
-  /* Ground-cover texture (owner-supplied AI-generated photo, 2026-08-15, replacing
-   * two earlier procedural attempts the owner called mechanical/"boring") —
-   * mapTexturePatterns.ts mirror-tiles the photo itself; --colony-ground-base is only
-   * the flat-colour fallback at the world edge (map-texture.css's
-   * .colony-map-container) and --colony-garden-tint darkens the same photo for
-   * garden features so they still read as distinct from plain ground. */
+  /* Ground-cover texture (owner-supplied AI-generated photo, 2026-08-15) — still the
+   * world backdrop outside any plot/road/garden, unchanged by the 2026-08-22 pass.
+   * --colony-ground-base is the flat-colour fallback at the world edge (map-texture.
+   * css's .colony-map-container). */
   --colony-ground-base: #5a9450;
-  --colony-garden-tint: #1f3f1c;
+  /* Gardens no longer tint the shared grass photo (2026-08-22): they get their own
+   * flat olive base plus a procedurally-scattered tree/bush-blob decoration
+   * (gardenDecoration.ts), seeded per polygon so it is stable across repaints rather
+   * than re-rolled every frame. --colony-garden-tint is kept only as the dark shade
+   * in that two-tone blob palette; --colony-garden-blob-light is the light shade. */
+  --colony-garden-tint: #38541f;
+  --colony-garden-base: #5f7a3f;
+  --colony-garden-blob-light: #7fa259;
 
-  /* Crisp warm white (owner: "the colour of boundary is not good" — was a flat grey
-   * that read as muddy over the new green ground) — matches how plot boundaries are
-   * actually painted in the owner's own aerial-photo reference. Width dropped from 1.5
-   * (owner ask, 2026-08-21: too heavy once Jai Dev Residency's much smaller real plots
-   * made a fixture-tuned width look thick relative to plot size). */
-  --colony-plot-stroke: #f7f4e8;
+  /* Opaque warm cream (owner reference, 2026-08-22) — every plot's own base fill,
+   * painted before any status tint. Supersedes the pre-canvas design where a plot had
+   * no fill of its own and instead showed the shared grass photo through a 0.38
+   * translucent status tint; the owner's new reference renders show flat, fully
+   * opaque plots, and the "no separate plot texture" ask this used to satisfy
+   * (2026-08-14/15) was about not tiling a second copy of the grass *photo*, which a
+   * flat colour never does. */
+  --colony-plot-base: #d9c9a0;
+
+  /* Dark thin separators between plots (owner reference, 2026-08-22) — the earlier
+   * near-white stroke (2026-08-21) is inverted here: against an opaque cream/status
+   * fill instead of the grass photo, a light stroke all but disappears, and the new
+   * reference shows dark plot boundaries throughout. */
+  --colony-plot-stroke: #352f26;
   --colony-plot-stroke-width: 0.5;
-  --colony-plot-selected-stroke: #08060d;
+  /* Selection ink: the owner's dimension/leader reference (2026-08-22) shows white
+   * dashed leader lines and white text over the selected plot's status colour — this
+   * token now drives drawDimensions.ts's line + label colour, not a dark outline. */
+  --colony-plot-selected-stroke: #f7f4e8;
 
   /* Legend: available=wheat, booked=blue, registered=orange — a saturated palette
    * chosen to read clearly against the muted road/ground colours above. Available is
    * deliberately NOT green (owner feedback, 2026-08-14): the ground/garden texture is
    * also green, and an available plot sitting next to a garden feature visually
    * merged into one blob at a glance — exactly the failure this map exists to
-   * prevent. A plot renders as a flat translucent tint of this colour over the shared
-   * ground texture (owner: status should be "some slight overlay", plots shouldn't
-   * carry their own copy of the texture) — see .plot[data-status] below. */
+   * prevent. Rendered near-opaque over --colony-plot-base now (2026-08-22, see
+   * STATUS_FILL_ALPHA in drawColony.ts) rather than the earlier 0.38 wash over green
+   * grass — the owner's new reference renders show flat, saturated status colour. */
   --colony-status-available: #e8b84b;
   --colony-status-booked: #3b82f6;
   --colony-status-registered: #e67e22;
@@ -54,7 +78,11 @@
    * still styled real DOM nodes; the canvas renderer (docs/plans/18.md) reads colours from
    * this block instead, so they have to be variables or D-004 stops being true for text. */
   --colony-plot-label-ink: #1a1a1a;
-  --colony-feature-label-ink: #201c14;
+  /* Warm white (owner reference, 2026-08-22) — feature labels (road names, CLUB/PARTY
+   * PLOT, court labels) now sit directly on the dark road / green amenity fill with no
+   * background chip, matching the reference exactly; the earlier dark ink + white pill
+   * (2026-08-15) was tuned for a different reference image. */
+  --colony-feature-label-ink: #f7f4e8;
   /* Independent of the status palette on purpose — the freshness indicator's "amber"
    * (spec/05 criterion 3) must not silently change colour just because a plot status
    * colour does. Reusing --colony-status-booked for this broke the moment booked
@@ -124,10 +152,11 @@
   font-weight: 600;
 }
 
-/* import.meta.env.DEV-gated — never present in a production build. */
+/* import.meta.env.DEV-gated — never present in a production build. Sits below
+ * .colony-compass (map-toolbar.css, top-right too, added 2026-08-22) rather than under it. */
 .colony-dev-click-badge {
   position: absolute;
-  top: 0.75rem;
+  top: 3rem;
   right: 0.75rem;
   z-index: 1000;
   pointer-events: none;

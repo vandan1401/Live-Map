@@ -63,7 +63,7 @@ const LABEL_KINDS: Record<string, LabelKind> = {
 // Every class in contract/SPEC.md's table that carries geometry and is not a plot.
 const DECOR_CLASSES = new Set(["site-boundary", "road", "garden", "amenity", "water"]);
 
-function boundsOf(points: Point[]): BBox {
+export function boundsOf(points: Point[]): BBox {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const [x, y] of points) {
     if (x < minX) minX = x;

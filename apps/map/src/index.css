@@ -20,4 +20,7 @@ body,
 body {
   overscroll-behavior: none;
   -webkit-tap-highlight-color: transparent;
+  /* Owner reference, 2026-08-22 map redesign — kept in sync with colonyTheme.ts's
+   * MAP_FONT_FAMILY so the canvas map and its HTML chrome read as one type system. */
+  font-family: "Poppins", ui-sans-serif, system-ui, sans-serif;
 }

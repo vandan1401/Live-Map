@@ -1074,6 +1074,31 @@ on a real phone. Not verified by anyone: the five visual behaviours in `## Curre
 
 ## Deferred
 
+- **The map redesign (2026-08-22, owner reference screenshots) added a fixed compass badge
+  that always points screen-up, not one wired to a colony's real north.** `north_deg` exists
+  in the manifest schema and is deliberately not read by `apps/map` today
+  (`lib/db/types.ts`'s comment, docs/plans/11.md §1) — making the compass reflect true north
+  would mean reading that field for the first time and rotating the badge by it, which is a
+  manifest-parsing change (Tier 2), not a pure styling one. Not done here; `.colony-compass`
+  in `map-toolbar.css` says so inline.
+- **The owner's dimension/leader reference image also showed the plot number's area in two
+  units (e.g. "100.46 yd² / 84 m²") under the number, inside the selected plot itself** —
+  not implemented. `drawDimensions.ts` now matches that reference for the leader lines
+  themselves (dashed line + end ticks + white ink), but the area subtext would need a new
+  value threaded in (an `area_sqft` conversion, alongside the existing lengthFt/breadthFt
+  fetch in `usePlotDimensions.ts`) and a decision on where it renders relative to the plot
+  number — treated as a separate follow-up rather than guessed at here.
+- **Removing `drawLabels.ts`'s white background chip (2026-08-22, owner reference) trades
+  away its original purpose — guaranteed contrast regardless of what a feature-label sits
+  on.** Every label in the owner's new reference sits on a dark/saturated background (road,
+  green amenity), where the now-light `--colony-feature-label-ink` reads fine; the shared
+  fixture's own `35'0" X 55'0"` feature-labels are the one case where that assumption
+  breaks — they sit directly on a light `available`-status plot and are visibly lower-
+  contrast now (checked live, `pnpm dev`, "Shree Vatika Phase 2"). No real colony has this
+  today (the pipeline emits no feature-labels at all — see the entry below), so this is
+  latent, not an active regression; worth a look if/when the pipeline starts emitting
+  feature-labels for real and one lands over a plot rather than a road.
+
 - **The live-Supabase tests now fail under the suite's own parallelism, and it got worse on
   2026-08-22.** Previously one test flaked (`subscribePlots.test.ts` > "a write from one
   client is observed by another"); after the canvas rewrite added 4 test files (28 -> 32),
@@ -1108,9 +1133,11 @@ on a real phone. Not verified by anyone: the five visual behaviours in `## Curre
   no label text for "Future planning" / "Reserved" style features — in SVG terms, the
   `amenity` entries carrying `data-kind="reserved"` and `data-kind="other"`, of which Jai
   Dev Residency has many; and road/pathway width texts *are* wanted. The app side is
-  already done and waiting: `mapLabelChips.ts` draws the white chip, `colony-theme.css`
-  styles `.feature-label`, and `docs/plans/18.md` makes rendering them an acceptance
-  criterion against the fixture.
+  already done and waiting: `drawLabels.ts` renders `.feature-label` text directly in
+  `--colony-feature-label-ink` (stale reference fixed 2026-08-22 — this used to name
+  `mapLabelChips.ts` and a white chip, both gone since the canvas rewrite/map redesign the
+  same day), and `docs/plans/18.md` makes rendering them an acceptance criterion against
+  the fixture.
 
 - **`scatter_trees` deliberately scatters trees onto the road.**
   `tools/pipeline/pipeline/export/run.py:63` is
