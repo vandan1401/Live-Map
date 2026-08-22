@@ -6,7 +6,7 @@ import {
   validateColonyManifest,
 } from "../../lib/colony/parseColonyManifest.ts";
 import { createColonyFromManifest } from "../../lib/colony/createColonyFromManifest.ts";
-import { parseColonySvg } from "../../components/parseColonySvg.ts";
+import { renderColonyPreview } from "../../components/map/renderColonyPreview.ts";
 import type { ColonyManifest } from "../../lib/db/types.ts";
 import { ColonyUploadStageView, type Stage } from "./ColonyUploadStageView.tsx";
 
@@ -27,11 +27,15 @@ export function ColonyUploadScreen({ client, onClose }: Props) {
   const [confirmed, setConfirmed] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
 
+  // D-025's verification gate. This must render through the SAME renderer as the map
+  // (docs/plans/18.md): it is the only thing a human sees before `verified: true` is
+  // written, so a preview drawn by a different code path is a gate that verifies an
+  // artefact the map will never produce.
   useEffect(() => {
     if (stage.kind !== "ready" || !previewRef.current) return;
     const container = previewRef.current;
     container.innerHTML = "";
-    container.appendChild(parseColonySvg(stage.svg));
+    return renderColonyPreview(container, stage.svg);
   }, [stage]);
 
   const validateAndContinue = () => {

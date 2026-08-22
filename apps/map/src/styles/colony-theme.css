@@ -49,6 +49,12 @@
   --colony-status-booked: #3b82f6;
   --colony-status-registered: #e67e22;
   --colony-status-hold: #c0392b;
+
+  /* Label inks. These were literals inside `.plot-label`/`.feature-label` when those rules
+   * still styled real DOM nodes; the canvas renderer (docs/plans/18.md) reads colours from
+   * this block instead, so they have to be variables or D-004 stops being true for text. */
+  --colony-plot-label-ink: #1a1a1a;
+  --colony-feature-label-ink: #201c14;
   /* Independent of the status palette on purpose — the freshness indicator's "amber"
    * (spec/05 criterion 3) must not silently change colour just because a plot status
    * colour does. Reusing --colony-status-booked for this broke the moment booked
@@ -67,131 +73,15 @@
   --colony-glass-blur: 16px;
 }
 
-/* .colony-map-container/.leaflet-container's grass backdrop (owner: "the entire
- * universe" should be grass, not just the SVG's own rectangle) now lives in
- * map-texture.css, next to the other ground-cover rules — split out to stay under
- * the 250-line cap (CLAUDE.md invariant 7). */
-
-.colony-svg-root {
-  /* No SVG filters (blur, drop-shadow) — they force a repaint on every zoom step
-   * in mobile Safari. Shadows here are solid offset shapes only. */
-  filter: none;
-}
-
-.site-boundary {
-  fill: none;
-  stroke: var(--colony-site-boundary);
-  stroke-width: 2;
-  pointer-events: none;
-}
-
-/* .texture-road-* (owner ask, 2026-08-16: "a little road like texture") live in
- * map-texture.css with the other texture-support classes — stays under the 250-line cap. */
-.road {
-  fill: url(#texture-road);
-  pointer-events: none;
-}
-
-/* Road/quadrant name labels now sit on a solid white chip (.feature-label-chip, a <rect>
- * mapLabelChips.ts inserts behind each one from its own getBBox()) instead of a stroke
- * halo directly on the road — owner's reference render (2026-08-15) shows exactly this:
- * plain dark bold text on a small white pill, no outline of its own. Plot numbers keep a
- * halo instead (plot-selection.css) since the reference shows those sitting bare on flat
- * green — our ground is a busier photo texture, so a thin halo stands in for that. */
-.feature-label {
-  fill: #201c14;
-  font-family: ui-sans-serif, system-ui, sans-serif;
-  font-size: 12px;
-  font-weight: 700;
-  text-anchor: middle;
-  dominant-baseline: middle;
-  pointer-events: none;
-}
-.feature-label-chip {
-  fill: rgba(255, 255, 255, 0.94);
-  pointer-events: none;
-}
-
-/* Texture-support classes (.texture-ground-fill, .texture-garden-tint) and the
- * .colony-map-container/.leaflet-container backdrop rules live in map-texture.css —
- * split out to stay under the 250-line cap (CLAUDE.md invariant 7). The colour
- * tokens they point at still live in this file's :root block, so D-004 still holds. */
-
-.garden {
-  fill: url(#texture-garden);
-  pointer-events: none;
-}
-
-.amenity {
-  fill: var(--colony-amenity);
-  pointer-events: none;
-}
-
-.tree-crown {
-  fill: var(--colony-tree-crown);
-  pointer-events: none;
-}
-
-.tree-shadow {
-  fill: var(--colony-tree-shadow);
-  pointer-events: none;
-}
-
-/* No fill of its own (owner correction, 2026-08-15: a plot should be "visible via
- * lines on that texture", not carry its own copy of the grass) — the shared ground
- * rect (mapTexturePatterns.ts's buildGroundRect(), painted first) shows straight
- * through until a status sets a translucent tint below. The boundary stroke is what
- * marks a plot's extent either way. */
-.plot {
-  fill: none;
-  stroke: var(--colony-plot-stroke);
-  stroke-width: var(--colony-plot-stroke-width);
-  cursor: pointer;
-  /* 400ms per spec/05 — this is the moment a realtime change feels multiplayer rather
-   * than like a page reload; it is worth the effort. Same rule fires for the local
-   * actor's own save (ColonyMap.tsx's handlePlotStatusChange), not a separate path. */
-  transition: fill 400ms ease-out;
-}
-
-/* Suppresses the transition above for the bulk status load only (useColonyMapMount.ts's
- * applyStatuses) — 675 plots mounting at once on Jai Dev Residency (2026-08-21) meant 675
- * simultaneous fill transitions; a single realtime update still animates normally. */
-.colony-svg-root.no-transition .plot {
-  transition: none;
-}
-
-/* Leaflet's own stylesheet sets `.leaflet-pane > svg path { pointer-events: none }`
- * for non-interactive overlays (specificity 0,1,2) — it silently wins over a bare
- * `.plot` rule (0,1,0) and swallows every click before it reaches the page. The
- * extra class here (0,2,0) is what actually beats it. */
-.colony-svg-root .plot {
-  pointer-events: auto;
-}
-
-/* Status as a flat translucent tint over the shared ground rect showing through
- * underneath — not its own textured pattern (that was the seam between adjacent
- * plots' separately-tiled copies the owner flagged). 0.55 read as too strong (owner,
- * 2026-08-16: "overlay colour is too high opacity of what i am expecting") — dropped to
- * 0.38, low enough that the grass texture stays clearly visible through it while still
- * being the dominant colour at a glance (tier-3.md's readability floor). */
-.plot[data-status="available"] {
-  fill: var(--colony-status-available);
-  fill-opacity: 0.38;
-}
-.plot[data-status="booked"] {
-  fill: var(--colony-status-booked);
-  fill-opacity: 0.38;
-}
-.plot[data-status="registered"] {
-  fill: var(--colony-status-registered);
-  fill-opacity: 0.38;
-}
-
-/* Selection state (scale, dimming, label focus), the legend filter, zoom-dependent
- * detail, and the dimension callout all live in map-toolbar.css (M6, spec/06) — moved
- * out of this file to stay under the 250-line cap (CLAUDE.md invariant 7). This file
- * stays the one place status/map *colours* live (D-004); map-toolbar.css is the M6
- * interaction chrome built on top of them. */
+/* Every rule that painted map geometry (.colony-svg-root, .site-boundary, .road,
+ * .feature-label, .feature-label-chip, .garden, .amenity, .tree-*, .plot and its
+ * [data-status] tints) was deleted on 2026-08-22: the map is a canvas now, so there are no
+ * such nodes to select (docs/plans/18.md). The :root block above is unchanged and is now
+ * the renderer's only colour source — components/map/colonyTheme.ts reads it via
+ * getComputedStyle, which is how D-004 survives the move.
+ *
+ * .colony-map-container and .leaflet-container styling still matter (Leaflet remains the
+ * pan/zoom container, D-009) and live in map-texture.css. */
 
 .colony-scale-note {
   position: absolute;

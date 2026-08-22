@@ -5,15 +5,49 @@
 // plot's true angle the same way rather than reimplementing it twice.
 export type Point = [number, number];
 
-// Reads a `.plot` <path>'s own `d` attribute back into vertices. Pipeline export
-// (tools/pipeline/pipeline/export/svg_paths.py) only ever emits `M x,y L x,y ... Z` for
-// a plot ring -- straight segments, no curves, no holes -- so this simple scan is exact,
-// not an approximation of the real path grammar.
+// Reads a `.plot` <path>'s own `d` attribute back into vertices.
+//
+// Two producers, two grammars, and this has to read both. `tools/pipeline`'s exporter
+// emits `M x,y L x,y ... Z` -- straight segments, no curves, no holes. The shared
+// fixture `fixtures/shree-vatika-2/colony.svg` is hand-authored and instead uses
+// `M x y H x V y H x Z` -- horizontal/vertical shorthand, space-separated. An earlier
+// version of this function matched only the pipeline's form, so it returned an EMPTY
+// array for every plot in the fixture (found 2026-08-22 while building the canvas
+// picker, docs/plans/18.md). Nothing failed loudly: the dimension callout's
+// `rawPoints.length < 3` guard just drew nothing, on the one colony every test uses.
+//
+// Absolute commands only -- neither producer emits relative ones for a plot ring. An
+// unrecognised command has its numeric arguments skipped rather than misread as
+// coordinates; that keeps a curve in some future hand-drawn plot from silently
+// inventing vertices, at the cost of a slightly coarse ring.
 export function parsePlotPoints(d: string): Point[] {
   const points: Point[] = [];
-  const re = /[ML](-?[\d.]+),(-?[\d.]+)/g;
-  for (const m of d.matchAll(re)) {
-    points.push([Number.parseFloat(m[1]), Number.parseFloat(m[2])]);
+  let cx = 0;
+  let cy = 0;
+  // One token per command letter, each followed by its own numbers.
+  for (const m of d.matchAll(/([A-Za-z])([^A-Za-z]*)/g)) {
+    const cmd = m[1].toUpperCase();
+    const nums = (m[2].match(/-?[\d.]+(?:e-?\d+)?/gi) ?? []).map(Number);
+    if (cmd === "M" || cmd === "L") {
+      for (let i = 0; i + 1 < nums.length; i += 2) {
+        cx = nums[i];
+        cy = nums[i + 1];
+        points.push([cx, cy]);
+      }
+    } else if (cmd === "H") {
+      for (const x of nums) {
+        cx = x;
+        points.push([cx, cy]);
+      }
+    } else if (cmd === "V") {
+      for (const y of nums) {
+        cy = y;
+        points.push([cx, cy]);
+      }
+    }
+    // Z closes the ring -- the closing vertex is already points[0], so pushing it again
+    // would give every ring a duplicate point and a zero-length final edge. Any other
+    // command: numbers deliberately dropped (see above).
   }
   return points;
 }

@@ -1,0 +1,2 @@
+- [Unit-space conversions in the canvas renderer](review_unit_space_conversions.md) — user units vs screen px is the top defect class in apps/map/src/components/map/**
+- [Comments outrun the code](review_comments_outrun_code.md) — verify claims in comments, PROGRESS.md and plan files with git grep before trusting them

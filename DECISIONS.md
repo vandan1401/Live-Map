@@ -37,6 +37,7 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-024 | `subscribePlotChanges` opens one realtime channel per call, not one per colony | accepted |
 | D-025 | Colonies are onboarded by upload in the app, not by a deploy; the human verification gate lives there | accepted |
 | D-026 | Cloudflare deploy via Git integration (auto-deploy on push), not the wrangler CLI D-014 named | accepted |
+| D-027 | The map is drawn to a viewport-sized `<canvas>` Leaflet layer, not an SVG overlay; amends D-022's mechanism, upholds D-009 | accepted |
 
 ## tools/pipeline
 

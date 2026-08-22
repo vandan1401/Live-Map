@@ -1,6 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent } from "react";
-import type L from "leaflet";
-import "leaflet/dist/leaflet.css";
+import { useCallback, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AnimatePresence } from "framer-motion";
 import type { PlotStatus } from "../lib/db/types.ts";
@@ -10,10 +8,7 @@ import { ShareSummary } from "../features/share-summary/ShareSummary.tsx";
 import { PlotTableView } from "../features/plot-table/PlotTableView.tsx";
 import { FreshnessIndicator } from "./FreshnessIndicator.tsx";
 import { StatusLegend } from "./StatusLegend.tsx";
-import { useSelectedPlotOverlay } from "./useSelectedPlotOverlay.ts";
-import { useColonyMapMount } from "./useColonyMapMount.ts";
-
-const ALL_STATUSES: PlotStatus[] = ["available", "booked", "registered"];
+import { useColonyCanvas } from "./map/useColonyCanvas.ts";
 
 interface Props {
   // From App.tsx's single app-lifetime client (docs/plans/09.md) — no longer created
@@ -38,9 +33,6 @@ interface Props {
 
 export function ColonyMap({ client, actor, colonyId, colonySvg, onBack }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const svgRef = useRef<SVGSVGElement | null>(null);
-  const mapRef = useRef<L.Map | null>(null);
-  const clientRef = useRef<SupabaseClient>(client);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Sync/freshness state (M5, spec/05) — attachSync (lib/sync/) owns the subscription,
   // the tick, and the reconnect logic; this component just renders what it reports and
@@ -55,49 +47,28 @@ export function ColonyMap({ client, actor, colonyId, colonySvg, onBack }: Props)
   // containerRef) never tears down and reinitialises when this toggles.
   const [tableViewOpen, setTableViewOpen] = useState(false);
 
-  // Leaflet init, the world-ground layer, and attachSync's subscription — split into
-  // useColonyMapMount.ts (invariant 7's 250-line cap; same split useSelectedPlotOverlay.ts
-  // already does for selection styling below).
-  useColonyMapMount(containerRef, svgRef, mapRef, client, colonyId, colonySvg, setOffline, setFreshnessLabel);
+  // Leaflet (pan/zoom only, D-009), the canvas layer, attachSync's subscription, picking
+  // and the 400ms status fade all live in useColonyCanvas.ts — the canvas renderer that
+  // replaced the SVG overlay (docs/plans/18.md). Zoom went from 6fps to 60 on the paths a
+  // real gesture produces.
+  const canvas = useColonyCanvas({
+    containerRef,
+    client,
+    colonyId,
+    colonySvg,
+    selectedId,
+    activeStatuses,
+    onSelect: useCallback((svgId: string | null) => setSelectedId(svgId), []),
+    setOffline,
+    setFreshnessLabel,
+  });
 
-  // Legend filter (spec/06) — classes on the SVG root, not per-plot writes, so the
-  // dimming stays correct even when a realtime status change (M5) alters which plots
-  // match after the filter was already set. See colony-theme.css's `.filter-*` rules.
-  useEffect(() => {
-    const svg = svgRef.current;
-    if (!svg) return;
-    svg.classList.toggle("filter-active", activeStatuses.size > 0);
-    for (const status of ALL_STATUSES) {
-      svg.classList.toggle(`filter-${status}`, activeStatuses.has(status));
-    }
-  }, [activeStatuses]);
-
-  // Selection styling (scale, paint-order raise, auto pan/zoom) and the length/breadth
-  // dimension callout all live in this hook — see useSelectedPlotOverlay.ts for why
-  // they're split out of this file. One effect for every way a plot gets selected
-  // (map click, search) rather than each caller repeating its own pan/zoom math.
-  useSelectedPlotOverlay(svgRef, mapRef, clientRef, colonyId, selectedId);
-
-  // Called by PlotDetailSheet after a successful write (M4) — same direct-DOM pattern
-  // as the initial data-status load above, so a status change repaints immediately
-  // without re-fetching every plot.
+  // Called by PlotDetailSheet after a successful write (M4) — repaints one plot without
+  // re-fetching every plot, and animates it exactly as a remote change would. Paints from
+  // the applied status, never an attempted one, so a rejected stale write (D-006) can
+  // never leave the map showing something the database refused.
   const handlePlotStatusChange = (svgId: string, newStatus: PlotStatus) => {
-    svgRef.current?.querySelector(`#${svgId}`)?.setAttribute("data-status", newStatus);
-  };
-
-  // React's own delegated click, not a raw addEventListener on the node Leaflet
-  // owns — that listener could go stale across a dev-mode remount without any
-  // visible sign, since the map still renders fine either way.
-  const handleClick = (event: MouseEvent<HTMLDivElement>) => {
-    const target = event.target as Element | null;
-    const plot = target?.closest(".plot");
-    if (plot?.id) {
-      console.log(plot.id);
-      setSelectedId(plot.id);
-    } else if (selectedId) {
-      // Tap the map (not a plot) to dismiss the sheet (spec/03).
-      setSelectedId(null);
-    }
+    canvas.applyStatus(svgId, newStatus);
   };
 
   const handleToggleStatusFilter = (status: PlotStatus) => {
@@ -122,11 +93,7 @@ export function ColonyMap({ client, actor, colonyId, colonySvg, onBack }: Props)
 
   return (
     <div className="colony-map-container">
-      <div
-        ref={containerRef}
-        className="h-full w-full"
-        onClick={handleClick}
-      />
+      <div ref={containerRef} className="h-full w-full" />
       <button type="button" className="colony-back-button" onClick={onBack}>
         ← Colonies
       </button>
@@ -165,10 +132,15 @@ export function ColonyMap({ client, actor, colonyId, colonySvg, onBack }: Props)
           />
         )}
       </AnimatePresence>
-      {import.meta.env.DEV && selectedId && (
-        // Dev-only stand-in for a console you can't reach on a phone. Stripped
-        // from production builds by import.meta.env.DEV — not a shipped feature.
-        <p className="colony-dev-click-badge">clicked: {selectedId}</p>
+      {import.meta.env.DEV && (selectedId || canvas.orphanCount > 0) && (
+        // Dev-only stand-in for a console you can't reach on a phone. Stripped from
+        // production builds by import.meta.env.DEV — not a shipped feature. Also the one
+        // place an orphaned plot row becomes visible: a `plots` row whose svg_id matches
+        // no path in the SVG renders nowhere, and used to do so in total silence.
+        <p className="colony-dev-click-badge">
+          {selectedId ? `clicked: ${selectedId}` : null}
+          {canvas.orphanCount > 0 ? ` · ${canvas.orphanCount} orphaned plot rows` : null}
+        </p>
       )}
     </div>
   );

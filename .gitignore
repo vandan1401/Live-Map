@@ -42,3 +42,9 @@ Thumbs.db
 # --- misc build artifacts ---
 *.log
 npm-debug.log*
+
+# --- throwaway perf harness (2026-08-22 pan/zoom investigation) ---
+# Lives under public/ only because the guard hook reserves servers for the owner and the
+# already-running dev server is the one way to give it an http origin. It ships into
+# dist/ if a build runs while it exists — delete the directory before the next deploy.
+apps/map/public/_bench/

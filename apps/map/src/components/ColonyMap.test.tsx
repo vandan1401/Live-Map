@@ -44,8 +44,11 @@ function createFakeSupabaseClient(): SupabaseClient {
 }
 
 describe("ColonyMap", () => {
-  it("renders all 26 plots from the shared fixture", () => {
-    const { container } = render(
+  it("mounts without a canvas backend and still renders its chrome", () => {
+    // jsdom implements no canvas, so getContext returns null and the layer skips drawing.
+    // That path has to be safe: if it throws, the whole map screen is a white page on any
+    // browser that refuses a context (private modes, blocked fingerprinting).
+    const { getByText } = render(
       <ColonyMap
         client={createFakeSupabaseClient()}
         actor="test-actor"
@@ -54,26 +57,7 @@ describe("ColonyMap", () => {
         onBack={vi.fn()}
       />,
     );
-    expect(container.querySelectorAll(".plot")).toHaveLength(26);
-  });
-
-  it("logs a plot's id when clicked", () => {
-    const { container } = render(
-      <ColonyMap
-        client={createFakeSupabaseClient()}
-        actor="test-actor"
-        colonyId="shree-vatika-2"
-        colonySvg={fixtureSvg}
-        onBack={vi.fn()}
-      />,
-    );
-    const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
-    const plot = container.querySelector(".plot") as SVGPathElement;
-    plot.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-
-    expect(logSpy).toHaveBeenCalledWith(plot.id);
-    logSpy.mockRestore();
+    expect(getByText("Indicative layout — not to scale")).toBeInTheDocument();
   });
 
   it("shows the not-to-scale note", () => {

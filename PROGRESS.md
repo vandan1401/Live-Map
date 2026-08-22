@@ -2,96 +2,71 @@
 
 ## Current
 
-- **Jai Dev Residency exported end-to-end and the app deployed live to a public URL
-  (2026-08-21/22, mixed Tier 1/3, no plan file — a real-colony trigger plus an owner
-  deploy request, not a pre-written milestone).** Two large, related bodies of work in
-  one session.
-  **Pipeline side (Tier 1):** the owner's normalised DXF (`JAI DEV working v2.dxf`)
-  reached ingest/export for the first time. Along the way: 42 `COL-PLOT-NO` labels in
-  blocks E/L were missing the block-number dash (`E14` not `E-14`) — fixed mechanically
-  with a new `tools/cad-lisp/fix_plot_label_dashes.py` (never repairs ambiguity, only
-  inserts a dash where the block+number split is already unambiguous), applied in place
-  to the working DXF (guard.sh blocks `rm`-ing the leftover copy — that's still sitting
-  next to it). The `24`/`24-A` subdivision gap (Deferred, since 2026-08-20) resolved
-  itself when the owner relabelled the cutout `A-24` instead — no contract change needed.
-  `tools/pipeline/colonies/jai-dev-residency.json` written (`blocks: ["A","S","L","E"]`,
-  `default_block: null`, `expected_plots: 675`). `make export` now produces a real
-  675-plot `colony.svg`/`colony.json` (out/, gitignored).
-  **A second real pipeline gap found and fixed:** every plot label's rotation is real
-  (the CAD operator rotated each to match its plot) but MTEXT can encode it as either a
-  plain `rotation` attribute or a `text_direction` vector — all 675 real labels use the
-  vector form, which `.dxf.rotation` alone silently reads as 0 for every one of them.
-  `Label` gained `rotation_deg`/`height`, `dxf.py` now uses MTEXT's `get_rotation()`
-  (resolves either encoding), and `svg.py` emits `data-rotation`/`data-label-height`
-  (rotation negated for SVG's Y-flip, height scaled by the same transform as geometry).
-  `contract/SPEC.md` documents both as optional `data-*` attributes.
-  **App side (Tier 3, `apps/map/src/{components,styles}/**`, no plan/review gate):** the
-  675-plot colony exposed three things the 26-plot fixture never could. (1) Initial load
-  did one `querySelector` per plot for the bulk status write and fired 675 simultaneous
-  CSS fill-transitions — fixed with a single `svgId->element` `Map` built once at mount
-  and a `.no-transition` class scoped to the bulk-load path only. (2) `.plot-label` was a
-  fixed 12px+stroke, sized for the fixture's much larger plots — now reads the pipeline's
-  real `data-rotation`/`data-label-height` (via a rewritten `alignPlotLabels.ts`) instead
-  of a guess, CSS fallback dropped to 6px/no-stroke for colonies without that data (the
-  fixture). (3) The selected-plot dimension callout was axis-aligned `getBBox()`-based
-  (only ever correct by accident on the fixture) — rewritten in `plotDimensionOverlay.ts`
-  as per-edge dimensioning (all real sides, not an abstracted length/breadth pair) via a
-  new `lib/colony/plotGeometry.ts` (rotating-calipers min-area rect, a collinear-vertex
-  simplifier for a DXF/`simplify()` artifact that would otherwise read as a spurious 5th
-  side). **A real bug found against Jai Dev Residency's actual geometry, not a synthetic
-  test:** the line's outward-offset flip and the text's keep-upright rotation flip were
-  two independent 180° ambiguity resolutions that disagreed on 2 of any plot's 4 edges,
-  pushing the label back toward the plot — fixed with `dominant-baseline: central` so the
-  glyph's extension direction no longer depends on rotation at all, with `TEXT_GAP`
-  widened accordingly. Arrowheads dropped, line thinned/dashed, offsets pulled tight (1
-  unit), all per direct owner feedback against the live render.
-  **Deployed live, for the first time (owner-driven; account creation/logins are not
-  something Claude does).** New GitHub repo (`github.com/vandan1401/Live-Map`, this
-  session's history plus the work above pushed there). New hosted Supabase project
-  (`wtvznloydjgmstpcgnyb.supabase.co`) — all 8 migrations run by hand via the SQL Editor,
-  schema verified live via REST (`colonies`/`plots`/`plot_history` reachable,
-  `apply_plot_transition` present). `apps/map/wrangler.toml` added and then fixed twice
-  live: first for `[assets]` (Cloudflare's dashboard now creates Git-connected projects
-  as unified Workers, not the old separate Pages product — `pages_build_output_dir` is
-  ignored there), then for the project's real name (`live-map`, dashboard-assigned before
-  wrangler.toml existed — `colony-map` never matched but didn't visibly break the build).
-  First live build shipped with **no Supabase env vars at all** (silently baked in as
-  undefined) — caught by grepping the deployed bundle for the project ref and finding
-  nothing; fixed once the owner set `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` in
-  Cloudflare's dashboard and a real (non-empty) commit forced a rebuild — an empty
-  `--allow-empty` commit was silently skipped by Cloudflare's build trigger, worth
-  remembering. Live at `https://live-map.moonatvandan.workers.dev`; a `demo`/`demo-pass-123`
-  login exists (Claude ran `create-user.ts` directly against the hosted project once the
-  owner supplied the `service_role` key — a local script writing to a database the owner
-  already controls, not third-party account creation). `apps/map/.env` (local Docker,
-  127.0.0.1) is untouched; `apps/map/.env.production` (new, gitignored) holds the hosted
-  credentials and is what `pnpm build` reads for a real deploy.
-  **Still open, the actual "go live with real data" step:** Jai Dev Residency has not
-  been uploaded through the live app's own upload screen yet — everything above gets the
-  *pipeline output* and the *deployed shell* ready, but no colony exists in the hosted
-  database yet. That upload (and the human verification click it requires, D-025/
-  invariant 2) is the owner's, not something run from here.
-  **Verified:** `mingw32-make gate` from repo root — `contract` 4/4, `apps/map`
-  typecheck/lint/build clean, **157/157 tests** (three different tests flaked across
-  repeated full-parallel runs — `subscribePlots.test.ts`, `rls.test.ts`,
-  `plotDetail.test.ts`, each passing clean alone; same documented Docker/Supabase
-  worker-contention pattern as every prior wrap, confirmed by running the full suite
-  split as 144 clean + the 3 flake-prone files' 13 tests clean in isolation), `tools/
-  pipeline` verify (ruff clean, mypy clean 26 files, **108 passed, 1 skipped** — was
-  101+1, +7 new: 4 for the MTEXT rotation-extraction bug specifically, 3 for the SVG
-  emission sign-flip/scale/omitted-height cases) + golden (1 passed/1 skipped, unchanged).
-  Deployed bundle spot-checked directly (curl against the live URL + grep for the real
-  project ref), not just trusted from the build log.
-  `docs/cad-layer-standard.md` was never touched this session despite the real DXF work —
-  worth a look next time a colony surfaces a genuinely new drawing convention, since nothing
-  here needed one.
+- **The map is a Canvas2D renderer now, not an SVG overlay (2026-08-22, Tier 1,
+  `docs/plans/18.md`, D-027).** The owner reported pan/zoom getting laggy on Jai Dev
+  Residency's 675 plots. Measured rather than guessed, and the first ranked list of
+  suspects was wrong: pan was already 60fps in every configuration, and stripping trees,
+  labels, the frosted-glass chrome, the grass pattern and the world layer *all at once*
+  still left zoom at 13fps. The cause was `L.svgOverlay`: Leaflet sets a pixel width and
+  height on its element every zoom step, so at zoom 4 the browser re-laid-out ~3,500 nodes
+  across a 16,000px element (64,000px for the world-ground layer) — 198-237ms per step,
+  and `zoomSnap: 0.1` made one gesture pay it ten times.
+  **Now:** the colony parses once into a plain draw model and paints to a single canvas in
+  a custom `L.Layer` sized to the *viewport*. Leaflet is kept as the gesture host, which
+  measurement chose over hand-rolling pinch/drag/inertia (60fps animated zoom and pan,
+  40fps on discrete steps, vs ~58fps standalone) — so **D-009 is upheld, not retired**, and
+  more literally than the SVG overlay ever managed. Picking is point-in-polygon at
+  0.028ms/click. **Owner confirmed smooth on a real phone.**
+  Trees are dropped at parse (owner ask) — 1,430 of Jai Dev's 3,497 nodes were decoration
+  the pipeline invents. Colours still come from `colony-theme.css`'s `:root` via
+  `getComputedStyle`, which is how D-004 survives having no stylesheet paint the map.
+  The upload preview (D-025) moved onto the same renderer in the same commit, because a
+  gate that verifies a different render than the map ships is not a gate.
 
-- **In-app colony onboarding complete (2026-08-17, `docs/plans/11.md`, Tier 1, M15).**
-  All 12 acceptance criteria passed, `/review` findings fixed and re-verified. Stable,
-  no open issues. Jai Dev Residency (above) is the first colony to reach the deployed app
-  through the full DXF→pipeline→(pending) upload path this milestone built.
+- **Next: UI work, Tier 3, owner-driven.** The owner is collecting a list on the phone.
+  Note the mechanism changed: map visuals are now `components/map/draw*.ts`, not CSS
+  selectors; colours and all HTML chrome (toolbar, sheet, table, picker) are unchanged.
+  Five things still unverified by a human — selected-plot tint, fly-in + dimension labels,
+  the 400ms fade, garden vs amenity colour, and the upload preview matching the map.
+
 
 ## Log
+
+### 2026-08-22 — Canvas map renderer (Tier 1, docs/plans/18.md, D-027)
+
+**Done:** Replaced both `L.svgOverlay`s with a viewport-sized canvas in a custom `L.Layer`;
+new `components/map/` (13 files: model, picker, theme, view, patterns, painter, labels,
+dimensions, transitions, layer, hook, dimension fetch, preview); deleted 7 SVG-renderer
+files; upload preview moved onto the same renderer; trees dropped at parse; D-027 written;
+`/review` run and all 7 findings fixed.
+
+**Next:** Tier 3 UI pass, owner-driven. Five visual behaviours still unverified by a human.
+
+**Surprises:** Four, and every one of them inverted an assumption.
+(1) *The obvious optimisations were all wrong.* Trees, labels, glass, grass pattern, world
+layer removed **together** still left zoom at 13fps vs 6 baseline. The bottleneck was never
+content — it was Leaflet resizing a 16,000px SVG element per zoom step. A whole ranked
+suspect list, mine, discarded on measurement.
+(2) *Viewport culling in the DOM made it **worse*** — 260-438ms/step vs 198-237. The browser
+already clips off-screen content; `display` toggling still forces a style recalc over every
+node. The same idea is a clear win on canvas, because we own the draw loop. Recorded in
+Deferred so nobody retries it.
+(3) *`parsePlotPoints` had returned `[]` for every plot in the shared fixture since it was
+written.* It matched only the pipeline's `M x,y L x,y`; the hand-authored fixture uses
+`H`/`V` shorthand. Latent and silent — `plotDimensionOverlay`'s `< 3 points` guard just drew
+nothing, on the one colony every test uses. The plan had explicitly listed this file as
+"unchanged by this plan"; the plan was wrong. It also had no tests. Both fixed.
+(4) *`getImageData` changed the headline number.* An early "3ms per redraw" measured
+Canvas2D command **queueing**, not rasterisation. Flushed properly the honest figure is
+~17ms worst case — a 12x win, not 70x. Every benchmark since is GPU-flushed.
+Also: measuring in a background Chrome tab silently yields ~5fps for everything, because
+rAF is frozen. A whole first matrix was junk before a visibility guard went in.
+
+**Verified:** `pnpm typecheck` clean; `pnpm lint` clean; `pnpm exec vitest run
+--no-file-parallelism` 32 files / 177 tests / 0 failures (default parallelism intermittently
+flakes live-DB tests — see Deferred); `pnpm build` succeeds. Owner confirmed pan/zoom smooth
+on a real phone. Not verified by anyone: the five visual behaviours in `## Current`.
+
 
 - **Done:** Jai Dev Residency exported end-to-end (675 plots), real per-label
   rotation/height extracted from the DXF (fixed an MTEXT `text_direction`-vector bug),
@@ -1098,6 +1073,77 @@
   theme one, if wanted later.
 
 ## Deferred
+
+- **The live-Supabase tests now fail under the suite's own parallelism, and it got worse on
+  2026-08-22.** Previously one test flaked (`subscribePlots.test.ts` > "a write from one
+  client is observed by another"); after the canvas rewrite added 4 test files (28 -> 32),
+  a full `pnpm exec vitest run` intermittently times out **six** tests across
+  `rls.test.ts`, `listColonies.test.ts` and `subscribePlots.test.ts`. None of them touch
+  the renderer, and all of them are live-DB integration tests contending for one local
+  Supabase.
+  **Proof it is contention, not breakage:** `pnpm exec vitest run --no-file-parallelism`
+  gives **32 files, 177 tests, 0 failures** (135s vs 67s), and the three files pass in
+  isolation together in 9s. The Docker stack reports healthy throughout.
+  The existing note about not capping vitest's parallelism was written when this cost one
+  flaky test; at six it is closer to "the gate does not reliably pass", which is the thing
+  a gate is for. Options, none taken here: cap parallelism for the `lib/{auth,colony,sync}`
+  DB tests only, give them their own vitest project, or raise their timeouts. Until then,
+  **verify with `--no-file-parallelism` before believing a red run.**
+
+- **The pipeline never emits feature labels at all, so every real colony's road texts are
+  missing** (owner, 2026-08-22: "the road texts like 9m wide road, road to sailana are
+  missing"). Verified, not inferred: `tools/pipeline/pipeline/export/svg.py` names
+  `.feature-label` only inside its fallback CSS string (line 40) and writes no such element
+  anywhere; `tools/pipeline/out/jai-dev-residency/colony.svg` contains **0**
+  `feature-label` and **0** `entrance-label`, while the hand-authored
+  `fixtures/shree-vatika-2/colony.svg` has 11 (`9.0 M W ROAD`, `6.0 M W PATHWAY`, plot
+  dimension strings). That is why they were visible before and vanished on the real colony —
+  nothing regressed, the exporter never had the feature. `docs/cad-layer-standard.md:22`
+  already specifies `COL-FEATURE-NO` (`TEXT`/`MTEXT`, 1 per feature, insertion point inside
+  its own feature), so the source data is specced; the export and the label classification
+  are what is missing. Tier 1 (`pipeline/export/**`, `pipeline/matching/**`) and it touches
+  `contract/SPEC.md`'s label rows — its own plan, its own `/review`.
+  **Two owner rules that belong to that unit, not to the app** (a keyword blocklist in the
+  renderer would be colony-specific logic in code, which `spec/00-rules.md` forbids):
+  no label text for "Future planning" / "Reserved" style features — in SVG terms, the
+  `amenity` entries carrying `data-kind="reserved"` and `data-kind="other"`, of which Jai
+  Dev Residency has many; and road/pathway width texts *are* wanted. The app side is
+  already done and waiting: `mapLabelChips.ts` draws the white chip, `colony-theme.css`
+  styles `.feature-label`, and `docs/plans/18.md` makes rendering them an acceptance
+  criterion against the fixture.
+
+- **`scatter_trees` deliberately scatters trees onto the road.**
+  `tools/pipeline/pipeline/export/run.py:63` is
+  `tree_areas = [("road", road), *(("garden", Polygon(r.points)) for r in garden_rings)]` —
+  the road is passed in as a tree area, which is exactly why the owner saw trees sitting on
+  roads (owner, 2026-08-22: "the trees should not be there on roads"). **Moot today** —
+  every tree is stripped at parse (see the tree entry above), so nothing renders on a road.
+  If trees are ever reinstated, drop the `("road", road)` element; do not filter downstream.
+
+- **The pipeline still emits 1,430 decorative trees; the app now drops them at parse time.**
+  **New behaviour as of 2026-08-22, not pre-existing** — until this change trees really did
+  render (old `.tree-crown`/`.tree-shadow` CSS, hidden only below the zoom threshold).
+  `apps/map/src/components/map/colonyModel.ts`'s `isTree()` skips every `.tree` element
+  while building the draw model (owner ask), so
+  every colony already exported and already uploaded — including the live Jai Dev Residency
+  — is fixed with no rerun. The emission itself is untouched:
+  `tools/pipeline/pipeline/export/run.py:64` still calls `scatter_trees()` and
+  `pipeline/export/svg.py:107` still writes the nodes, so every `colony.svg` is still ~40%
+  decoration by node count and the app pays a parse cost to delete it. Stopping it at source
+  is Tier 1 (`pipeline/export/**`) and needs `/plan` + `/review`; it also touches
+  `contract/SPEC.md`'s `tree` row and `spec/`'s tree-scatter description. Do it as its own
+  unit, and delete `colonyModel.ts`'s `isTree()` (and its "drops trees entirely" test) in
+  the same commit, so the two halves never disagree about whether trees exist.
+
+- **Measured pan/zoom findings, 2026-08-22 — the ranked suspect list in the session log was
+  wrong and the numbers are in `## 2026-08-22` below.** Two things future work must not
+  re-derive: viewport culling (`display:none` on off-screen plots/labels) measured *worse*
+  than drawing everything (260-438ms/step vs 198-237ms) because the browser already clips
+  off-screen content while style recalc still walks every node; and Leaflet's own animated
+  zoom already runs at 57-60fps, so the lag is entirely in the ~200ms settle Leaflet pays
+  per discrete `animate:false` zoom step, which `zoomSnap: 0.1` makes it pay ten times per
+  gesture. The single biggest content lever is the world-grass overlay (250ms -> 133ms when
+  removed), not the plots.
 
 - **Blockless plot IDs (`docs/plans/15.md`, built 2026-08-21) render an ambiguous on-map
   label when a colony mixes a blockless plot with a lettered one of the same number.**
