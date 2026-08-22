@@ -1,5 +1,12 @@
-# Cloudflare Pages deploy config (D-014). `wrangler pages deploy` reads this for the
-# project name and which built directory to upload -- run from apps/map after `pnpm build`.
+# Cloudflare deploy config. Cloudflare's dashboard now creates Git-connected projects as
+# unified Workers projects (the classic separate "Pages" product/UI is gone), which deploy
+# via `wrangler deploy` reading the [assets] block below -- not `pages_build_output_dir`,
+# which is the older, Pages-specific key and is ignored by this deploy path (found live,
+# 2026-08-22: `wrangler deploy` failed with "Missing entry-point to Worker script or to
+# assets directory" until this was added). No `main` entry -- this is a pure static-asset
+# site, no Worker script involved.
 name = "colony-map"
-pages_build_output_dir = "dist"
 compatibility_date = "2026-08-21"
+
+[assets]
+directory = "./dist"
