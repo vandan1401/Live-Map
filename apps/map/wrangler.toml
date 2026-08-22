@@ -5,7 +5,9 @@
 # 2026-08-22: `wrangler deploy` failed with "Missing entry-point to Worker script or to
 # assets directory" until this was added). No `main` entry -- this is a pure static-asset
 # site, no Worker script involved.
-name = "colony-map"
+name = "live-map"  # matches the Cloudflare project's actual name (dashboard-assigned when
+# the project was first created, before wrangler.toml existed) -- "colony-map" here never
+# matched, though it did not visibly break the deploy
 compatibility_date = "2026-08-21"
 
 [assets]
