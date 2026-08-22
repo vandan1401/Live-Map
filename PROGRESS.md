@@ -2,198 +2,118 @@
 
 ## Current
 
-- **Plot-label disambiguation for mixed-block colonies (2026-08-21, `docs/plans/16.md`,
-  Tier 1, no spec — a `PROGRESS.md` → Deferred item from plan 15's `/review`, not a
-  pre-written milestone).** `tools/pipeline/pipeline/export/svg.py`'s plot-label `<text>`
-  emission never read `plot.block` — every colony's on-map label was bare digits only. For
-  a colony mixing a blockless plot (plan 15) and a lettered one with the same padded number
-  (the exact Jai Dev Residency shape, still blocked on a real DXF), both rendered the same
-  visible text, e.g. `plot-01` and `plot-A-01` both showing "1" — indistinguishable on the
-  map a family member reads, even though `svg_id` collisions were already impossible
-  (`assign.py`'s `seen` dict, unaffected). Fixed: the block prefix (`{block}-{number}`, e.g.
-  `"A-1"`, number left unpadded to match the fixture's existing style) now only fires when
-  a colony actually mixes more than one distinct `block` value — a single-block colony
-  (every colony shipped so far, e.g. `shree-vatika-2`) renders exactly as before.
-  **`/review` (round 1) caught the first draft prefixing unconditionally** — it would have
-  silently changed every existing single-block colony's map labels with no owner ask on
-  record; fixed by gating on `len({p.block for p in plots}) > 1`. It also caught a bogus
-  acceptance criterion in the plan ("2/2 fixture manifests" — there is only 1 fixture
-  manifest; `test_contract.py` reports 4 passed, 3 of them plan 15's inline schema tests) —
-  corrected in the plan file. New tests in `tools/pipeline/tests/test_svg_labels.py` (not
-  added to `test_export.py`, already over the 250-line cap independent of this change — see
-  Deferred). `fixtures/shree-vatika-2/colony.svg` untouched and needs no future update
-  either, since the fix is a no-op for any single-block colony.
-  **Verified:** `mingw32-make gate` (root) — full gate: `contract` (4 passed),
-  `apps/map` typecheck/lint/test(157 passed)/build all clean, `tools/pipeline` verify
-  (ruff+mypy+pytest, 101 passed/1 skipped) + golden (1 passed/1 skipped) all clean. One
-  transient failure on the first gate run — `subscribePlots.test.ts`'s realtime live-
-  integration test timed out at 20000ms under full-suite parallel load, passed alone in
-  2.32s and passed on the gate's second full run — the same pre-existing, previously
-  root-caused flake recorded below (Docker/Supabase worker contention, owner said "leave
-  it" 2026-08-16), not caused by this diff (Tier 1, `tools/pipeline/pipeline/export/**`
-  only, nothing under `apps/map/src/lib/sync/`).
-- **Blockless plot IDs added to the contract (2026-08-21, `docs/plans/15.md`, Tier 1, no
-  spec — real-world trigger, not a pre-written milestone).** The contract's plot id format
-  was `plot-{BLOCK}-{NN}` with block required (`svg_id` pattern `^plot-[A-Z]+-[0-9]{2,}$`,
-  `block` pattern `^[A-Z]+$`); it now also accepts `plot-{NN}` with `"block": ""`. Trigger:
-  the Jai Dev Residency colony (mid-normalisation in AutoCAD, owner-confirmed this session)
-  has bare `1`–`6` and explicit `A-1`–`A-6` as genuinely separate plots, not the same plots
-  under two labels — the owner wants bare numbers to render with no block letter at all,
-  which the contract could not represent before this change.
-  **Both halves changed in one commit (invariant 1):** `contract/colony.schema.json` /
-  `contract/SPEC.md` widened (additive-only regex, no previously-valid id becomes invalid);
-  `ColonyConfig` gained `default_block: str | None` (required, no Python-level default — all
-  4 construction sites made explicit), resolved in `load_colony_config` from an optional
-  JSON key (absent → `blocks[0]`, matching every existing colony's behavior unchanged;
-  `null` → blockless) and validated against `blocks` so a bare number can't silently invent
-  an unvalidated block; `assign_plot_numbers` uses it instead of `blocks[0]` unconditionally.
-  `apps/map` gained a shared `formatPlotLabel()` (`shared/format.ts`) replacing four
-  duplicated `${block}-${number}` sites, and `extractSvgPlotIds`'s regex was widened to
-  match.
-  **`/review` (three rounds) found and fixed:** two new test files (`test_dxf.py`,
-  `test_matching.py`) would have pushed already-tracked invariant-7 (250-line) breaches
-  further — split into `test_colony_config.py`/`test_matching_blockless.py`; the new
-  `default_block`-not-in-`blocks` validation (added in response to round 1) initially
-  contradicted its own doc wording in `docs/cad-layer-standard.md` — fixed in round 2; a
-  real, un-pinned gap was found and *not* fixed (see Deferred) —
-  `pipeline/export/svg.py:86`'s on-map plot label renders the bare number only, so a
-  blockless `plot-01` and a lettered `plot-A-01` in the same colony show the identical
-  visible label "1".
-  `tools/pipeline/colonies/jai-dev-residency.json` is explicitly **not** written yet — no
-  `colony.dxf` for that colony exists in this repo (owner has it, mid-normalisation,
-  outside version control), so nothing can be exported against it regardless of this change.
-  **Verified:** full gate from repo root — `contract` 4/4 (1 fixture-driven + 3 new inline
-  schema tests), `apps/map` typecheck/lint/build clean, **157/157 tests** (one
-  `subscribePlots.test.ts` realtime-warmup flake on the first run, clean on retry — same
-  documented flake as prior wraps), `tools/pipeline` ruff/mypy clean, **97 passed, 1
-  skipped** (was 90+1, +7 new, 0 regressions).
-
-- **M14 — the local verify page built (2026-08-21, `spec/14-pipe-verify-page.md`, Tier 2,
-  no plan file).** `tools/pipeline/verify/{index.html,verify.css,verify.js}` — a
-  no-build-step, three-file `file://`/`make serve` page (D-114) that fetches
-  `../out/<colony>/colony.{svg,json}` and `../colonies/<id>.json` and renders exactly what
-  the app will: it reuses the app's real `colony-theme.css`/`plot-selection.css`/
-  `map-texture.css` unmodified, and hand-ports `mapTexturePatterns.ts` + `parseColonySvg.ts`
-  into vanilla JS (kept in sync by hand — no bundler, so no import) for the road/garden
-  pattern defs. Both root and `tools/pipeline/Makefile`'s `serve` targets were repointed to
-  serve the **repo root** (not just `verify/`) so relative fetches can reach `../out/`,
-  `../colonies/`, and `apps/map/src/**` — the original targets only served the `verify/`
-  subdirectory, which cannot see any of that. **No "Mark verified" button** (confirmed
-  correct against spec/14's stale acceptance-criterion #3, which still says "disables Mark
-  verified" — the Build section and the D-025 decision log both already say the button
-  was dropped entirely; the mismatch banner is the whole criterion now). Read-only: no
-  code path in this page (or anywhere in `tools/pipeline`) ever writes `"verified": true`.
-  **Live-verified in a real browser this session** (Chrome via claude-in-chrome, after the
-  user started `py -m http.server 8080` — `make`/`make serve` aren't Claude's to run,
-  CLAUDE.md/guard.sh) against `fixtures/shree-vatika-2/` copied into a scratch
-  `tools/pipeline/out/shree-vatika-2/` (gitignored, left in place) plus two synthetic
-  colonies for the failure-mode criteria: a doctored 25-plot manifest (`expected_plots:
-  26`) and a Y-flipped export with a `source.png` overlay screenshotted from the correct
-  render. All 6 of spec/14's acceptance criteria pass with live evidence.
-  **Two real bugs found and fixed live, not by static review:** `map-texture.css` — the
-  file that actually defines `.texture-road-base`/`.texture-road-fleck-*`/
-  `.texture-garden-tint`, the classes the ported pattern defs paint — wasn't linked in
-  `index.html`, so every road rendered solid black instead of the app's asphalt texture;
-  and selecting a plot hid *every* plot-number label instead of just the others, because
-  `plot-selection.css`'s `.has-selection .plot-label { display: none }` needs the clicked
-  plot's own label marked `.is-focused-label` (the real app's `useSelectedPlotOverlay.ts`
-  job) to stay visible — `attachPlotHandlers` in `verify.js` now does this.
-  **Verified:** full `mingw32-make gate` from repo root (Docker/Supabase brought up fresh
-  via `/db-up` first, `subscribePlots.test.ts`'s realtime warm-up needs it) — contract 2/2,
-  apps/map typecheck/lint clean, **153/153 tests** (no flake this run, DB was already warm),
-  production build clean; `tools/pipeline` verify (ruff clean, mypy strict clean 26 files,
-  **90 passed, 1 skipped** — unchanged count, this milestone added no `.py`), golden 1
-  passed/1 skipped (unchanged, still blocked on the missing `colony.dxf` golden fixture —
-  pre-existing M13 gap, not touched here). Plus the spec/14-specific live-browser pass above,
-  which `make gate` cannot exercise on its own.
-
-- **M13 — pipeline/derive and pipeline/export built (2026-08-21, `spec/13-pipe-derive-export.md`,
-  `docs/plans/14.md`, Tier 1).** The pipeline is now wired end to end for the first time:
-  `pipeline.export.run.orchestrate_export` calls `load_colony_config` → `ingest_dxf` → layer
-  split → `validate_ring`/`validate_within` → `assign_plot_numbers`/`classify_features` →
-  `derive_road`/`scatter_trees`/`resolve_facing`/`is_plot_corner` → `compute_transform` →
-  `build_svg`/`build_manifest` → `run_qa` → write `out/<id>/{colony.svg,colony.json}`, both
-  files or neither. `make export COLONY=<id> DXF=<path>` replaces the M13 stub in both
-  Makefiles. `px_per_ft` is **derived** at export time (`1000 / site_width_ft`), never read
-  from colony config — a deliberate, documented deviation from spec/13's literal text (see
-  `docs/plans/14.md` §3): the contract's own "viewBox width is always 1000" (D-110) cannot
-  hold if the scale is a fixed config constant for an arbitrary site size. Feature
-  `svg_id = f"{class}-{ring.handle.lower()}"` (a gap M12 explicitly left open) — DXF handle,
-  not label text, for stability across reruns.
-  **`/review` found 7 real issues, all fixed and re-verified:** the embedded fallback
-  `<style>` block was unscoped and would have out-cascaded `colony-theme.css`/
-  `plot-selection.css` for every colony once inlined into the live app DOM (fixed with a
-  `svg:root` prefix on every selector); trees carried no `class`, making the contract's
-  `tree` class unreachable by any CSS (added `class="tree"`/`"tree-crown"`); the
-  `stable_seed` determinism test was the exact weak version the plan warned against — passed
-  unchanged even with the salted builtin `hash()` (now pins a literal value); the
-  byte-identical-reruns test excluded tree positions, the one non-deterministic part, and
-  `orchestrate_export` itself had zero tests (added real end-to-end orchestration tests:
-  idempotency including trees, and both-files-or-neither on a QA failure, both fresh-dir and
-  corrupted-existing-dir); the "zero styling attributes" grep the rules/plan both claimed the
-  QA gate performs wasn't actually in `run_qa` (added, now blocking); the exported manifest
-  was never validated against `contract/colony.schema.json` (added, now the first QA check);
-  `Path.write_text` with no `encoding=` resolves to cp1252 on Windows, risking a mid-write
-  `UnicodeEncodeError` on a non-ASCII `COL-FEATURE-NO` label — the exact partial-write case
-  the plan pins against (fixed with explicit `encoding="utf-8"` on both writes).
-  **`validate_disjoint`'s known O(n²) cost (PROGRESS.md Deferred, flagged since M11) is now
-  wired into the real export path via `run_qa`, without the `STRtree` fix first** —
-  `/review`'s explicit verdict was re-defer, trigger set at a real colony's plot count (41s
-  was measured at 1,500 plots/1.1M pairs; ~300 plots is well under a second).
-  Golden criteria (1-3, 6) adapted the same way M10-M12's were —
-  `fixtures/shree-vatika-2/colony.dxf` still doesn't exist; synthetic DXF/Ring/Label data,
-  hand-computed expected values.
-  **Verified:** full `make gate` from repo root — `contract` 2/2, `apps/map` typecheck/lint
-  clean, 153/153 tests + production build clean (the one `subscribePlots.test.ts`
-  realtime-warmup flake reproduced once, cleared on retry — same documented flake as M12's
-  wrap), `tools/pipeline` verify (ruff clean, mypy strict clean 26 files, pytest **90
-  passed, 1 skipped** — was 68+1, +22 new, 0 regressions), `tools/pipeline` golden (1 passed,
-  1 skipped — the skip is expected), `make contract` 2/2.
-
-- **Jai Dev Residency — a real, non-fixture colony, mid-normalisation in AutoCAD
-  (2026-08-20).** Owner working through `docs/cad-layer-standard.md`'s per-colony
-  procedure on a real DWG (`JAI DEV working v2.dwg`/`.dxf`) with heavy `tools/cad-lisp`
-  assistance this session (see below). Current state, per `check_layers.py`: `COL-SITE`
-  present (derived via `derive_site.py`'s morphological-closing union, not hand-traced —
-  no separate boundary was drawn on this plan), `COL-NORTH` present (0°, matches +Y),
-  units corrected from metres to feet (`$INSUNITS`/`$MEASUREMENT` fixed, every coordinate
-  and text height scaled by 3.280839895, verified against realistic plot areas before and
-  after), `COL-PLOT`/`COL-PLOT-NO` and `COL-GARDEN`/`COL-AMENITY`/`COL-FEATURE-NO`
-  containment all clean (0 issues). **Still open, owner's call, not proceeded on without
-  answers:** a bare-vs-`A`-block plot-number collision (bare `1`–`6` and explicit
-  `A-1`–`A-6` both exist) blocks writing `tools/pipeline/colonies/jai-dev-residency.json`
-  until the owner says which default block bare numbers should use; `expected_plots`
-  needs the sanctioned count, not a drawing count. 22 `CV-PLOT-DRAFT` entities left
-  un-promoted — owner said not to review, calling them trash. Plot `24`/`24-A` (a real
-  subdivision/cutout, confirmed by the owner) exposed a standard gap — see Deferred.
-
-- **`tools/cad-lisp/` grew from Phase-1-only to a real toolkit exercised against a real
-  colony (2026-08-20), now committed (2026-08-20 wrap).** `close_polygons.py`
-  (Python replacement for the AutoCAD-crashing `CV-CLOSE`), `derive_site.py` (union-based
-  `COL-SITE` derivation, closing-morphology not a naive buffer, after a convex-hull
-  first attempt badly overshot — see `docs/plans/` git history for the back-and-forth),
-  `check_layers.py` (the `CV-CHECK` preflight validator, mirrors `pipeline/extract/dxf.py`
-  minus north/keyword checks), `fill_missing_labels.py`, `trace_site.py`,
-  `triage_report.py`, `export_blocks.py`, plus the shared `polygonize.py`/`labels.py`/
-  `output.py`. `cv-tools.lsp` gained `CV-EXPLODE-BLOCKS` and `CV-SELECT-BY-PERIMETER`.
-  All individually smoke-tested against the real Jai Dev Residency file the session that
-  wrote them (superseding the old "Untested against a real drawing" note); this wrap
-  additionally byte-compiled and `--help`-smoke-tested all 10 scripts (no real DXF
-  available to Claude in this repo) and fixed one small dead-computation bug in
-  `fill_missing_labels.py::_label_point` (an unused `text` strip, harmless but wasted
-  work) — no `/review` run as a body of work, since this is standalone tooling outside
-  `contract/apps/map/tools/pipeline`'s risk tiers (no CLAUDE.md tier applies to AutoLISP/
-  standalone-script changes).
+- **Jai Dev Residency exported end-to-end and the app deployed live to a public URL
+  (2026-08-21/22, mixed Tier 1/3, no plan file — a real-colony trigger plus an owner
+  deploy request, not a pre-written milestone).** Two large, related bodies of work in
+  one session.
+  **Pipeline side (Tier 1):** the owner's normalised DXF (`JAI DEV working v2.dxf`)
+  reached ingest/export for the first time. Along the way: 42 `COL-PLOT-NO` labels in
+  blocks E/L were missing the block-number dash (`E14` not `E-14`) — fixed mechanically
+  with a new `tools/cad-lisp/fix_plot_label_dashes.py` (never repairs ambiguity, only
+  inserts a dash where the block+number split is already unambiguous), applied in place
+  to the working DXF (guard.sh blocks `rm`-ing the leftover copy — that's still sitting
+  next to it). The `24`/`24-A` subdivision gap (Deferred, since 2026-08-20) resolved
+  itself when the owner relabelled the cutout `A-24` instead — no contract change needed.
+  `tools/pipeline/colonies/jai-dev-residency.json` written (`blocks: ["A","S","L","E"]`,
+  `default_block: null`, `expected_plots: 675`). `make export` now produces a real
+  675-plot `colony.svg`/`colony.json` (out/, gitignored).
+  **A second real pipeline gap found and fixed:** every plot label's rotation is real
+  (the CAD operator rotated each to match its plot) but MTEXT can encode it as either a
+  plain `rotation` attribute or a `text_direction` vector — all 675 real labels use the
+  vector form, which `.dxf.rotation` alone silently reads as 0 for every one of them.
+  `Label` gained `rotation_deg`/`height`, `dxf.py` now uses MTEXT's `get_rotation()`
+  (resolves either encoding), and `svg.py` emits `data-rotation`/`data-label-height`
+  (rotation negated for SVG's Y-flip, height scaled by the same transform as geometry).
+  `contract/SPEC.md` documents both as optional `data-*` attributes.
+  **App side (Tier 3, `apps/map/src/{components,styles}/**`, no plan/review gate):** the
+  675-plot colony exposed three things the 26-plot fixture never could. (1) Initial load
+  did one `querySelector` per plot for the bulk status write and fired 675 simultaneous
+  CSS fill-transitions — fixed with a single `svgId->element` `Map` built once at mount
+  and a `.no-transition` class scoped to the bulk-load path only. (2) `.plot-label` was a
+  fixed 12px+stroke, sized for the fixture's much larger plots — now reads the pipeline's
+  real `data-rotation`/`data-label-height` (via a rewritten `alignPlotLabels.ts`) instead
+  of a guess, CSS fallback dropped to 6px/no-stroke for colonies without that data (the
+  fixture). (3) The selected-plot dimension callout was axis-aligned `getBBox()`-based
+  (only ever correct by accident on the fixture) — rewritten in `plotDimensionOverlay.ts`
+  as per-edge dimensioning (all real sides, not an abstracted length/breadth pair) via a
+  new `lib/colony/plotGeometry.ts` (rotating-calipers min-area rect, a collinear-vertex
+  simplifier for a DXF/`simplify()` artifact that would otherwise read as a spurious 5th
+  side). **A real bug found against Jai Dev Residency's actual geometry, not a synthetic
+  test:** the line's outward-offset flip and the text's keep-upright rotation flip were
+  two independent 180° ambiguity resolutions that disagreed on 2 of any plot's 4 edges,
+  pushing the label back toward the plot — fixed with `dominant-baseline: central` so the
+  glyph's extension direction no longer depends on rotation at all, with `TEXT_GAP`
+  widened accordingly. Arrowheads dropped, line thinned/dashed, offsets pulled tight (1
+  unit), all per direct owner feedback against the live render.
+  **Deployed live, for the first time (owner-driven; account creation/logins are not
+  something Claude does).** New GitHub repo (`github.com/vandan1401/Live-Map`, this
+  session's history plus the work above pushed there). New hosted Supabase project
+  (`wtvznloydjgmstpcgnyb.supabase.co`) — all 8 migrations run by hand via the SQL Editor,
+  schema verified live via REST (`colonies`/`plots`/`plot_history` reachable,
+  `apply_plot_transition` present). `apps/map/wrangler.toml` added and then fixed twice
+  live: first for `[assets]` (Cloudflare's dashboard now creates Git-connected projects
+  as unified Workers, not the old separate Pages product — `pages_build_output_dir` is
+  ignored there), then for the project's real name (`live-map`, dashboard-assigned before
+  wrangler.toml existed — `colony-map` never matched but didn't visibly break the build).
+  First live build shipped with **no Supabase env vars at all** (silently baked in as
+  undefined) — caught by grepping the deployed bundle for the project ref and finding
+  nothing; fixed once the owner set `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` in
+  Cloudflare's dashboard and a real (non-empty) commit forced a rebuild — an empty
+  `--allow-empty` commit was silently skipped by Cloudflare's build trigger, worth
+  remembering. Live at `https://live-map.moonatvandan.workers.dev`; a `demo`/`demo-pass-123`
+  login exists (Claude ran `create-user.ts` directly against the hosted project once the
+  owner supplied the `service_role` key — a local script writing to a database the owner
+  already controls, not third-party account creation). `apps/map/.env` (local Docker,
+  127.0.0.1) is untouched; `apps/map/.env.production` (new, gitignored) holds the hosted
+  credentials and is what `pnpm build` reads for a real deploy.
+  **Still open, the actual "go live with real data" step:** Jai Dev Residency has not
+  been uploaded through the live app's own upload screen yet — everything above gets the
+  *pipeline output* and the *deployed shell* ready, but no colony exists in the hosted
+  database yet. That upload (and the human verification click it requires, D-025/
+  invariant 2) is the owner's, not something run from here.
+  **Verified:** `mingw32-make gate` from repo root — `contract` 4/4, `apps/map`
+  typecheck/lint/build clean, **157/157 tests** (three different tests flaked across
+  repeated full-parallel runs — `subscribePlots.test.ts`, `rls.test.ts`,
+  `plotDetail.test.ts`, each passing clean alone; same documented Docker/Supabase
+  worker-contention pattern as every prior wrap, confirmed by running the full suite
+  split as 144 clean + the 3 flake-prone files' 13 tests clean in isolation), `tools/
+  pipeline` verify (ruff clean, mypy clean 26 files, **108 passed, 1 skipped** — was
+  101+1, +7 new: 4 for the MTEXT rotation-extraction bug specifically, 3 for the SVG
+  emission sign-flip/scale/omitted-height cases) + golden (1 passed/1 skipped, unchanged).
+  Deployed bundle spot-checked directly (curl against the live URL + grep for the real
+  project ref), not just trusted from the build log.
+  `docs/cad-layer-standard.md` was never touched this session despite the real DXF work —
+  worth a look next time a colony surfaces a genuinely new drawing convention, since nothing
+  here needed one.
 
 - **In-app colony onboarding complete (2026-08-17, `docs/plans/11.md`, Tier 1, M15).**
   All 12 acceptance criteria passed, `/review` findings fixed and re-verified. Stable,
-  no open issues. `tools/pipeline` now has a full DXF-to-manifest path (M13, shipped
-  2026-08-21) and a local verify page (M14, shipped 2026-08-21, see above) — the
-  remaining gap before a real, non-fixture colony reaches the app is a real colony's
-  normalised DXF (Jai Dev Residency is the closest candidate, still blocked on the
-  owner's block/number-collision call — see above).
+  no open issues. Jai Dev Residency (above) is the first colony to reach the deployed app
+  through the full DXF→pipeline→(pending) upload path this milestone built.
 
 ## Log
+
+- **Done:** Jai Dev Residency exported end-to-end (675 plots), real per-label
+  rotation/height extracted from the DXF (fixed an MTEXT `text_direction`-vector bug),
+  the dimension-callout and plot-label rendering rewritten for real-colony scale/bugs,
+  and the app deployed live to Cloudflare against a new hosted Supabase project — see
+  `## Current` for the full breakdown.
+- **Next:** Owner uploads Jai Dev Residency through the live app's own upload screen —
+  the one step this session's pipeline/deploy work was building toward but doesn't
+  perform itself (D-025's human verification gate).
+- **Surprises:** Cloudflare's dashboard no longer has a separate "Pages" product — Git-
+  connected projects are created as unified Workers now, which changes both the
+  wrangler.toml shape (`[assets]`, not `pages_build_output_dir`) and the deploy command
+  (`wrangler deploy`, not `wrangler pages deploy`) that D-014 assumed. Also: a real
+  bug (not a synthetic-test miss) in the dimension overlay only showed up once real,
+  non-axis-aligned plot geometry existed — two independent 180° rotation-ambiguity
+  resolutions that happened to always agree on the hand-authored fixture disagreed on
+  half of any real plot's edges.
+- **Verified:** `mingw32-make gate` from repo root, full pass (contract 4/4, apps/map
+  typecheck/lint/build/157 tests — 3 different tests flaked across repeated runs under
+  full-parallel contention, each confirmed clean alone, same documented pre-existing
+  pattern; tools/pipeline verify 108 passed/1 skipped + golden). Deployed bundle
+  spot-checked live via curl against the real URL, not just the build log.
 
 - **Done:** Blockless plot IDs in the contract (`docs/plans/15.md`, Tier 1, no spec —
   real-world trigger). Widened `contract/colony.schema.json`/`SPEC.md` (additive-only
@@ -1225,8 +1145,12 @@
   **`/review`'s verdict (2026-08-21): re-defer, not fix now** — 41s was measured at 1,500
   plots/1.1M pairs; a real colony of ~300 plots is ~45k pairs, well under a second. Trigger
   for the `STRtree` fix is a real colony's plot count, not this session's fixture scale (26
-  plots) or the 1,500-plot synthetic benchmark. Jai Dev Residency (in progress, see
-  `## Current`) is the real candidate to size against once its plot count is final.
+  plots) or the 1,500-plot synthetic benchmark.
+  **Trigger hit 2026-08-21:** Jai Dev Residency's real 675-plot `make export` ran with no
+  perceptible delay (no timing instrumented, but nothing close to the 41s/1,500-plot
+  reference point) — still not urgent, but worth re-measuring properly next time
+  `pipeline/export/qa.py` is touched, now that a real colony at this scale exists to time
+  it against instead of a synthetic benchmark.
 - **`docs/cad-layer-standard.md` has no concept of a plot subdivision/cutout suffix.**
   Found on the Jai Dev Residency colony (2026-08-20): plot `24` was split, and the cutout
   is labeled `24-A` on `COL-PLOT-NO` — both `24` and `24-A` are real, separate plots on
@@ -1239,6 +1163,11 @@
   builds M13 needs a real design decision here (a new suffix/subdivision id shape in the
   standard, distinct from the block-prefix scheme), not a one-off exception for this
   colony.
+  **Resolved 2026-08-21, no contract change:** given the choice between a contract
+  addition (a new subdivision-suffix id shape) and relabelling the one plot, the owner
+  relabelled `24-A` to `A-24` in AutoCAD — it now fits the existing block-prefix shape
+  cleanly, correctly grouped under block A (which already had `A-1`–`A-6`; `A-24` doesn't
+  collide). No pipeline or contract change was needed after all.
 - **`docs/cad-layer-standard.md`'s `RESERVED`/`OTHER` keywords (2026-08-20) now contradict
   `contract/colony.schema.json` — this is NOT doc-only, an earlier note here was wrong.**
   `/review` caught it (2026-08-20, plan 12's review pass): `contract/colony.schema.json:74`

@@ -37,10 +37,10 @@ inspect: $(VENV)/pyvenv.cfg  ## triage only — what is this file? make inspect 
 	$(PY) -m pipeline.cli.inspect $(PDF)
 
 ingest: $(VENV)/pyvenv.cfg  ## make ingest COLONY=<id> DXF=<path> — the real pipeline entry (D-118)
-	$(PY) -m pipeline.cli.ingest --colony $(COLONY) --dxf $(DXF)
+	$(PY) -m pipeline.cli.ingest --colony $(COLONY) --dxf "$(DXF)"
 
 export: $(VENV)/pyvenv.cfg  ## make export COLONY=<id> DXF=<path> — the real pipeline entry (M13, D-118)
-	$(PY) -m pipeline.cli.export --colony $(COLONY) --dxf $(DXF)
+	$(PY) -m pipeline.cli.export --colony $(COLONY) --dxf "$(DXF)"
 
 serve:     ## I run this, not Claude — see .claude/hooks/guard.sh. Open http://localhost:8080/tools/pipeline/verify/
 	python3 -m http.server 8080 --directory ../..

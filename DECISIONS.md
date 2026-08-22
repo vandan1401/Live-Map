@@ -24,7 +24,7 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-011 | Auth deferred to M8; app must not be publicly deployed before it | superseded by D-021 |
 | D-012 | Plot field set derived from the owner's stated needs | provisional |
 | D-013 | Three-status vocabulary with defined legal transitions | provisional |
-| D-014 | pnpm + Vite + Vitest + Wrangler | provisional |
+| D-014 | pnpm + Vite + Vitest + Wrangler | amended by D-026 |
 | D-015 | No photos or documents per plot in v1 | provisional |
 | D-016 | Actor identity is a client-supplied free-text string until M8 | superseded by D-020 |
 | D-017 | Shared fixture is a real, hand-traced colony — not pipeline-generated | provisional |
@@ -36,6 +36,7 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-023 | Initial CSV/XLSX import is a second, narrowly-scoped write path, gated by a sentinel eligibility window | accepted |
 | D-024 | `subscribePlotChanges` opens one realtime channel per call, not one per colony | accepted |
 | D-025 | Colonies are onboarded by upload in the app, not by a deploy; the human verification gate lives there | accepted |
+| D-026 | Cloudflare deploy via Git integration (auto-deploy on push), not the wrangler CLI D-014 named | accepted |
 
 ## tools/pipeline
 

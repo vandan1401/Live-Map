@@ -47,11 +47,27 @@ gate: contract
 inspect:   ## triage only — what is this file? make inspect PDF=fixtures/demo-plan.pdf
 	$(MAKE) -C tools/pipeline inspect PDF=../../$(PDF)
 
+# Shell-level detection, not $(abspath) -- found broken 2026-08-21 twice, against a real
+# colony's DXF (a Windows Desktop path with spaces, e.g. "JAI DEV working v2.dxf"): the
+# original hardcoded ../../ only ever made sense for a fixtures/-relative DXF, and
+# unquoted $(DXF) split on the space regardless. $(abspath ...) looked like the fix but
+# is a Make macro, not a shell command -- it treats a space-containing value as MULTIPLE
+# words and abspaths each one separately, producing garbage. The case statement below
+# runs in the shell instead, where "$(DXF)" stays one quoted string throughout; only a
+# genuinely relative DXF gets the ../../ prefix (repo root -> tools/pipeline).
 ingest:    ## make ingest COLONY=<id> DXF=fixtures/<id>/colony.dxf — the real pipeline entry (D-118)
-	$(MAKE) -C tools/pipeline ingest COLONY=$(COLONY) DXF=../../$(DXF)
+	@case "$(DXF)" in \
+	  /*|[A-Za-z]:*) dxf="$(DXF)" ;; \
+	  *) dxf="../../$(DXF)" ;; \
+	esac; \
+	$(MAKE) -C tools/pipeline ingest COLONY=$(COLONY) DXF="$$dxf"
 
 export:    ## make export COLONY=<id> DXF=fixtures/<id>/colony.dxf — writes out/<id>/colony.{svg,json} (M13)
-	$(MAKE) -C tools/pipeline export COLONY=$(COLONY) DXF=../../$(DXF)
+	@case "$(DXF)" in \
+	  /*|[A-Za-z]:*) dxf="$(DXF)" ;; \
+	  *) dxf="../../$(DXF)" ;; \
+	esac; \
+	$(MAKE) -C tools/pipeline export COLONY=$(COLONY) DXF="$$dxf"
 
 serve:     ## I run this, not Claude — see .claude/hooks/guard.sh. Open http://localhost:8080/tools/pipeline/verify/
 	python3 -m http.server 8080

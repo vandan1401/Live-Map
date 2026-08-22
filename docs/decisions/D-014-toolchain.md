@@ -1,6 +1,9 @@
 # D-014 — pnpm, Vite, Vitest, Wrangler
 
-**Status:** provisional — proposed and not explicitly confirmed
+**Status:** amended by D-026 — pnpm/Vite/Vitest confirmed by use (every session since);
+the deploy line's own rejected alternative (Cloudflare git integration) is what actually
+shipped, 2026-08-22, once D-011 (this decision's stated condition for rejecting it) was
+superseded by D-021. See D-026 for the reasoning.
 
 ## Decision
 
