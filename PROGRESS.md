@@ -2,35 +2,68 @@
 
 ## Current
 
-- **The map is a Canvas2D renderer now, not an SVG overlay (2026-08-22, Tier 1,
-  `docs/plans/18.md`, D-027).** The owner reported pan/zoom getting laggy on Jai Dev
-  Residency's 675 plots. Measured rather than guessed, and the first ranked list of
-  suspects was wrong: pan was already 60fps in every configuration, and stripping trees,
-  labels, the frosted-glass chrome, the grass pattern and the world layer *all at once*
-  still left zoom at 13fps. The cause was `L.svgOverlay`: Leaflet sets a pixel width and
-  height on its element every zoom step, so at zoom 4 the browser re-laid-out ~3,500 nodes
-  across a 16,000px element (64,000px for the world-ground layer) — 198-237ms per step,
-  and `zoomSnap: 0.1` made one gesture pay it ten times.
-  **Now:** the colony parses once into a plain draw model and paints to a single canvas in
-  a custom `L.Layer` sized to the *viewport*. Leaflet is kept as the gesture host, which
-  measurement chose over hand-rolling pinch/drag/inertia (60fps animated zoom and pan,
-  40fps on discrete steps, vs ~58fps standalone) — so **D-009 is upheld, not retired**, and
-  more literally than the SVG overlay ever managed. Picking is point-in-polygon at
-  0.028ms/click. **Owner confirmed smooth on a real phone.**
-  Trees are dropped at parse (owner ask) — 1,430 of Jai Dev's 3,497 nodes were decoration
-  the pipeline invents. Colours still come from `colony-theme.css`'s `:root` via
-  `getComputedStyle`, which is how D-004 survives having no stylesheet paint the map.
-  The upload preview (D-025) moved onto the same renderer in the same commit, because a
-  gate that verifies a different render than the map ships is not a gate.
+- **The map's look was redesigned to match owner-supplied reference renders (2026-08-22/23,
+  Tier 3, `apps/map/src/{components,styles}/map*`).** Dark asphalt road, an opaque cream
+  `--colony-plot-base` under each status tint (status fills read flat/saturated now, not the
+  0.38 wash-over-grass tuned 2026-08-16), softly rounded plot corners via a new
+  `roundedPolygonCorners()`/`plotPath.ts` (skipped for `is_corner` plots, fetched once via
+  `fetchCornerPlotIds()` — a real corner plot's own angled cut is the geometry it's sold on,
+  not something to round over), procedurally-scattered garden blobs (`gardenDecoration.ts`,
+  seeded per polygon so a repaint never re-rolls it), Poppins throughout, feature labels with
+  no background chip (light `--colony-feature-label-ink` instead), white dimension-leader
+  ticks, a fixed north compass badge, and `SELECT_ZOOM` raised 2 → 3.4 with the fly-to target
+  landing at 35% down the viewport instead of dead centre (owner ask: the bottom sheet was
+  covering a centred plot). Full write-up of what each token/file does is in the code
+  comments, not repeated here.
+  **Verified:** `mingw32-make gate` — contract 4/4; typecheck/lint/build clean;
+  `pnpm exec vitest run --no-file-parallelism` 32 files/177 tests/0 failures (default
+  parallelism still flakes 1-2 live-DB tests, the pre-existing documented pattern below, not
+  a regression — re-ran isolated to confirm). Manually checked live via `pnpm dev` + browser
+  automation against Jai Dev Residency and the shared fixture: corner-plot exception,
+  leader-line ticks, garden texture, chip-less labels and the new zoom/anchor all confirmed
+  on screen.
+  **Not done, on purpose** — see `## Deferred`: the compass is a static badge, not wired to
+  the manifest's unread `north_deg`; the owner's reference also showed the selected plot's
+  area in two units under its number, which needs a new data fetch and was left for its own
+  pass; and the shared fixture's ambient dimension-style feature-labels are now
+  lower-contrast where they happen to sit over a light plot (no real colony has any
+  feature-labels yet, so this is latent, not live).
 
-- **Next: UI work, Tier 3, owner-driven.** The owner is collecting a list on the phone.
-  Note the mechanism changed: map visuals are now `components/map/draw*.ts`, not CSS
-  selectors; colours and all HTML chrome (toolbar, sheet, table, picker) are unchanged.
-  Five things still unverified by a human — selected-plot tint, fly-in + dimension labels,
-  the 400ms fade, garden vs amenity colour, and the upload preview matching the map.
+- **Next: owner review on a real phone.** Look at the new plot-base tone, status opacity,
+  and the new selection zoom/position live, then say whether either deferred item above is
+  worth doing next, and separately whether the still-unrelated pipeline gap (no real colony
+  emits feature-labels at all — see `## Deferred`) should get picked up.
 
 
 ## Log
+
+### 2026-08-23 — Map render redesign (Tier 3, apps/map/src/{components,styles}/map*)
+
+**Done:** Matched three owner-supplied reference screenshots — dark road, opaque cream
+plot base + near-opaque status tint, rounded plot corners (skipped for real `is_corner`
+plots via a new one-time `fetchCornerPlotIds()`), seeded garden-blob decoration, Poppins,
+chip-less feature labels, white dimension-leader end ticks, a fixed north compass, and
+`SELECT_ZOOM` 2 → 3.4 with the fly-to landing at 35% of viewport height instead of centre.
+New files: `plotPath.ts`, `gardenDecoration.ts`; new pure `roundedPolygonCorners()` in
+`lib/colony/plotGeometry.ts`; new `fetchCornerPlotIds()` in `lib/db/plots.ts`.
+
+**Next:** Owner review on a phone; two items deliberately deferred (compass wired to
+`north_deg`, area-in-two-units subtext on the selected plot) — see `## Deferred`.
+
+**Surprises:** None in the mechanism — this was styling/config plus one small, layer-
+respecting one-time data fetch, no architecture change. The one thing worth flagging: this
+session reversed two numbers a prior session had explicitly pinned and annotated "do not
+re-tune" (`SELECT_ZOOM`, docs/plans/18.md §4) or tuned against specific owner phrasing
+(`STATUS_FILL_ALPHA`, 2026-08-16) — both on a direct, same-day owner ask against fresh
+reference images, and both left with an inline comment explaining the supersession rather
+than silently overwritten, so a future session doesn't rediscover the old reasoning and
+"fix" it back.
+
+**Verified:** `mingw32-make gate` — contract 4/4, typecheck/lint/build clean;
+`pnpm exec vitest run --no-file-parallelism` 32 files/177 tests/0 failures (full-parallel
+`mingw32-make gate` flaked 2 of the documented live-DB tests — see `## Deferred` — confirmed
+contention, not a regression, by rerunning isolated). Manually verified live via `pnpm dev`
++ browser automation against Jai Dev Residency (675 real plots) and the shared fixture.
 
 ### 2026-08-22 — Canvas map renderer (Tier 1, docs/plans/18.md, D-027)
 
