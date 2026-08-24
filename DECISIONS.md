@@ -39,6 +39,7 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-026 | Cloudflare deploy via Git integration (auto-deploy on push), not the wrangler CLI D-014 named | accepted |
 | D-027 | The map is drawn to a viewport-sized `<canvas>` Leaflet layer, not an SVG overlay; amends D-022's mechanism, upholds D-009 | accepted |
 | D-028 | A plot renders as an opaque `--colony-plot-base` fill plus a near-opaque status tint, not a translucent tint over the shared ground texture; `is_corner` is threaded into the renderer as a one-time fetch, not a realtime field | accepted |
+| D-029 | CSV bulk-import format simplified to plot + owner name, matched by displayed label, lenient (skip-and-report) on unmatched/duplicate rows — replaces docs/plans/10.md's strict 10-column, reject-on-any-error contract | accepted |
 
 ## tools/pipeline
 

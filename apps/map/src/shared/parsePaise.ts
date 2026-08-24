@@ -1,8 +1,11 @@
 // Integer-paise parsing shared by every place that reads a paise value from outside the
-// app's own typed state — scripts/import-seed.ts's CSV load and the CSV/XLSX bulk-import
-// (docs/plans/10.md, lib/colony/parseBulkImportFile.ts). Money is an integer paise count
-// at every layer (invariant 3, D-010); this is the one place a free-text string becomes
-// one, so a change to what counts as valid only ever needs to happen here.
+// app's own typed state — currently scripts/import-seed.ts's CSV load. (The CSV bulk-import
+// screen, lib/colony/parseBulkImportFile.ts, no longer reads a rate/amount column at all
+// since its 2026-08-24 simplification to a plot+owner-only format; this function stays for
+// import-seed.ts and any future caller that reads money from free text.) Money is an
+// integer paise count at every layer (invariant 3, D-010); this is the one place a
+// free-text string becomes one, so a change to what counts as valid only ever needs to
+// happen here.
 export function parseNullablePaise(
   value: string,
 ): { ok: true; value: number | null } | { ok: false; error: string } {

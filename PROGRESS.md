@@ -2,6 +2,47 @@
 
 ## Current
 
+- **CSV bulk-import simplified to a plot + owner-name format (2026-08-24, Tier 2,
+  `apps/map/src/{lib/colony,features/bulk-import}`), replacing docs/plans/10.md's original
+  strict 10-column contract.** Owner asked for a dead-simple import: only two columns
+  matter — plot and the booked owner's name (blank or the literal token "NMC", any case,
+  for none) — status is never a column in the file, it's derived (owner present →
+  `booked`, blank/"NMC" → `available`); every other column in a real working sheet, however
+  many there are, is simply never read.
+  `lib/colony/parseBulkImportFile.ts` rewritten: `parseSimpleBulkImportCsv`/
+  `parseSimpleBulkImportRows` replace the old strict parser. A sheet's plot text is matched
+  against the colony's real plots by displayed label (`formatPlotLabel`, case-insensitive,
+  tolerant of stray spaces around the hyphen — "a - 01" matches "A-01"), not the raw
+  `svg_id`. An unmatched or duplicate plot is **skipped and reported**, never rejects the
+  whole file — a deliberate philosophy change from the old format's "any row error rejects
+  everything," matching the owner's "just trim it" framing.
+  `BulkImportScreen.tsx` now fetches the colony's plot list (`fetchPlotsByColony`) on mount
+  to resolve labels, and shows this screen's own pre-import skip list (unmatched/duplicate
+  plots) alongside the RPC's existing post-import skip list.
+  `bulk_set_initial_plot_data` (the RPC + migration, Tier 1) is **unchanged** — only the
+  CSV parsing/UX changed, so no migration was touched and this stayed Tier 2.
+  `NAVIGATION.md`'s parser entry and a now-stale comment in `shared/parsePaise.ts` (no
+  longer used by this parser, only by `scripts/import-seed.ts`) updated to match.
+  **Verified:** `mingw32-make gate` from repo root — contract 4/4; `apps/map` typecheck/
+  lint/build clean; full test suite 180/180 (`mingw32-make gate` itself hit 1 failure,
+  `subscribePlots.test.ts`'s documented pre-existing live-DB realtime flake — confirmed
+  unrelated to this diff by an isolated `pnpm exec vitest run --no-file-parallelism` rerun
+  coming back 180/180 clean, same pattern noted in nearly every session's Log below). Also
+  hit `make gate` failing outright at session start with every live-DB test reporting
+  `fetch failed` — the local Supabase/Docker stack was down, not a code issue; `make db-up`
+  (skill) brought it up and the rerun was clean.
+  **Not verified:** the new screen live in a browser — no `pnpm dev` + browser-automation
+  pass was done this session, only unit tests against the pure parser (11 new tests in
+  `parseBulkImportFile.test.ts`) and a clean production build.
+
+- **Next:** owner should try a real CSV export from their working sheet — just a plot
+  column and an owner-name column, extra columns and all — through the app's own "Import
+  initial data" screen once, to confirm the label-matching (block/blockless, case, spacing)
+  behaves against real data. Separately, still open from prior sessions: owner review of
+  the map redesign on a real phone (`SELECT_ZOOM`, plot-base tone, status opacity), and
+  whether to pick up the still-unrelated pipeline gap (no real colony emits feature-labels
+  yet — see `## Deferred`).
+
 - **Addendum to the feature-label work below, after live review on the real Jai Dev
   Residency colony (2026-08-24, docs/plans/19.md's Addendum section).** Owner watched the
   first re-export live (`pnpm dev`) and asked for two more changes, both applied same
@@ -133,13 +174,29 @@
   lower-contrast where they happen to sit over a light plot (no real colony has any
   feature-labels yet, so this is latent, not live).
 
-- **Next: owner review on a real phone.** Look at the new plot-base tone, status opacity,
-  and the new selection zoom/position live, then say whether either deferred item above is
-  worth doing next, and separately whether the still-unrelated pipeline gap (no real colony
-  emits feature-labels at all — see `## Deferred`) should get picked up.
-
-
 ## Log
+
+### 2026-08-24 — CSV bulk-import simplified to plot + owner-name (Tier 2, apps/map/src/{lib/colony,features/bulk-import})
+
+**Done:** Replaced docs/plans/10.md's strict 10-column, order-sensitive CSV contract with a
+lenient 2-column one (plot, owner name) — status is derived (owner present → `booked`,
+blank/"NMC" → `available`), extra columns in a real sheet are never read, and an
+unmatched/duplicate plot is skipped and reported rather than rejecting the whole file. Plot
+text matches the colony's real plots by displayed label, not raw `svg_id`. The RPC/
+migration are unchanged.
+
+**Next:** owner tries a real CSV export through the app's upload screen once, to confirm
+label-matching against real data (not yet browser-verified this session).
+
+**Surprises:** none in the mechanism. `make gate` failed at session start with every
+live-DB test reporting `fetch failed` — the local Supabase/Docker stack was simply down
+(confirmed via `make db-up`, not a code issue), a reminder this repo's own convention
+("verify by running the command") first needs the command's environment to be up.
+
+**Verified:** `mingw32-make gate` from repo root after bringing the DB stack up — contract
+4/4; apps/map typecheck/lint/build clean; full suite 180/180 (`make gate`'s own run hit 1
+failure, `subscribePlots.test.ts`'s documented pre-existing live-DB flake, confirmed
+unrelated via an isolated `--no-file-parallelism` rerun coming back 180/180 clean).
 
 ### 2026-08-24 — Feature-label text, road edge trim, plot-corner gap fix (docs/plans/19.md, Tier 1 pipeline + Tier 3 app)
 

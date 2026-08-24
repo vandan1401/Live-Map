@@ -1,30 +1,31 @@
 import { describe, expect, it } from "vitest";
-import { parseBulkImportCsv, parseBulkImportRows } from "./parseBulkImportFile.ts";
+import {
+  parseSimpleBulkImportCsv,
+  parseSimpleBulkImportRows,
+  type PlotIdentity,
+} from "./parseBulkImportFile.ts";
 
-const HEADER =
-  "svg_id,status,owner_name,owner_phone,broker_name,rate_paise,booking_amount_paise,booking_date,registry_date,notes";
+const PLOTS: PlotIdentity[] = [
+  { svgId: "plot-A-01", block: "A", number: "01" },
+  { svgId: "plot-A-02", block: "A", number: "02" },
+  { svgId: "plot-07", block: "", number: "07" },
+];
 
-describe("parseBulkImportCsv", () => {
-  it("parses a well-formed file into typed rows", () => {
-    const csv = [
-      HEADER,
-      "plot-A-01,booked,Rajesh Shah,9876543210,Vikas Broker,150000000,15000000,2026-01-10,,",
-      "plot-A-02,available,,,,,,,,",
-    ].join("\n");
-
-    const result = parseBulkImportCsv(csv);
-    expect(result.ok).toBe(true);
-    const rows = (result as { ok: true; rows: unknown[] }).rows;
-    expect(rows).toEqual([
+describe("parseSimpleBulkImportCsv", () => {
+  it("derives booked from a real owner name and available from a blank cell", () => {
+    const csv = ["plot,owner", "A-01,Rajesh Shah", "A-02,"].join("\n");
+    const result = parseSimpleBulkImportCsv(csv, PLOTS);
+    expect(result.skipped).toEqual([]);
+    expect(result.rows).toEqual([
       {
         svg_id: "plot-A-01",
         status: "booked",
         owner_name: "Rajesh Shah",
-        owner_phone: "9876543210",
-        broker_name: "Vikas Broker",
-        rate_paise: 150000000,
-        booking_amount_paise: 15000000,
-        booking_date: "2026-01-10",
+        owner_phone: null,
+        broker_name: null,
+        rate_paise: null,
+        booking_amount_paise: null,
+        booking_date: null,
         registry_date: null,
         notes: null,
       },
@@ -43,57 +44,91 @@ describe("parseBulkImportCsv", () => {
     ]);
   });
 
-  it("rejects a file whose header does not match the fixed contract exactly", () => {
-    const csv = ["svg_id,status,owner", "plot-A-01,booked,Rajesh"].join("\n");
-    const result = parseBulkImportCsv(csv);
-    expect(result.ok).toBe(false);
-    const errors = (result as { ok: false; errors: { row: number; message: string }[] }).errors;
-    expect(errors).toHaveLength(1);
-    expect(errors[0].row).toBe(1);
+  it("treats the literal token NMC (any case) as no owner", () => {
+    const csv = ["plot,owner", "A-01,NMC", "A-02,nmc"].join("\n");
+    const result = parseSimpleBulkImportCsv(csv, PLOTS);
+    expect(result.rows.map((r) => r.status)).toEqual(["available", "available"]);
+    expect(result.rows.map((r) => r.owner_name)).toEqual([null, null]);
   });
 
-  it("rejects an unrecognised status with the offending row number", () => {
-    const csv = [HEADER, "plot-A-01,sold,,,,,,,,"].join("\n");
-    const result = parseBulkImportCsv(csv);
-    expect(result.ok).toBe(false);
-    const errors = (result as { ok: false; errors: { row: number; message: string }[] }).errors;
-    expect(errors).toEqual([{ row: 2, message: 'unrecognised status "sold"' }]);
+  it("matches a blockless plot by its bare number", () => {
+    const csv = ["plot,owner", "07,Meera Patel"].join("\n");
+    const result = parseSimpleBulkImportCsv(csv, PLOTS);
+    expect(result.rows).toEqual([
+      expect.objectContaining({ svg_id: "plot-07", status: "booked", owner_name: "Meera Patel" }),
+    ]);
   });
 
-  it("rejects a non-integer paise value with the offending row number", () => {
-    const csv = [HEADER, "plot-A-01,available,,,,12.5,,,,"].join("\n");
-    const result = parseBulkImportCsv(csv);
-    expect(result.ok).toBe(false);
-    const errors = (result as { ok: false; errors: { row: number; message: string }[] }).errors;
-    expect(errors[0].row).toBe(2);
-    expect(errors[0].message).toContain("rate_paise");
+  it("matches a plot label case-insensitively and ignoring stray spaces around the hyphen", () => {
+    const csv = ["plot,owner", "a - 01,Rajesh Shah"].join("\n");
+    const result = parseSimpleBulkImportCsv(csv, PLOTS);
+    expect(result.rows).toEqual([
+      expect.objectContaining({ svg_id: "plot-A-01" }),
+    ]);
   });
 
-  it("rejects a repeated svg_id rather than silently applying it twice", () => {
-    const csv = [HEADER, "plot-A-01,available,,,,,,,,", "plot-A-01,booked,,,,,,,,"].join("\n");
-    const result = parseBulkImportCsv(csv);
-    expect(result.ok).toBe(false);
-    const errors = (result as { ok: false; errors: { row: number; message: string }[] }).errors;
-    expect(errors).toEqual([{ row: 3, message: 'duplicate svg_id "plot-A-01"' }]);
+  it("ignores every column past the first two", () => {
+    const csv = [
+      "plot,owner,phone,notes,extra",
+      "A-01,Rajesh Shah,9876543210,VIP,whatever",
+    ].join("\n");
+    const result = parseSimpleBulkImportCsv(csv, PLOTS);
+    expect(result.rows).toEqual([
+      expect.objectContaining({
+        svg_id: "plot-A-01",
+        owner_name: "Rajesh Shah",
+        owner_phone: null,
+        notes: null,
+      }),
+    ]);
   });
 
-  it("collects every row's error, not just the first", () => {
-    const csv = [HEADER, "plot-A-01,sold,,,,,,,,", "plot-A-02,also-bad,,,,,,,,"].join("\n");
-    const result = parseBulkImportCsv(csv);
-    expect(result.ok).toBe(false);
-    expect((result as { ok: false; errors: unknown[] }).errors).toHaveLength(2);
+  it("skips, rather than rejects, a row whose plot doesn't match any real plot", () => {
+    const csv = ["plot,owner", "Z-99,Someone", "A-01,Rajesh Shah"].join("\n");
+    const result = parseSimpleBulkImportCsv(csv, PLOTS);
+    expect(result.skipped).toEqual([
+      { row: 2, plotText: "Z-99", reason: "no matching plot in this colony" },
+    ]);
+    expect(result.rows).toEqual([expect.objectContaining({ svg_id: "plot-A-01" })]);
+  });
+
+  it("skips a repeated plot rather than applying it twice", () => {
+    const csv = ["plot,owner", "A-01,Rajesh Shah", "A-01,Someone Else"].join("\n");
+    const result = parseSimpleBulkImportCsv(csv, PLOTS);
+    expect(result.rows).toHaveLength(1);
+    expect(result.skipped).toEqual([
+      { row: 3, plotText: "A-01", reason: "duplicate plot in this file" },
+    ]);
+  });
+
+  it("skips a row with no plot text instead of guessing", () => {
+    const csv = ["plot,owner", ",Someone"].join("\n");
+    const result = parseSimpleBulkImportCsv(csv, PLOTS);
+    expect(result.rows).toEqual([]);
+    expect(result.skipped).toEqual([{ row: 2, plotText: "", reason: "plot is required" }]);
+  });
+
+  it("ignores blank lines", () => {
+    const csv = ["plot,owner", "A-01,Rajesh Shah", "", "A-02,"].join("\n");
+    const result = parseSimpleBulkImportCsv(csv, PLOTS);
+    expect(result.rows).toHaveLength(2);
+    expect(result.skipped).toEqual([]);
   });
 });
 
-describe("parseBulkImportRows (shared by an XLSX adapter)", () => {
+describe("parseSimpleBulkImportRows (shared by a future XLSX adapter)", () => {
   it("accepts the same shape as the CSV path, pre-split into cells", () => {
-    const rows = [HEADER.split(","), ["plot-A-01", "available", "", "", "", "", "", "", "", ""]];
-    const result = parseBulkImportRows(rows);
-    expect(result.ok).toBe(true);
+    const rows = [
+      ["plot", "owner"],
+      ["A-01", "Rajesh Shah"],
+    ];
+    const result = parseSimpleBulkImportRows(rows, PLOTS);
+    expect(result.rows).toHaveLength(1);
   });
 
-  it("flags an empty file", () => {
-    const result = parseBulkImportRows([]);
-    expect(result.ok).toBe(false);
+  it("returns no rows and no skips for a header-only file", () => {
+    const result = parseSimpleBulkImportRows([["plot", "owner"]], PLOTS);
+    expect(result.rows).toEqual([]);
+    expect(result.skipped).toEqual([]);
   });
 });

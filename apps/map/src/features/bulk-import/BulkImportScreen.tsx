@@ -1,7 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { parseBulkImportCsv, type BulkImportParseError } from "../../lib/colony/parseBulkImportFile.ts";
+import {
+  parseSimpleBulkImportCsv,
+  type PlotIdentity,
+  type SimpleBulkImportSkip,
+} from "../../lib/colony/parseBulkImportFile.ts";
 import { bulkImportInitialPlotData } from "../../lib/colony/bulkImportInitialPlotData.ts";
+import { fetchPlotsByColony } from "../../lib/db/plots.ts";
 import type { BulkImportResult, BulkImportRow } from "../../lib/db/types.ts";
 
 interface Props {
@@ -11,48 +16,58 @@ interface Props {
 }
 
 type Stage =
-  | { kind: "picking" }
-  | { kind: "parse-error"; fileName: string; errors: BulkImportParseError[] }
-  | { kind: "ready"; fileName: string; rows: BulkImportRow[] }
+  | { kind: "loading-plots" }
+  | { kind: "load-failed"; message: string }
+  | { kind: "picking"; plots: PlotIdentity[] }
+  | { kind: "parse-error"; fileName: string; message: string }
+  | { kind: "ready"; fileName: string; rows: BulkImportRow[]; skipped: SimpleBulkImportSkip[] }
   | { kind: "importing"; fileName: string }
   | { kind: "done"; result: BulkImportResult }
   | { kind: "failed"; message: string };
 
-// One-time initial-data event (docs/plans/10.md §2.2) — the entry point is always
-// visible from the table toolbar, no client-side eligibility pre-check; the RPC's own
-// per-row `skipped` list (rendered below) is the single source of truth for what did and
-// didn't land, so this screen never has to guess or duplicate that rule.
+// One-time initial-data event (docs/plans/10.md §2.2, format simplified 2026-08-24 per
+// owner ask — see lib/colony/parseBulkImportFile.ts). The entry point is always visible
+// from the table toolbar, no client-side eligibility pre-check; the RPC's own per-row
+// `skipped` list (rendered below, alongside this screen's own pre-import skip list for
+// unmatched plots) is the single source of truth for what did and didn't land.
 export function BulkImportScreen({ client, colonyId, onClose }: Props) {
-  const [stage, setStage] = useState<Stage>({ kind: "picking" });
+  const [stage, setStage] = useState<Stage>({ kind: "loading-plots" });
 
-  const handleFile = (file: File) => {
-    // XLSX support is scoped but not yet implemented in this build pass (see
-    // PROGRESS.md's Deferred entry for docs/plans/10.md) — rejected here with a clear
-    // message rather than silently mis-parsed as plain text.
-    if (!file.name.toLowerCase().endsWith(".csv")) {
-      setStage({
-        kind: "parse-error",
-        fileName: file.name,
-        errors: [{ row: 1, message: "Only .csv files are supported right now." }],
+  useEffect(() => {
+    let cancelled = false;
+    fetchPlotsByColony(client, colonyId)
+      .then((plots) => {
+        if (cancelled) return;
+        setStage({
+          kind: "picking",
+          plots: plots.map((p) => ({ svgId: p.svg_id, block: p.block, number: p.number })),
+        });
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        setStage({
+          kind: "load-failed",
+          message: error instanceof Error ? error.message : "Could not load this colony's plots.",
+        });
       });
+    return () => {
+      cancelled = true;
+    };
+  }, [client, colonyId]);
+
+  const handleFile = (file: File, plots: PlotIdentity[]) => {
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      setStage({ kind: "parse-error", fileName: file.name, message: "Only .csv files are supported." });
       return;
     }
     file
       .text()
       .then((raw) => {
-        const result = parseBulkImportCsv(raw);
-        if (result.ok) {
-          setStage({ kind: "ready", fileName: file.name, rows: result.rows });
-        } else {
-          setStage({ kind: "parse-error", fileName: file.name, errors: result.errors });
-        }
+        const { rows, skipped } = parseSimpleBulkImportCsv(raw, plots);
+        setStage({ kind: "ready", fileName: file.name, rows, skipped });
       })
       .catch(() => {
-        setStage({
-          kind: "parse-error",
-          fileName: file.name,
-          errors: [{ row: 1, message: "Could not read this file." }],
-        });
+        setStage({ kind: "parse-error", fileName: file.name, message: "Could not read this file." });
       });
   };
 
@@ -73,9 +88,13 @@ export function BulkImportScreen({ client, colonyId, onClose }: Props) {
         </button>
         <h2 className="bulk-import-title">Import initial data</h2>
         <p className="bulk-import-hint">
-          CSV columns, in order: svg_id, status, owner_name, owner_phone, broker_name,
-          rate_paise, booking_amount_paise, booking_date, registry_date, notes.
+          CSV columns: plot, then the booked owner's name (leave blank or write NMC if
+          nobody's booked it). Any other columns in the sheet are ignored.
         </p>
+
+        {stage.kind === "loading-plots" && <p className="bulk-import-summary">Loading this colony's plots…</p>}
+
+        {stage.kind === "load-failed" && <p className="bulk-import-error">{stage.message}</p>}
 
         {stage.kind === "picking" && (
           <input
@@ -85,25 +104,20 @@ export function BulkImportScreen({ client, colonyId, onClose }: Props) {
             className="bulk-import-file-input"
             onChange={(event) => {
               const file = event.target.files?.[0];
-              if (file) handleFile(file);
+              if (file) handleFile(file, stage.plots);
             }}
           />
         )}
 
         {stage.kind === "parse-error" && (
           <>
-            <p className="bulk-import-error">{stage.fileName} could not be used:</p>
-            <ul className="bulk-import-error-list">
-              {stage.errors.map((error) => (
-                <li key={`${error.row}-${error.message}`}>
-                  Row {error.row}: {error.message}
-                </li>
-              ))}
-            </ul>
+            <p className="bulk-import-error">
+              {stage.fileName} could not be used: {stage.message}
+            </p>
             <button
               type="button"
               className="bulk-import-retry"
-              onClick={() => setStage({ kind: "picking" })}
+              onClick={() => setStage({ kind: "loading-plots" })}
             >
               Choose another file
             </button>
@@ -113,11 +127,24 @@ export function BulkImportScreen({ client, colonyId, onClose }: Props) {
         {stage.kind === "ready" && (
           <>
             <p className="bulk-import-summary">
-              {stage.fileName}: {stage.rows.length} row(s) ready to import.
+              {stage.fileName}: {stage.rows.length} plot(s) ready to import.
             </p>
+            {stage.skipped.length > 0 && (
+              <>
+                <p className="bulk-import-summary">{stage.skipped.length} row(s) skipped:</p>
+                <ul className="bulk-import-error-list">
+                  {stage.skipped.map((skip) => (
+                    <li key={`${skip.row}-${skip.plotText}`}>
+                      Row {skip.row} ("{skip.plotText}"): {skip.reason}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
             <button
               type="button"
               className="bulk-import-confirm"
+              disabled={stage.rows.length === 0}
               onClick={() => handleImport(stage.fileName, stage.rows)}
             >
               Import

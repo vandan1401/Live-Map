@@ -1,145 +1,103 @@
-// Pure, DOM-free (NAVIGATION.md's Domain layer) parser for the CSV/XLSX initial-import
-// file (docs/plans/10.md §2.2). No column-mapping — the header must match this fixed
-// contract exactly, in order (a mismatch is a parse error, not a mapping prompt, see the
-// plan's non-goals). A file with any row error is rejected outright; nothing is ever
-// partially submitted from a malformed file.
-import { parseNullablePaise } from "../../shared/parsePaise.ts";
-import type { BulkImportRow, PlotStatus } from "../db/types.ts";
+// Pure, DOM-free (NAVIGATION.md's Domain layer) parser for the plot-status CSV import
+// (owner ask, 2026-08-24, superseding docs/plans/10.md's fixed 10-column contract). Only
+// two columns matter — plot and the booked owner's name — and everything else in the
+// sheet, however many extra columns it has, is simply never read. Status is never a column
+// in the file: it is derived from whether an owner name is present, so a real working
+// spreadsheet full of unrelated columns can be exported as-is with no cleanup.
+import { formatPlotLabel } from "../../shared/format.ts";
+import type { BulkImportRow } from "../db/types.ts";
 
-const EXPECTED_HEADER = [
-  "svg_id",
-  "status",
-  "owner_name",
-  "owner_phone",
-  "broker_name",
-  "rate_paise",
-  "booking_amount_paise",
-  "booking_date",
-  "registry_date",
-  "notes",
-];
+// The identity fields needed to resolve a sheet's plot text to a real plot — callers fetch
+// this from lib/db/plots.ts (fetchPlotsByColony) and pass it in, keeping this module pure.
+export interface PlotIdentity {
+  svgId: string;
+  block: string;
+  number: string;
+}
 
-const STATUSES: PlotStatus[] = ["available", "booked", "registered"];
-
-export interface BulkImportParseError {
-  // 1-based, counting the header as row 1 — matches what a spreadsheet user sees, not a
-  // zero-based array index.
+export interface SimpleBulkImportSkip {
+  // 1-based, counting the header as row 1 — matches what a spreadsheet user sees.
   row: number;
-  message: string;
+  plotText: string;
+  reason: string;
 }
 
-export type BulkImportParseResult =
-  | { ok: true; rows: BulkImportRow[] }
-  | { ok: false; errors: BulkImportParseError[] };
-
-function nullableText(value: string | undefined): string | null {
-  const trimmed = (value ?? "").trim();
-  return trimmed === "" ? null : trimmed;
+export interface SimpleBulkImportResult {
+  rows: BulkImportRow[];
+  skipped: SimpleBulkImportSkip[];
 }
 
-// Shared by the CSV path (parseBulkImportCsv) and an XLSX adapter — both reduce to a
-// plain array-of-arrays of cell strings before reaching here, so the validation rules
-// never diverge between the two file formats.
-export function parseBulkImportRows(rows: string[][]): BulkImportParseResult {
-  if (rows.length === 0) {
-    return { ok: false, errors: [{ row: 1, message: "file is empty" }] };
+// A blank owner cell or the literal token "NMC" (the owner's own sheet convention for "no
+// name/company") both mean the plot has no real booking — anything else is treated as a
+// real owner name, typos and all, since this format deliberately does no validation of it.
+const NO_OWNER_TOKENS = new Set(["", "NMC"]);
+
+function normalisePlotLabel(text: string): string {
+  return text.trim().toUpperCase().replace(/\s*-\s*/g, "-");
+}
+
+// Shared by the CSV path (parseSimpleBulkImportCsv) and a future XLSX adapter — both
+// reduce to a plain array-of-arrays of cell strings before reaching here, mirroring the
+// old strict parser's own split (docs/plans/10.md).
+export function parseSimpleBulkImportRows(
+  rows: string[][],
+  plots: PlotIdentity[],
+): SimpleBulkImportResult {
+  const svgIdByLabel = new Map<string, string>();
+  for (const plot of plots) {
+    svgIdByLabel.set(normalisePlotLabel(formatPlotLabel(plot)), plot.svgId);
   }
 
-  const header = rows[0];
-  const headerMatches =
-    header.length === EXPECTED_HEADER.length &&
-    header.every((cell, i) => cell.trim() === EXPECTED_HEADER[i]);
-  if (!headerMatches) {
-    return {
-      ok: false,
-      errors: [
-        {
-          row: 1,
-          message: `header must be exactly: ${EXPECTED_HEADER.join(",")} (got: ${header.join(",")})`,
-        },
-      ],
-    };
-  }
-
-  const errors: BulkImportParseError[] = [];
-  const parsed: BulkImportRow[] = [];
-  // A repeated svg_id would otherwise apply twice against bulk_set_initial_plot_data
-  // (both rows pass the eligibility check, since the sentinel changed_by doesn't change
-  // between them) — silent last-wins on exactly the data that seeds owner names and money
-  // for a whole colony (docs/plans/10.md /review finding).
+  const bulkRows: BulkImportRow[] = [];
+  const skipped: SimpleBulkImportSkip[] = [];
   const seenSvgIds = new Set<string>();
 
   rows.slice(1).forEach((cells, index) => {
-    const rowNumber = index + 2; // row 1 is the header
-    if (cells.length !== EXPECTED_HEADER.length) {
-      errors.push({
-        row: rowNumber,
-        message: `expected ${EXPECTED_HEADER.length} columns, got ${cells.length}`,
-      });
-      return;
-    }
-    const [
-      svgId,
-      statusRaw,
-      ownerName,
-      ownerPhone,
-      brokerName,
-      rateRaw,
-      bookingAmountRaw,
-      bookingDate,
-      registryDate,
-      notes,
-    ] = cells;
+    const rowNumber = index + 2; // row 1 is always the header, its text is never read
+    if (cells.every((cell) => cell.trim() === "")) return; // blank line
 
-    const trimmedSvgId = nullableText(svgId);
-    if (trimmedSvgId === null) {
-      errors.push({ row: rowNumber, message: "svg_id is required" });
-      return;
-    }
-    if (seenSvgIds.has(trimmedSvgId)) {
-      errors.push({ row: rowNumber, message: `duplicate svg_id "${trimmedSvgId}"` });
-      return;
-    }
-    seenSvgIds.add(trimmedSvgId);
-    const status = statusRaw.trim() as PlotStatus;
-    if (!STATUSES.includes(status)) {
-      errors.push({ row: rowNumber, message: `unrecognised status "${statusRaw}"` });
-      return;
-    }
-    const rate = parseNullablePaise(rateRaw ?? "");
-    if (!rate.ok) {
-      errors.push({ row: rowNumber, message: `rate_paise: ${rate.error}` });
-      return;
-    }
-    const bookingAmount = parseNullablePaise(bookingAmountRaw ?? "");
-    if (!bookingAmount.ok) {
-      errors.push({ row: rowNumber, message: `booking_amount_paise: ${bookingAmount.error}` });
+    const plotText = (cells[0] ?? "").trim();
+    if (plotText === "") {
+      skipped.push({ row: rowNumber, plotText, reason: "plot is required" });
       return;
     }
 
-    parsed.push({
-      svg_id: trimmedSvgId,
-      status,
-      owner_name: nullableText(ownerName),
-      owner_phone: nullableText(ownerPhone),
-      broker_name: nullableText(brokerName),
-      rate_paise: rate.value,
-      booking_amount_paise: bookingAmount.value,
-      booking_date: nullableText(bookingDate),
-      registry_date: nullableText(registryDate),
-      notes: nullableText(notes),
+    const svgId = svgIdByLabel.get(normalisePlotLabel(plotText));
+    if (svgId === undefined) {
+      skipped.push({ row: rowNumber, plotText, reason: "no matching plot in this colony" });
+      return;
+    }
+    if (seenSvgIds.has(svgId)) {
+      skipped.push({ row: rowNumber, plotText, reason: "duplicate plot in this file" });
+      return;
+    }
+    seenSvgIds.add(svgId);
+
+    const ownerRaw = (cells[1] ?? "").trim();
+    const hasOwner = !NO_OWNER_TOKENS.has(ownerRaw.toUpperCase());
+
+    bulkRows.push({
+      svg_id: svgId,
+      status: hasOwner ? "booked" : "available",
+      owner_name: hasOwner ? ownerRaw : null,
+      owner_phone: null,
+      broker_name: null,
+      rate_paise: null,
+      booking_amount_paise: null,
+      booking_date: null,
+      registry_date: null,
+      notes: null,
     });
   });
 
-  if (errors.length > 0) return { ok: false, errors };
-  return { ok: true, rows: parsed };
+  return { rows: bulkRows, skipped };
 }
 
 // No quoted-field/embedded-comma support — matches scripts/import-seed.ts's own CSV
-// parser precedent. A family member exporting a plain spreadsheet as CSV won't hit this;
-// free text with a comma (e.g. notes) should avoid one or use the XLSX path instead.
-export function parseBulkImportCsv(raw: string): BulkImportParseResult {
+// parser precedent. An owner name with a comma in it isn't expected in practice; extra
+// columns beyond the first two are trimmed by construction (they're simply never indexed).
+export function parseSimpleBulkImportCsv(raw: string, plots: PlotIdentity[]): SimpleBulkImportResult {
   const lines = raw.trim().split(/\r?\n/);
   const rows = lines.map((line) => line.split(","));
-  return parseBulkImportRows(rows);
+  return parseSimpleBulkImportRows(rows, plots);
 }
