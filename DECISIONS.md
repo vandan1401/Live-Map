@@ -65,6 +65,7 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-119 | Pre-normalisation AutoLISP toolkit writes only to scratch layers, never `COL-*` directly | accepted |
 | D-120 | `px_per_ft` is derived at export time (`1000 / site_width_ft`), never read from colony config | accepted |
 | D-121 | Verify page's `make serve` targets serve the repo root, not just `verify/` | accepted |
+| D-122 | A `COL-FEATURE-NO` label unmatched to any ring is a road/pathway annotation, not a matching error; per-kind feature-label visibility is a pipeline-side toggle, not something `apps/map` filters | accepted |
 
 ## Both
 

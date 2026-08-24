@@ -141,6 +141,42 @@
 
 ## Log
 
+### 2026-08-24 — Feature-label text, road edge trim, plot-corner gap fix (docs/plans/19.md, Tier 1 pipeline + Tier 3 app)
+
+**Done:** Pipeline emits `<text class="feature-label">` for both classified garden/amenity/
+water features and free-floating road/pathway annotations (`allow_unmatched_labels` on
+`match_labels_to_rings`, D-122); feature-label text now carries the DWG's own font size and
+rotation (`data-label-height` restored, `drawLabels.ts` reads it for non-plot labels too);
+`park`/`reserved`/`other`-kind text is withheld for now via a single tunable set
+(`_HIDDEN_FEATURE_KINDS`), reversible without a re-export. Map gets a 1-unit tiled road
+inner-edge trim (`buildRoadEdgePattern`, stands in for "pathway" styling) and a fix for the
+gap D-028's cosmetic corner-rounding left between a rounded plot corner and its road.
+`drawColony.ts` split into `drawColony.ts` + new `drawDecor.ts` to stay under invariant 7's
+250-line cap. `/review` ran twice (once per addendum), all findings fixed inline — see the
+`## Current` entries above for the itemised list. Jai Dev Residency actually re-exported from
+its real source DXF and re-uploaded through the app's verification screen twice this
+session, each confirmed live via `claude-in-chrome` browser automation, not just unit-tested.
+Committed (`dde1198`) and pushed to `origin/master`.
+
+**Next:** Nothing queued for this plan — see `## Deferred` for the one open item (font-size
+legibility at typical zoom, not explicitly confirmed by the owner). The next colony-side
+follow-up, if the owner wants road/pathway text on Jai Dev Residency specifically, is drawing
+that text on `COL-FEATURE-NO` in AutoCAD — the pipeline/app already handle it once it exists.
+
+**Surprises:** The owner iterated on the same live colony twice in one sitting via a running
+`pnpm dev` + browser automation loop (export → upload → look → owner asks for more → export
+again) rather than a single plan/build/review pass — the addendum section in docs/plans/19.md
+and the second `/review` pass exist because of that, not because the first pass was wrong.
+Also: `apps/map/.env`'s `VITE_SUPABASE_URL` had drifted to a stale LAN IP unrelated to any
+code change, silently failing every live-Supabase test until caught mid-session (see the
+`## Current` entry above) — a reminder that "verify by running the command" can itself be
+lying if the environment under it has quietly rotted.
+
+**Verified:** `mingw32-make gate` from repo root, full green, run three times across the
+session (once per round of changes) — contract 4/4; `apps/map` typecheck/lint/build clean,
+177/177 tests; `tools/pipeline` ruff/mypy clean, 116/116 tests, golden test passed. Live-
+verified on both colonies via browser automation, not just asserted from test output.
+
 ### 2026-08-23 — Map render redesign (Tier 3, apps/map/src/{components,styles}/map*)
 
 **Done:** Matched three owner-supplied reference screenshots — dark road, opaque cream
@@ -1211,6 +1247,19 @@ on a real phone. Not verified by anyone: the five visual behaviours in `## Curre
 
 ## Deferred
 
+- **Feature-label font size, once un-hidden, may read too small at typical zoom
+  (docs/plans/19.md addendum, 2026-08-24).** `apps/map` now reads a feature-label's real DWG
+  `data-label-height` instead of the old fixed `FEATURE_LABEL_SIZE = 12` constant, per owner
+  ask. On Jai Dev Residency's real DXF this produced heights as low as `0.87`–`2.96` SVG user
+  units (vs. the old flat 12) — flagged live as noticeably smaller/fainter before the owner
+  moved on to asking for park/reserved/other to be hidden entirely, so it was never explicitly
+  confirmed either way. Currently moot (every kind that colony has is hidden), but the moment
+  any kind is un-hidden again, or a colony with a `clubhouse`/`temple`/`tank`/`parking`
+  feature or a road/pathway annotation is uploaded, this will resurface. Not fixed here —
+  candidates if it turns out too small: a minimum clamp in `drawLabels.ts` (e.g.
+  `Math.max(label.size ?? FEATURE_LABEL_SIZE, SOME_MIN)`), or leaving it as-is on the
+  principle that it should match the CAD operator's real intent exactly. Owner call, not
+  Claude's to guess.
 - **The map redesign (2026-08-22, owner reference screenshots) added a fixed compass badge
   that always points screen-up, not one wired to a colony's real north.** `north_deg` exists
   in the manifest schema and is deliberately not read by `apps/map` today
