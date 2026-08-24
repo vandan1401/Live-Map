@@ -1,7 +1,7 @@
 import L from "leaflet";
 import type { ColonyModel } from "./colonyModel.ts";
 import type { ColonyTheme } from "./colonyTheme.ts";
-import { buildGrassPattern, buildRoadPattern } from "./canvasPatterns.ts";
+import { buildGrassPattern, buildRoadEdgePattern, buildRoadPattern } from "./canvasPatterns.ts";
 import { drawColony, type DrawState } from "./drawColony.ts";
 import { leafletViewState } from "./view.ts";
 
@@ -42,6 +42,7 @@ interface LayerInternals {
   _grassImage: CanvasImageSource | null;
   _grass: CanvasPattern | null;
   _road: CanvasPattern | null;
+  _roadEdge: CanvasPattern | null;
   _map: L.Map | null;
   _canvas: HTMLCanvasElement | null;
   _ctx: CanvasRenderingContext2D | null;
@@ -61,6 +62,7 @@ const Layer = L.Layer.extend({
     this._grassImage = options.grassImage;
     this._grass = null;
     this._road = null;
+    this._roadEdge = null;
     this._map = null;
     this._canvas = null;
     this._ctx = null;
@@ -79,6 +81,7 @@ const Layer = L.Layer.extend({
     if (this._ctx && this._grassImage) {
       this._grass = buildGrassPattern(this._ctx, this._grassImage);
       this._road = buildRoadPattern(this._ctx, this._theme.road);
+      this._roadEdge = buildRoadEdgePattern(this._ctx, this._theme.roadEdge);
     }
     map.getPanes().overlayPane.appendChild(canvas);
     map.on("move zoom viewreset resize zoomend", this._schedule, this);
@@ -152,6 +155,7 @@ const Layer = L.Layer.extend({
       ...this._state,
       grass: this._grass,
       road: this._road,
+      roadEdge: this._roadEdge,
     });
   },
 });

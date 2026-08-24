@@ -50,7 +50,10 @@ export function drawLabels(
     if (isPlot && !state.showPlotLabels && !isSelectedLabel) continue;
     if (isPlot && state.selectedId && !isSelectedLabel) continue;
 
-    const size = isPlot ? (label.size ?? PLOT_LABEL_DEFAULT_SIZE) : FEATURE_LABEL_SIZE;
+    // The pipeline's own data-label-height wins when the source DXF entity carried one
+    // (docs/plans/19.md addendum, 2026-08-24: owner wants the DWG's exact font size, not
+    // just a fixed constant) -- these fall back to a constant only when it did not.
+    const size = label.size ?? (isPlot ? PLOT_LABEL_DEFAULT_SIZE : FEATURE_LABEL_SIZE);
     ctx.save();
     ctx.translate(label.x, label.y);
     if (label.rotation) ctx.rotate((label.rotation * Math.PI) / 180);

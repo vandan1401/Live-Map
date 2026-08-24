@@ -53,7 +53,7 @@ class ClassifiedFeature:
 def classify_features(
     rings: Sequence[Ring], labels: Sequence[Label]
 ) -> tuple[ClassifiedFeature, ...]:
-    pairs = match_labels_to_rings("feature", rings, labels)
+    pairs = match_labels_to_rings("feature", rings, labels, allow_unmatched_labels=True)
 
     features: list[ClassifiedFeature] = []
     for ring, label in pairs:

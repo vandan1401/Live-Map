@@ -7,6 +7,7 @@ attribute, so it does not trip that rule.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from xml.sax.saxutils import escape
 
 from shapely.geometry import Polygon
 from shapely.geometry.base import BaseGeometry
@@ -14,7 +15,7 @@ from shapely.geometry.base import BaseGeometry
 from pipeline.export import feature_svg_id
 from pipeline.export.normalise import VIEWBOX_WIDTH_PX, Transform, apply_transform
 from pipeline.export.svg_paths import polygon_to_path_d
-from pipeline.extract.types import Point, Ring
+from pipeline.extract.types import Label, Point, Ring
 from pipeline.geom import centroid
 from pipeline.matching.assign import MatchedPlot
 from pipeline.matching.classify import ClassifiedFeature
@@ -25,6 +26,12 @@ from pipeline.matching.classify import ClassifiedFeature
 # (contract/SPEC.md's own documented failure, already happened once).
 TREE_CANOPY_WIDTH_PX = 6.0
 TREE_CANOPY_HEIGHT_PX = 6.0
+
+# Feature kinds whose <text> is withheld from the emitted SVG, owner-tuned per colony review
+# (docs/plans/19.md addendum, 2026-08-24) -- a presentation choice, not a classification one:
+# the feature's polygon/data-kind/manifest entry are unaffected, so un-hiding a kind is a
+# one-line edit here, never a re-export. See build_svg's feature-label loop.
+_HIDDEN_FEATURE_KINDS = frozenset({"park", "reserved", "other"})
 
 # `svg:root` matches only the <svg> element that is the document's own root -- true when
 # this file is opened standalone (file:// during QA), false once the app's parseColonySvg.ts
@@ -51,6 +58,7 @@ def build_svg(
     features: Sequence[ClassifiedFeature],
     trees: tuple[Point, ...],
     colony_id: str,
+    feature_labels: Sequence[Label],
 ) -> str:
     viewbox = f"0 0 {VIEWBOX_WIDTH_PX} {t.height_px:.2f}"
     tree_symbol = (
@@ -102,6 +110,40 @@ def build_svg(
         lines.append(
             f'<text class="plot-label" data-plot="{plot.svg_id}"{attrs} x="{cx:.2f}" '
             f'y="{cy:.2f}">{label_text}</text>'
+        )
+
+    # One <text class="feature-label"> per COL-FEATURE-NO label, matched-to-a-ring or not
+    # (docs/plans/19.md) -- a label that classify_features() couldn't match to any
+    # garden/amenity/water ring is a free-floating road/pathway annotation ("9.0 M W ROAD"),
+    # rendered at its own DXF insertion point exactly like a matched one is. Emitted after the
+    # plot paths/labels so a label sitting near a plot edge still paints on top, same as
+    # plot-label already does. Sorted by handle for deterministic output, same principle as
+    # `features`/`ordered_plots` above. Text is free-form CAD-operator text (unlike a plot
+    # number, never regex-validated) -- escaped, or an "&"/"<" in a label breaks the emitted
+    # XML and apps/map's DOMParser silently renders an empty map (invariant 1, /review
+    # 2026-08-24). data-rotation/data-label-height mirror plot-label's exactly (owner ask,
+    # 2026-08-24 addendum to docs/plans/19.md: use the DWG's own font size and rotation, not
+    # a fixed constant) -- apps/map's drawLabels.ts falls back to a constant only when the
+    # source entity carried no height.
+    #
+    # `park`/`reserved`/`other`-kind feature labels are withheld for now (owner, 2026-08-24:
+    # first "hide the park", then "hide the reserved and other also") -- presentation only,
+    # not classification: each feature's polygon/data-kind/manifest entry are unaffected, so
+    # this is reversible per-kind without a re-export, just by editing this set. A
+    # road/pathway annotation (matched to no ring) is never in `features`, so it can never be
+    # in this set -- road texts stay visible regardless of which kinds are hidden here.
+    hidden_label_handles = {
+        feature.label.handle for feature in features if feature.kind in _HIDDEN_FEATURE_KINDS
+    }
+    for label in sorted(feature_labels, key=lambda lbl: lbl.handle):
+        if label.handle in hidden_label_handles:
+            continue
+        lx, ly = apply_transform(t, label.point)
+        attrs = f' data-rotation="{-label.rotation_deg:.2f}"'
+        if label.height is not None:
+            attrs += f' data-label-height="{label.height * t.scale:.2f}"'
+        lines.append(
+            f'<text class="feature-label"{attrs} x="{lx:.2f}" y="{ly:.2f}">{escape(label.text)}</text>'
         )
 
     for tx, ty in trees:

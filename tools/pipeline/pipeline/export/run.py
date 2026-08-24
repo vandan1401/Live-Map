@@ -72,7 +72,9 @@ def orchestrate_export(
     manifest = build_manifest(
         config, transform, match_result.plots, features, result.north_deg, facings, corners
     )
-    svg = build_svg(transform, site, road, match_result.plots, features, trees, colony_id)
+    svg = build_svg(
+        transform, site, road, match_result.plots, features, trees, colony_id, feature_labels
+    )
 
     run_qa(manifest, match_result.plots, config, svg, out_dir, allow_id_change)
 

@@ -254,6 +254,21 @@ def test_every_keyword_group_resolves_to_its_kind(text: str, expected_kind: str)
     assert features[0].kind == expected_kind
 
 
+def test_feature_label_outside_every_ring_is_not_an_error() -> None:
+    """Unlike the plot-side equivalent (test_label_outside_every_plot_is_an_error_naming_its_
+    handle), a COL-FEATURE-NO label matching no ring is a road/pathway annotation, not a
+    matching error (docs/plans/19.md) -- classify_features() simply omits it, since it
+    describes no ring at all."""
+    ring = _square_ring("hRING", "COL-AMENITY", (0, 0))
+    amenity_label = _label("hLABEL", "COL-FEATURE-NO", "CLUB HOUSE", (0, 0))
+    road_label = _label("hROAD", "COL-FEATURE-NO", "9.0 M W ROAD", (100, 100))
+
+    features = classify_features([ring], [amenity_label, road_label])
+
+    assert len(features) == 1
+    assert features[0].label.handle == "hLABEL"
+
+
 def test_keyword_table_kinds_are_all_valid_schema_values() -> None:
     from pipeline.matching.classify import _KEYWORD_TABLE
 

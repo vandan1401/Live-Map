@@ -1,6 +1,6 @@
 import { parseColonyModel } from "./colonyModel.ts";
 import { resolveColonyTheme } from "./colonyTheme.ts";
-import { buildGrassPattern, buildRoadPattern } from "./canvasPatterns.ts";
+import { buildGrassPattern, buildRoadEdgePattern, buildRoadPattern } from "./canvasPatterns.ts";
 import { drawColony } from "./drawColony.ts";
 import { fitView } from "./view.ts";
 import grassPhotoUrl from "../../assets/textures/grass-satellite.jpg";
@@ -56,6 +56,7 @@ export function renderColonyPreview(container: HTMLElement, svg: string): () => 
       showPlotLabels: true,
       grass: grassImage ? buildGrassPattern(ctx, grassImage) : null,
       road: buildRoadPattern(ctx, theme.road),
+      roadEdge: buildRoadEdgePattern(ctx, theme.roadEdge),
       transitions: new Map(),
       dimensions: null,
       // is_corner lives on the `plots` table row, which does not exist yet at this stage

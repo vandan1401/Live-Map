@@ -12,6 +12,7 @@ const MISSING = "#ff00ff";
 export interface ColonyTheme {
   groundBase: string;
   road: string;
+  roadEdge: string;
   amenity: string;
   amenityAccent: string;
   water: string;
@@ -45,6 +46,7 @@ export function resolveColonyTheme(root: Element = document.documentElement): Co
   return {
     groundBase: read(s, "--colony-ground-base"),
     road: read(s, "--colony-road"),
+    roadEdge: read(s, "--colony-road-edge"),
     amenity: read(s, "--colony-amenity"),
     amenityAccent: read(s, "--colony-amenity-accent"),
     water: read(s, "--colony-water"),

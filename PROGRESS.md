@@ -2,6 +2,110 @@
 
 ## Current
 
+- **Addendum to the feature-label work below, after live review on the real Jai Dev
+  Residency colony (2026-08-24, docs/plans/19.md's Addendum section).** Owner watched the
+  first re-export live (`pnpm dev`) and asked for two more changes, both applied same
+  session: (1) **use the DWG's own font size and rotation for feature-label text, not the
+  fixed `FEATURE_LABEL_SIZE` constant** — this reverses the original `/review` finding #7
+  below (`data-label-height` was judged dead computation because nothing read it; the owner
+  now wants it read) — `svg.py` restores `data-label-height` on `feature-label` (identical
+  expression to `plot-label`'s), and `drawLabels.ts`'s size line changed from
+  `isPlot ? (label.size ?? PLOT_LABEL_DEFAULT_SIZE) : FEATURE_LABEL_SIZE` to
+  `label.size ?? (isPlot ? PLOT_LABEL_DEFAULT_SIZE : FEATURE_LABEL_SIZE)` so a feature-label
+  with a stored height uses it. `contract/SPEC.md` updated to match. (2) **withhold
+  `park`/`reserved`/`other`-kind feature text for now** ("no need to mention park right
+  now... hide the park we might use it later", then minutes later "hide the reserved and
+  other also") — a single module-level constant in `svg.py`,
+  `_HIDDEN_FEATURE_KINDS = frozenset({"park", "reserved", "other"})`, filters those kinds'
+  label handles out of the feature-label emission loop; each hidden feature's `<path>`/
+  `data-kind`/manifest entry are untouched, only its `<text>` is withheld, so un-hiding a
+  kind later is a one-line edit to that set, never a re-export. Road/pathway annotations are
+  never affected either way (no `kind` at all, never in `features`).
+  Jai Dev Residency was actually re-exported from its real source DXF
+  (`C:\Users\moont\OneDrive\Desktop\JAI DEV working v2.dxf`, found on Desktop after
+  discovering it's OneDrive-redirected) and re-uploaded through the app's upload/replace
+  screen twice this session (once after each owner request), each time confirmed live in
+  the browser via `claude-in-chrome` automation — not just unit-tested. First re-export
+  surfaced a real, separate finding: **this colony's DXF has zero road-width/pathway
+  annotation texts at all** — every one of its 29 `COL-FEATURE-NO` labels is a
+  park/reserved/other amenity keyword, so "road labels missing" on this colony is a source-
+  data gap (nothing drawn on `COL-FEATURE-NO` over the roads), not a pipeline bug; confirmed
+  by reading the raw DXF directly (`ezdxf`), not inferred. With park/reserved/other now all
+  hidden and no road-annotation texts present, this colony currently renders zero
+  feature-label text — expected, not a regression, and reversible per-kind at any time.
+  **Verified:** `mingw32-make gate` from repo root, full green (contract 4/4; apps/map
+  typecheck/lint/build clean, 177/177 tests; pipeline ruff/mypy clean, 116/116 tests — 3 new:
+  a feature-label height-present/height-omitted pair mirroring plot-label's own, and a
+  park/reserved/other-withheld-but-clubhouse-shown test; golden test passed). Live-verified
+  on both colonies via browser automation: Shree Vatika Phase 2 shows road labels correctly
+  (proves the app-side rendering path is sound); Jai Dev Residency confirmed to show no
+  PARK/RESERVED/Other text after the second re-upload.
+  **Not verified:** whether the owner is satisfied with the DWG's real (often small) font
+  size reading as legible at typical zoom — flagged live as noticeably smaller/fainter than
+  the old fixed-12px look before the owner confirmed the upload; worth a follow-up look.
+
+- **Pipeline now emits feature-label text for both classified features and road/pathway
+  annotations; map gets a road inner-edge trim and the plot-corner/road gap fix (2026-08-24,
+  docs/plans/19.md).** Three owner asks bundled: (1) `pipeline.matching.match_labels_to_rings`
+  gained `allow_unmatched_labels` (feature-only, plot matching untouched — still strict);
+  `build_svg` now emits `<text class="feature-label">` for every `COL-FEATURE-NO` label,
+  matched-to-a-ring or not, so road-width texts ("9.0 M W ROAD") and classified "Future
+  planning"/reserved-kind features both render — previously the pipeline emitted zero
+  feature-label text at all, and an unmatched (road) label would have made
+  `classify_features` raise and reject the export outright. `docs/cad-layer-standard.md`'s
+  "Feature labels" section documents the new unmatched-is-an-annotation case. (2) A 1-SVG-
+  unit, tiled light-grey inner stroke (`--colony-road-edge`, a first-pass placeholder colour
+  — not tuned against an owner reference, expect retuning) now traces every road edge
+  (`canvasPatterns.ts::buildRoadEdgePattern`, wired through `DrawState`/`colonyCanvasLayer.ts`/
+  `renderColonyPreview.ts`), standing in for "like pathway" since the contract has no
+  separate pathway class. (3) `drawColony.ts`'s per-plot loop and its selected-plot block now
+  pre-fill each non-corner plot's true, un-rounded footprint with road colour (always at
+  `globalAlpha = 1`) before painting the rounded fill on top — closes the gap where D-028's
+  cosmetic corner-rounding exposed bare ground texture between a plot's rounded corner and
+  the road, since the road polygon was derived from the plot's true (unrounded) footprint.
+  `/review` (2026-08-24) found 7 issues, all fixed same session: (1) **real bug** — feature
+  labels are free-form CAD-operator text, unescaped into XML at `svg.py`'s emission line; an
+  `&`/`<` in a label ("PARK & GARDEN") broke the emitted `colony.svg`'s well-formedness,
+  which `apps/map`'s `DOMParser` silently swallows into an empty map with no error
+  (invariant 1) — fixed with `xml.sax.saxutils.escape`. (2) `drawColony.ts` grew to 286
+  lines, over invariant 7's 250-line cap — split `fillDecor`/`fillGarden`/`amenityFillFor`/
+  `pathFor`/`pathCache` into a new `drawDecor.ts` (both files now under the cap). (3) **real
+  bug** — the corner-gap pre-fill covered a dimmed/filtered plot's *entire* body with dark
+  road colour at `globalAlpha = 1`, not just the true corner sliver, since `plotBase` then
+  painted over it at `DIM_SELECTED`/`DIM_FILTERED` (0.35/0.2) instead of full opacity —
+  fixed by restoring the grass/ground backdrop over the rounded `path` whenever `alpha < 1`,
+  so the road colour only survives outside the rounded shape. (4) `feature_labels` had a
+  default of `()`, so no `build_svg` call site was actually forced to pass it and
+  `orchestrate_export`'s new pass-through had zero test coverage — removed the default,
+  updated all 11 call sites, and added a `COL-FEATURE-NO` road-annotation text to
+  `test_export.py`'s synthetic DXF with an assertion the emitted SVG carries it. (5) a new
+  test's docstring claimed to cover a matched-ring feature label but exercised the same
+  unmatched-label path as the test above it — rewritten to build a real `ClassifiedFeature`.
+  (6) `docs/cad-layer-standard.md`'s `COL-FEATURE-NO` table row still said "1 per feature",
+  contradicting the new unmatched-annotation paragraph — row updated. (7) feature-label
+  emission wrote `data-label-height`, which `apps/map`'s `drawLabels.ts` never reads for a
+  non-plot label (dead computation) — dropped, and `contract/SPEC.md` now documents that
+  `feature-label` carries `data-rotation` only, never `data-label-height`.
+  Also found separately, unrelated to the diff's own logic: `apps/map/.env`'s
+  `VITE_SUPABASE_URL` pointed at a stale LAN IP (`192.168.0.177`) that no longer resolves to
+  this machine (now `192.168.29.56`) — every live-Supabase integration test was failing with
+  `fetch failed` until this was corrected; not a code change, a local dev-environment drift,
+  but worth flagging since it silently blocks the exact command this repo's own convention
+  says to trust ("verify by running the command, never by reading code back").
+  **Verified (after all of the above):** `mingw32-make gate` from repo root — contract 4/4;
+  `apps/map` typecheck/lint/build clean; `pnpm exec vitest run --no-file-parallelism` 32
+  files/177 tests/0 failures (bare `pnpm test`/full-parallelism inside `make gate` itself
+  flaked on 1-8 files across two runs, all live-DB contention per the pre-existing documented
+  pattern below, not this diff — confirmed by the isolated `--no-file-parallelism` run coming
+  back clean both times); `tools/pipeline` `ruff`/`mypy`/`pytest` clean, 113 passed (5 new
+  tests: `test_matching.py::test_feature_label_outside_every_ring_is_not_an_error`,
+  `test_svg_labels.py`'s four feature-label tests, plus `test_export.py`'s new end-to-end
+  road-annotation assertion), golden test passed.
+  **Not verified:** the actual look of the road-edge trim or the corner-gap fix against a
+  real colony in a browser — Claude has no way to judge "does this look right," per this
+  repo's standing note; the owner should check `pnpm dev` against a real exported colony
+  (Jai Dev Residency) and eyeball `--colony-road-edge`'s exact colour/fleck density.
+
 - **The map's look was redesigned to match owner-supplied reference renders (2026-08-22/23,
   Tier 3, `apps/map/src/{components,styles}/map*`).** Dark asphalt road, an opaque cream
   `--colony-plot-base` under each status tint (status fills read flat/saturated now, not the

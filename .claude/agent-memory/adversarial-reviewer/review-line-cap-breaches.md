@@ -29,6 +29,13 @@ the cap as the reason for the split), `test_dxf.py` back to 238, and the cross-m
 `from test_matching import _config, _label, _square_ring` collecting fine under the repo's
 pytest config. Recommend this fix without hedging.
 
+- 2026-08-24 (plan 19): **not a test file this time** — `apps/map/src/components/map/
+  drawColony.ts` 242 → **278**, blown past by ~36 lines of which most are explanatory
+  comments for a 6-line paint fix. `make gate` does **not** check file length (only the
+  PostToolUse hook does), so "gate full green" in `PROGRESS.md` is not evidence for
+  invariant 7. Smallest fix there: `fillDecor`/`fillGarden`/`amenityFillFor` (~50 lines) into
+  a sibling `drawDecor.ts`, exactly the split `drawLabels.ts`/`drawDimensions.ts` already are.
+
 Note the residual: `test_export.py` (304) and `test_matching.py` (264) are *already* over the
 cap and every plan that adds a `ColonyConfig` field grows them by a line. Not worth flagging
 per-diff; worth flagging when a diff adds a whole test to one of them.

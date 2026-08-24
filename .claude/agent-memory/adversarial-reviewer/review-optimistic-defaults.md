@@ -106,6 +106,16 @@ Occurrences so far:
     first gate's click. **Check: for every multi-step confirm flow, each stage that reuses a
     shared boolean must reset it on entry; grep every `setStage(` for a matching reset.**
 
+11. 2026-08-24 (plan 19) — the *eleventh* shape: **a default value added to a new parameter so
+    the compiler stops asking**. Plan 19 §2 said add `feature_labels: Sequence[Label]` to
+    `build_svg` and "update every existing call site" (3 in `test_export.py`, 5 in
+    `test_svg_labels.py`). The implementation wrote `feature_labels: Sequence[Label] = ()`
+    instead, so `test_export.py` was never touched — including the `orchestrate_export`
+    end-to-end tests, which now cannot regress on the one line that wires the feature under
+    review. A default here means a future caller silently emits zero labels. **Check: when a
+    plan says "update every call site", a default parameter is a deviation, not an
+    equivalent — grep the call sites the plan enumerated and confirm each was edited.**
+
 **How to apply:** the fix is a nullable initial value plus an explicit "not yet" render
 ("Not synced yet"), or deriving initial state from the real signal at effect start rather
 than a hopeful literal. Related: [[review-vacuous-acceptance-tests]].

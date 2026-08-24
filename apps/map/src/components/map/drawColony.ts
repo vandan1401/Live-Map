@@ -1,11 +1,11 @@
-import type { ColonyModel, DecorShape, PlotShape } from "./colonyModel.ts";
+import type { ColonyModel, PlotShape } from "./colonyModel.ts";
 import type { ColonyTheme } from "./colonyTheme.ts";
 import { visibleBounds, type ViewState, type Viewport } from "./view.ts";
 import { drawLabels } from "./drawLabels.ts";
 import { drawPlotDimensions } from "./drawDimensions.ts";
 import type { PlotDimensions } from "./usePlotDimensions.ts";
 import { roundedPlotPath } from "./plotPath.ts";
-import { gardenBlobsFor } from "./gardenDecoration.ts";
+import { fillDecor, pathFor } from "./drawDecor.ts";
 
 // The painter. Ordered exactly as the SVG's paint order was, because SVG has no z-index
 // and neither does canvas — draw order IS the stacking, which is the one thing this
@@ -26,11 +26,6 @@ const DIM_SELECTED = 0.35;
 const DIM_FILTERED = 0.2;
 // Owner: "remove the black border" — selection is scale, never a fill or stroke change.
 const SELECTED_SCALE = 1.05;
-// Garden blob decoration alpha — low enough that the flat --colony-garden-base underneath
-// still reads as the dominant colour, high enough that the two-tone scatter is visible
-// (gardenDecoration.ts).
-const GARDEN_BLOB_ALPHA = 0.6;
-
 export interface DrawState {
   statuses: Record<string, string>;
   selectedId: string | null;
@@ -40,6 +35,7 @@ export interface DrawState {
   showPlotLabels: boolean;
   grass: CanvasPattern | null;
   road: CanvasPattern | null;
+  roadEdge: CanvasPattern | null;
   /** per-plot 0..1 progress of the 400ms status transition; absent = settled */
   transitions: Map<string, number>;
   /** stored length/breadth for the selected plot, once fetched; null while loading */
@@ -47,18 +43,6 @@ export interface DrawState {
   /** svg_ids of plots whose own geometry is a real corner cut — never corner-rounded
    * cosmetically on top of that (owner ask, 2026-08-22); see plotPathFor() below. */
   cornerPlots: ReadonlySet<string>;
-}
-
-// Path2D is built lazily and cached per shape. The model deliberately holds none — it has
-// to parse under jsdom, which has no Path2D — so this is where geometry becomes drawable.
-const pathCache = new WeakMap<PlotShape | DecorShape, Path2D>();
-function pathFor(shape: PlotShape | DecorShape): Path2D {
-  let p = pathCache.get(shape);
-  if (!p) {
-    p = new Path2D(shape.d);
-    pathCache.set(shape, p);
-  }
-  return p;
 }
 
 // A corner plot's own boundary already carries its real angled/cut corner (that shape is
@@ -79,56 +63,6 @@ function plotAlpha(plot: PlotShape, state: DrawState): number {
   }
   if (state.selectedId && !selected) return DIM_SELECTED;
   return 1;
-}
-
-// clubhouse/playground are the open recreational amenities (the owner's reference render's
-// green "CLUB"/"PARTY PLOT" boxes); every other data-kind (temple, tank, parking, reserved,
-// unplanned/other) is a built structure or held land and stays the neutral tone so it never
-// competes visually with genuine open space.
-function amenityFillFor(shape: DecorShape, theme: ColonyTheme): string {
-  return shape.kind === "clubhouse" || shape.kind === "playground" ? theme.amenityAccent : theme.amenity;
-}
-
-function fillGarden(ctx: CanvasRenderingContext2D, shape: DecorShape, theme: ColonyTheme, path: Path2D) {
-  ctx.fillStyle = theme.gardenBase;
-  ctx.fill(path);
-
-  // Clip to the garden's own outline so the scattered blobs never bleed past it — cheaper
-  // than intersecting each blob circle against the polygon by hand, and this clip region
-  // is popped by the caller's own save/restore.
-  ctx.save();
-  ctx.clip(path);
-  ctx.globalAlpha = GARDEN_BLOB_ALPHA;
-  for (const blob of gardenBlobsFor(shape)) {
-    ctx.fillStyle = blob.light ? theme.gardenBlobLight : theme.gardenTint;
-    ctx.beginPath();
-    ctx.arc(blob.x, blob.y, blob.r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.restore();
-}
-
-function fillDecor(ctx: CanvasRenderingContext2D, model: ColonyModel, theme: ColonyTheme, state: DrawState) {
-  for (const shape of model.decor) {
-    const path = pathFor(shape);
-    if (shape.cls === "site-boundary") {
-      ctx.strokeStyle = theme.siteBoundary;
-      ctx.lineWidth = 2;
-      ctx.stroke(path);
-      continue;
-    }
-    if (shape.cls === "road") {
-      ctx.fillStyle = state.road ?? theme.road;
-    } else if (shape.cls === "water") {
-      ctx.fillStyle = theme.water;
-    } else if (shape.cls === "garden") {
-      fillGarden(ctx, shape, theme, path);
-      continue;
-    } else {
-      ctx.fillStyle = amenityFillFor(shape, theme);
-    }
-    ctx.fill(path);
-  }
 }
 
 export function drawColony(
@@ -169,6 +103,31 @@ export function drawColony(
     if (plot.id === state.selectedId) continue;
     const path = plotPathFor(plot, state);
     const alpha = plotAlpha(plot, state);
+
+    // Corner rounding (plotPath.ts, D-028) insets a plot's rendered path from its true
+    // footprint at each corner. The road fill above was derived from the plot's TRUE
+    // footprint (site - union(plots, ...), D-104), so that inset sliver is covered by
+    // neither the road fill (excludes it — it's inside the true plot) nor the plot fill
+    // (rounded path excludes it), and the ground fill from the very top of this function
+    // shows through instead — the "gap" between plot and road (owner ask, 2026-08-24).
+    // Pre-filling the plot's raw, un-rounded footprint with road colour first closes it.
+    // Skipped for a real corner plot (state.cornerPlots): its raw path already equals its
+    // true footprint, so this would be a same-shape no-op fill.
+    if (!state.cornerPlots.has(plot.id)) {
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = state.road ?? theme.road;
+      ctx.fill(pathFor(plot));
+      // The pre-fill above is only meant to show through in the corner sliver OUTSIDE
+      // `path` (the rounded shape). Restore the ground backdrop under the plot's own
+      // rounded body before the translucent plotBase/status fills below — without this, a
+      // dimmed (DIM_SELECTED/DIM_FILTERED) plot would show dark road colour bleeding
+      // through its whole translucent body instead of just the true corner sliver
+      // (/review, 2026-08-24).
+      if (alpha < 1) {
+        ctx.fillStyle = state.grass ?? theme.groundBase;
+        ctx.fill(path);
+      }
+    }
 
     ctx.globalAlpha = alpha;
     ctx.fillStyle = theme.plotBase;
@@ -211,6 +170,14 @@ export function drawColony(
       ctx.translate(mx, my);
       ctx.scale(SELECTED_SCALE, SELECTED_SCALE);
       ctx.translate(-mx, -my);
+
+      // Same corner-gap fix as the main loop above (D-028's rounding, docs/plans/19.md) —
+      // pre-fill the true, un-rounded footprint with road colour before the rounded fill,
+      // skipped for a real corner plot whose raw path already is its true footprint.
+      if (!state.cornerPlots.has(plot.id)) {
+        ctx.fillStyle = state.road ?? theme.road;
+        ctx.fill(pathFor(plot));
+      }
 
       ctx.fillStyle = theme.plotBase;
       ctx.fill(path);

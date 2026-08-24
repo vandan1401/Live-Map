@@ -24,6 +24,19 @@ Occurrences (both from plan 15, blockless plot ids):
    "silent re-identification" was covered by `assign_plot_numbers`'s `seen` dict — that
    covers the *id*, not the human-visible label the id is for.
 
+3. 2026-08-24 (plan 19) — widening *what may appear inside* the SVG, not a field's shape.
+   `svg.py::build_svg` began interpolating raw `label.text` (arbitrary CAD-operator text from
+   `COL-FEATURE-NO`) into a `<text>` node. Every prior text node was constrained
+   (`int(plot.number)`, config-derived block letters), so nothing in the pipeline escapes XML.
+   A label containing `&` or `<` ("PARK & GARDEN") emits malformed XML;
+   `colonyModel.ts::parseColonyModel` uses `DOMParser().parseFromString(raw, "image/svg+xml")`
+   and never checks for `parsererror`, so the app renders an empty map with no error — the
+   exact blast radius invariant 1 names. `run_qa` has no XML-wellformedness check.
+   **Rule: whenever a diff first routes operator/user-supplied text into an emitted SVG/XML/
+   HTML string, check for escaping, and check the parser on the other side for a
+   `parsererror` branch.** Verified by running `build_svg` with `PARK & GARDEN <A>` and
+   `ET.fromstring` — "not well-formed (invalid token)".
+
 **How to apply:** grep for the widened field name across both halves and sort the hits into
 "validates it" vs "assumes something about it" — ordering, uniqueness of the rendered form,
 substring/prefix parsing, string concatenation. Only the second group is worth reviewing.

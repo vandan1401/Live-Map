@@ -90,6 +90,20 @@ schema tests. A criterion nobody can match is a criterion that gets silently rei
 wrap time. **Rule: every numeric expected output in §5 must be re-run before the review ends —
 `make contract` here is `cd tools/pipeline && .venv/Scripts/python -m pytest tests/test_contract.py -q`.**
 
+**9th recurrence, 2026-08-24 (plan 19).** Two tests, same body, one docstring claiming a
+distinction the test never sets up. `test_svg_labels.py::test_classified_feature_label_is_
+also_rendered` says "a label that *did* match a ring now gets its text emitted too", but calls
+`build_svg(..., features=[], ..., [reserved_label])` — no ring, no `ClassifiedFeature`,
+identical code path to the road-annotation test one function above it. The §5 criterion "a
+reserved/other-kind **classified feature** now produces a `<text class="feature-label">`" is
+therefore unproven. Same pass: `make golden` is `pytest -k golden`, and
+`test_golden.py::test_golden_export_reproduces_shree_vatika_2` is still
+`@pytest.mark.skip` — "golden test passed" in `PROGRESS.md` is the *other* `-k golden` match
+(`test_geom.py::test_area_sqft_matches_golden_manifest_within_one_percent`). **Rule: when a
+test's docstring names a precondition (matched a ring, populated table, existing row), check
+that precondition appears in the test *body*; and never accept "golden passed" here without
+`pytest -q -k golden` output showing what actually ran.**
+
 **How to apply:** the local Supabase Docker stack is usually up
 (`docker exec supabase_db_colony-map psql -U postgres -d postgres -c "..."`). Postgres's
 `CONTEXT:` line names the exact failing SQL statement — one command settles it. For a

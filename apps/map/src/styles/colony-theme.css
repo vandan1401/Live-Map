@@ -13,6 +13,10 @@
    * before — .road has no separate centerline path, so a stroke would trace each
    * compound-path segment's own outline rather than draw a lane marking. */
   --colony-road: #2c2924;
+  /* Light tiled inner trim along every road edge, like a pathway/curb border (owner ask,
+   * 2026-08-24). First-pass value, not tuned against an owner reference screenshot —
+   * expect this to need retuning once seen live. */
+  --colony-road-edge: #c7c2b6;
   /* Neutral structure grey (clubhouse building, temple, tank, parking, reserved/other
    * land) — kept visually distinct from the green recreational amenities below so a
    * built structure doesn't read as open space. */

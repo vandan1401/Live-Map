@@ -42,6 +42,16 @@ applies them at runtime (`transform`/inline `font-size`), the same way `data-sta
 a label whose source entity carried no rotation) — the app falls back to unrotated, CSS
 default size.
 
+A `feature-label` (a classified garden/amenity/water feature's own text, or a free-floating
+road/pathway annotation, docs/plans/19.md) carries `data-rotation` and `data-label-height`
+the same way `plot-label` does, and `apps/map` applies them the same way — the DWG's own
+font size and rotation, not a fixed constant. Either or both may be absent, same fallback as
+`plot-label`. A `park`/`reserved`/`other`-kind feature's label is withheld entirely for now
+(owner ask, 2026-08-24) — its `<path>`/`data-kind` still render, only the text does not;
+this is a pipeline-side presentation choice (`pipeline/export/svg.py`'s
+`_HIDDEN_FEATURE_KINDS`), not something `apps/map` filters. A road/pathway annotation is
+never withheld this way regardless of which kinds are hidden — it has no `kind` at all.
+
 Rules that break **silently** rather than loudly:
 
 - **`<use>` must carry explicit `width` and `height`.** With neither, it defaults to 100% of

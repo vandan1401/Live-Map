@@ -25,14 +25,21 @@ class MatchingError(Exception):
 
 
 def match_labels_to_rings(
-    noun: str, rings: Sequence[Ring], labels: Sequence[Label]
+    noun: str, rings: Sequence[Ring], labels: Sequence[Label], *, allow_unmatched_labels: bool = False
 ) -> tuple[tuple[Ring, Label], ...]:
     """Pairs each ring with the single label whose insertion point it contains.
 
     Shared by assign.py (plots) and classify.py (features) -- the one containment test
     spec/12 replaced the old ladder with. `noun` names the entity kind in error messages
     ("plot", "feature"). Raises MatchingError, naming the entity handle(s), for: a ring
-    with zero or 2+ matching labels; a label matching zero or 2+ rings.
+    with zero or 2+ matching labels; a label matching 2+ rings; and, unless
+    `allow_unmatched_labels` is True, a label matching zero rings.
+
+    `allow_unmatched_labels` exists for classify.py's feature labels: a COL-FEATURE-NO text
+    that falls inside no garden/amenity/water ring is a free-floating road/pathway
+    annotation, not an error (docs/plans/19.md) -- it is simply excluded from the returned
+    pairs. `assign_plot_numbers` never passes this; plot-number matching stays exactly as
+    strict as it always was (tier-1.md, "Matching is identity").
     """
     ring_labels: dict[str, list[Label]] = {ring.handle: [] for ring in rings}
     label_rings: dict[str, list[Ring]] = {label.handle: [] for label in labels}
@@ -45,6 +52,8 @@ def match_labels_to_rings(
     for label in labels:
         matches = label_rings[label.handle]
         if len(matches) == 0:
+            if allow_unmatched_labels:
+                continue
             raise MatchingError(
                 f"{label.layer} label {label.handle} ('{label.text}') is inside no {noun}"
             )

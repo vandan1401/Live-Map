@@ -74,3 +74,34 @@ export function buildRoadPattern(
   }
   return ctx.createPattern(tile, "repeat");
 }
+
+// The road's inner edge trim — a light, tiled strip stood in for a pathway/curb border
+// (owner ask, 2026-08-24). Same fleck-tile technique as buildRoadPattern, smaller tile
+// (it's a stroke, not a field fill) and dark flecks on a light base — the inverse of the
+// dark-road/light-fleck pairing above.
+const ROAD_EDGE_TILE = 6;
+const ROAD_EDGE_FLECKS: [number, number, number, string][] = [
+  [1, 1, 0.5, "rgba(0,0,0,0.12)"],
+  [4, 2, 0.4, "rgba(0,0,0,0.08)"],
+  [2, 4, 0.4, "rgba(0,0,0,0.08)"],
+];
+
+export function buildRoadEdgePattern(
+  ctx: CanvasRenderingContext2D,
+  baseColor: string,
+): CanvasPattern | null {
+  const tile = document.createElement("canvas");
+  tile.width = ROAD_EDGE_TILE;
+  tile.height = ROAD_EDGE_TILE;
+  const t = tile.getContext("2d");
+  if (!t) return null;
+  t.fillStyle = baseColor;
+  t.fillRect(0, 0, ROAD_EDGE_TILE, ROAD_EDGE_TILE);
+  for (const [x, y, r, color] of ROAD_EDGE_FLECKS) {
+    t.fillStyle = color;
+    t.beginPath();
+    t.arc(x, y, r, 0, Math.PI * 2);
+    t.fill();
+  }
+  return ctx.createPattern(tile, "repeat");
+}

@@ -101,9 +101,19 @@ Three checks that have each caught a real defect:
    used to `IndexError`). **When a build adds validation the plan didn't ask for, check the
    doc it ships alongside actually states the new rule.**
 
+10. 2026-08-24 (plan 19) — **a doc's normative table left contradicting the prose added below
+    it.** `docs/cad-layer-standard.md`'s "Feature labels" section gained a paragraph saying a
+    `COL-FEATURE-NO` label inside no ring is a legal free-floating road annotation, while the
+    layer table at line 22 still reads `COL-FEATURE-NO | TEXT or MTEXT | **1 per feature** |
+    Insertion point inside its own feature`. The table is the part the owner follows in
+    AutoCAD. Same diff: `contract/SPEC.md` scopes `data-rotation`/`data-label-height` to
+    "A `plot-label` carries …", but `build_svg` now emits both on `feature-label`.
+    **When a diff relaxes a rule, grep the same doc (and `contract/SPEC.md`) for the *old*
+    wording — summary tables and class tables are where the stale absolute survives.**
+
 **How to apply:** on any review that touches `CLAUDE.md`, `.claude/settings.json`, or a
 skill file, open `.claude/hooks/guard.sh` and `_json.sh` and check the greps in the same
-pass. This has now recurred nine times — worth a CLAUDE.md line or a guard.sh self-test.
+pass. This has now recurred ten times — worth a CLAUDE.md line or a guard.sh self-test.
 Related: [[project-autonomous-loop]], [[review-diff-blind-spots]],
 [[review-fixture-plot-count-drift]], [[review-line-cap-breaches]],
 [[review-contract-widening-consumers]].

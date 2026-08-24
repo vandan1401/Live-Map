@@ -76,7 +76,7 @@ def _manifest() -> dict:
 def _svg() -> str:
     road = derive_road(_SITE, [_PLOT_RING, _GARDEN_RING])
     t = compute_transform(_SITE)
-    return build_svg(t, _SITE, road, [_PLOT], [_FEATURE], (), "test-colony")
+    return build_svg(t, _SITE, road, [_PLOT], [_FEATURE], (), "test-colony", [])
 
 
 def _build_export_dxf(tmp_path: Path) -> tuple[Path, Path]:
@@ -95,6 +95,11 @@ def _build_export_dxf(tmp_path: Path) -> tuple[Path, Path]:
     )
     doc.modelspace().add_text(
         _PLOT_LABEL.text, dxfattribs={"layer": "COL-PLOT-NO", "insert": _PLOT_LABEL.point}
+    )
+    # A road-annotation text (docs/plans/19.md) -- (100, 10) is comfortably inside the site
+    # and outside the one plot, so it lands on the derived road with no containing ring.
+    doc.modelspace().add_text(
+        "9.0 M W ROAD", dxfattribs={"layer": "COL-FEATURE-NO", "insert": (100, 10)}
     )
     dxf_path = tmp_path / "colony.dxf"
     doc.saveas(dxf_path)
@@ -176,8 +181,8 @@ def test_two_clean_runs_are_byte_identical() -> None:
     assert trees_1 == trees_2
     assert trees_1  # sanity: the seeded scatter actually produced something to compare
 
-    svg_1 = build_svg(t, _SITE, road, [_PLOT], [_FEATURE], trees_1, "test-colony")
-    svg_2 = build_svg(t, _SITE, road, [_PLOT], [_FEATURE], trees_2, "test-colony")
+    svg_1 = build_svg(t, _SITE, road, [_PLOT], [_FEATURE], trees_1, "test-colony", [])
+    svg_2 = build_svg(t, _SITE, road, [_PLOT], [_FEATURE], trees_2, "test-colony", [])
     assert svg_1 == svg_2
 
     manifest_1 = _manifest()
@@ -251,6 +256,11 @@ def test_orchestrate_export_writes_a_manifest_matching_the_dxf(tmp_path: Path) -
     orchestrate_export(_CONFIG.id, dxf_path, colonies_dir, out_dir)
 
     assert (out_dir / "colony.svg").exists()
+    svg = (out_dir / "colony.svg").read_text(encoding="utf-8")
+    # The road-annotation text _build_export_dxf plants on COL-FEATURE-NO must survive the
+    # real end-to-end run (docs/plans/19.md) -- not just the unit-level build_svg() tests.
+    assert '<text class="feature-label"' in svg
+    assert "9.0 M W ROAD" in svg
     manifest = json.loads((out_dir / "colony.json").read_text(encoding="utf-8"))
     plot = manifest["plots"][0]
     assert plot["svg_id"] == "plot-A-01"

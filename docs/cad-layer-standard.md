@@ -19,7 +19,7 @@ not name them one of these.
 | `COL-GARDEN` | closed `LWPOLYLINE` | 0+ | Garden, park, open space, green |
 | `COL-AMENITY` | closed `LWPOLYLINE` | 0+ | Clubhouse, temple, playground, parking, reserved/unplanned land, other |
 | `COL-WATER` | closed `LWPOLYLINE` | 0+ | Tank, sump, OHT |
-| `COL-FEATURE-NO` | `TEXT` or `MTEXT` | 1 per feature | Feature label. Insertion point inside its own feature |
+| `COL-FEATURE-NO` | `TEXT` or `MTEXT` | 1 per feature, plus 0+ road/pathway annotations | Inside a garden/amenity/water ring: that feature's label. Inside no ring: a free-floating road/pathway annotation ("9.0 M W ROAD") |
 | `COL-NORTH` | one `LINE` | 0 or 1 | Tail → head points north. Sets `north_deg` |
 
 If `COL-NORTH` is absent, `north_deg` must be stated in the colony config instead. If both
@@ -102,6 +102,13 @@ order would silently classify every parking lot as a park):
 `GARDEN`/`PARK`/`OPEN SPACE`/`GREEN` → park, `TEMPLE`/`MANDIR` → temple,
 `OHT`/`TANK`/`SUMP` → tank, `RESERVED` → reserved, `OTHER` → other. A feature whose
 label matches nothing is **rejected**, not defaulted — name it something recognisable.
+This keyword table applies only to a `COL-FEATURE-NO` label whose insertion point falls
+**inside** a `COL-GARDEN`/`COL-AMENITY`/`COL-WATER` ring.
+
+A `COL-FEATURE-NO` label whose insertion point falls inside **no** ring at all — a road or
+pathway width/name text such as "9.0 M W ROAD" or "ROAD TO SAILANA" — is not a feature and
+is never matched against the keyword table or rejected for failing to match it. It is
+rendered as a free-floating road/pathway annotation exactly as written (docs/plans/19.md).
 
 ## Units and scale
 
