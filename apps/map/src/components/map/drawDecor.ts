@@ -65,10 +65,10 @@ export function fillDecor(ctx: CanvasRenderingContext2D, model: ColonyModel, the
       // Inner trim along every road edge — outer (against the site boundary) and inner
       // (against every plot/garden/amenity/water edge) alike, since the road is one
       // compound path and there is no separate "pathway" class to target instead (owner
-      // ask, 2026-08-24; docs/plans/19.md). 1 SVG user unit, grows with zoom like every
-      // other stroke width in this file.
+      // ask, 2026-08-24; docs/plans/19.md). 4 SVG user units (widened from 1, same day,
+      // owner ask) — grows with zoom like every other stroke width in this file.
       ctx.strokeStyle = state.roadEdge ?? theme.roadEdge;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 4;
       ctx.stroke(path);
       continue;
     } else if (shape.cls === "water") {
