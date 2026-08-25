@@ -65,7 +65,7 @@
    * token now drives drawDimensions.ts's line + label colour, not a dark outline. */
   --colony-plot-selected-stroke: #f7f4e8;
 
-  /* Legend: available=wheat, booked=blue, registered=orange — a saturated palette
+  /* Legend: available=wheat, booked=blue, registered=pink — a saturated palette
    * chosen to read clearly against the muted road/ground colours above. Available is
    * deliberately NOT green (owner feedback, 2026-08-14): the ground/garden texture is
    * also green, and an available plot sitting next to a garden feature visually
@@ -75,7 +75,7 @@
    * grass — the owner's new reference renders show flat, saturated status colour. */
   --colony-status-available: #e8b84b;
   --colony-status-booked: #3b82f6;
-  --colony-status-registered: #e67e22;
+  --colony-status-registered: #ff145a;
   --colony-status-hold: #c0392b;
 
   /* Label inks. These were literals inside `.plot-label`/`.feature-label` when those rules

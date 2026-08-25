@@ -42,13 +42,11 @@ export function drawLabels(
     if (!inView(label, bounds)) continue;
     const isPlot = label.kind === "plot";
     const isSelectedLabel = isPlot && label.plotId === state.selectedId;
-    // Selecting a plot focuses labels (owner ask): every other plot's label hides, and the
-    // selected plot's own stays — even while zoomed out, since a label the user
-    // deliberately selected should not disappear. The zoom check has to come AFTER that
-    // exemption; testing it first hid the selected label too, contradicting this comment
-    // and losing what the deleted CSS won on specificity (/review, 2026-08-22).
+    // Selecting a plot no longer hides every other plot's label (owner ask, 2026-08-25,
+    // supersedes the 2026-08-22 focus behaviour) — labels keep their normal zoom-based
+    // visibility, and the selected plot's own label stays visible even while zoomed out,
+    // since a label the user deliberately selected should not disappear.
     if (isPlot && !state.showPlotLabels && !isSelectedLabel) continue;
-    if (isPlot && state.selectedId && !isSelectedLabel) continue;
 
     // The pipeline's own data-label-height wins when the source DXF entity carried one
     // (docs/plans/19.md addendum, 2026-08-24: owner wants the DWG's exact font size, not
