@@ -2,6 +2,56 @@
 
 ## Current
 
+- **Selection/label UI fixes, registered-plot recolour, a log-out button, and 5 new
+  production login accounts (2026-08-25, Tier 3, `apps/map/src/components/map/*`,
+  `apps/map/src/features/colony-picker/*`, `apps/map/src/App.tsx`,
+  `apps/map/src/styles/colony-theme.css`).** Four small owner-driven fixes in one session:
+  (1) **selecting a plot no longer hides every other plot's number** — `drawLabels.ts`
+  dropped the `state.selectedId && !isSelectedLabel` branch added 2026-08-22 for the
+  opposite ask ("focus" on selection); labels now keep their normal zoom-based visibility
+  regardless of selection. (2) **the selected plot's own number was still invisible** —
+  root cause was paint order, not label logic: `drawColony.ts` redraws the selected plot
+  scaled-up *after* the label pass so its selection ring sits on top of every other plot,
+  and that repaint was painting over its own label too. Moved the `drawLabels()` call to
+  run after the selected-plot repaint (still before the dimension callout, which must stay
+  last). (3) **`registered`-status colour changed from `#e67e22` (orange) to `#ff145a`**
+  (owner-specified hex) — one CSS variable, `--colony-status-registered` in
+  `colony-theme.css` (D-004). (4) **added a "Log out" button** — `signOut()` already
+  existed (`lib/auth/session.ts`) but was only ever called internally (stale offline cache,
+  invalid session); there was no user-facing way to switch accounts on a shared device.
+  New `onLogout` prop on `ColonyPicker`, rendered top-right, wired to `App.tsx`'s existing
+  `signOut(client)`.
+  Separately, **created 5 real login accounts on the production Supabase project**
+  (anil, vijay, viresh, abhi, pravesh, all password `NMC123`) via the existing
+  `scripts/create-user.ts` (D-019's only account-creation path) — a data action, not a
+  code change, run after confirming with the owner which environment (prod vs local) since
+  it's real, hard-to-reverse state on a shared system.
+  **Also found and fixed, unrelated to the diff:** `apps/map/.env`'s `VITE_SUPABASE_URL`
+  pointed at a stale LAN IP (`192.168.29.56`) that no longer resolves to this machine (now
+  `192.168.0.177`) — every live-Supabase test/script failed with `fetch failed`
+  (`ConnectTimeoutError`) until corrected. This is the same drift 2026-08-24's Log entry
+  hit and fixed to the *previous* address — the LAN IP genuinely moves across sessions
+  (this machine's Wi-Fi reconnects to a different subnet) and there's no code fix for it,
+  only a re-check each time `mingw32-make gate`/`db-up` reports every live-DB test failing
+  identically. Local-only (`.env` is gitignored), not committed.
+  **Verified:** `mingw32-make gate` from repo root, full green after the `.env` fix and
+  `mingw32-make db-reseed` (the local DB had also drifted/leaked from prior sessions) —
+  contract 4/4; `apps/map` typecheck/lint/build clean; default-parallelism test run hit the
+  same single pre-existing `subscribePlots.test.ts` live-DB realtime flake noted in nearly
+  every session's Log below (180/181), confirmed unrelated by an isolated
+  `pnpm exec vitest run --no-file-parallelism` rerun coming back 181/181 clean; `tools/pipeline`
+  ruff/mypy/pytest clean (116 passed, 1 skipped), golden test passed.
+  **Not verified:** none of this session's UI changes were checked live in a browser
+  (`pnpm dev` + browser automation) — only unit tests and the production build. The owner
+  should confirm on a real colony that (a) plot numbers stay visible after tapping a plot,
+  including the tapped plot's own number, and (b) a registered plot now reads pink, not
+  orange.
+
+- **Next:** owner should check the four UI fixes above live (`pnpm dev`), and confirm the
+  five new family members can sign in. Otherwise unchanged from the prior entry below: try
+  a real CSV bulk-import, review the map redesign on a real phone, and the still-open
+  pipeline feature-label gap (see `## Deferred`).
+
 - **CSV bulk-import simplified to a plot + owner-name format (2026-08-24, Tier 2,
   `apps/map/src/{lib/colony,features/bulk-import}`), replacing docs/plans/10.md's original
   strict 10-column contract.** Owner asked for a dead-simple import: only two columns
@@ -175,6 +225,37 @@
   feature-labels yet, so this is latent, not live).
 
 ## Log
+
+### 2026-08-25 — Selection/label fixes, registered-plot recolour, log-out button, 5 new accounts (Tier 3, apps/map/src/{components/map,features/colony-picker,styles}, App.tsx)
+
+**Done:** Selecting a plot no longer hides every other plot's number (`drawLabels.ts`,
+reverses the 2026-08-22 "focus" behaviour); the selected plot's own number is visible too
+now (`drawColony.ts` — root cause was paint order, the selected plot's scaled repaint ran
+after the label pass and painted over its own label; moved `drawLabels()` to run after that
+repaint); `--colony-status-registered` changed from `#e67e22` to owner-specified `#ff145a`
+(one CSS variable, D-004); added a "Log out" button to `ColonyPicker` (`signOut()` existed
+but had no UI trigger). Separately created 5 real production login accounts (anil, vijay,
+viresh, abhi, pravesh, password `NMC123`) via `scripts/create-user.ts`, after confirming
+prod-vs-local with the owner first since it's real, hard-to-reverse shared state.
+
+**Next:** owner should check the four UI fixes live (`pnpm dev`) and confirm the five new
+accounts can sign in — none of this was browser-verified this session, only unit-tested.
+
+**Surprises:** the selected-plot-label bug wasn't a label-visibility bug at all — it was a
+paint-order bug one layer down in `drawColony.ts`, invisible from `drawLabels.ts` alone.
+Also, `apps/map/.env`'s `VITE_SUPABASE_URL` had drifted to a stale LAN IP again
+(`192.168.29.56` → this machine is now on `192.168.0.177`) — the *same* drift 2026-08-24's
+entry hit and "fixed" to what was, at the time, the correct address. This IP moves across
+sessions as this machine's Wi-Fi reconnects; there is no code fix, only a re-check
+(`mingw32-make gate` reporting every live-DB test failing identically is the tell). The
+local DB had also leaked/drifted from prior sessions' live-integration tests — `mingw32-make
+db-reseed` cleared it.
+
+**Verified:** `mingw32-make gate` from repo root, full green after the `.env` fix and a
+`db-reseed` — contract 4/4; apps/map typecheck/lint/build clean; default-parallelism test
+run hit the single documented `subscribePlots.test.ts` live-DB realtime flake (180/181),
+confirmed unrelated via an isolated `--no-file-parallelism` rerun coming back 181/181 clean;
+tools/pipeline ruff/mypy/pytest clean (116 passed, 1 skipped), golden test passed.
 
 ### 2026-08-24 — CSV bulk-import simplified to plot + owner-name (Tier 2, apps/map/src/{lib/colony,features/bulk-import})
 
