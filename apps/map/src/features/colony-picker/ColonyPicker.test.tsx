@@ -28,7 +28,9 @@ describe("ColonyPicker", () => {
     ];
     const onSelect = vi.fn();
 
-    render(<ColonyPicker colonies={colonies} onSelect={onSelect} onUpload={vi.fn()} />);
+    render(
+      <ColonyPicker colonies={colonies} onSelect={onSelect} onUpload={vi.fn()} onLogout={vi.fn()} />,
+    );
 
     expect(screen.getByText("Nimantran Group Colonies")).toBeTruthy();
     expect(screen.getByText("Shree Vatika Phase 2")).toBeTruthy();
@@ -39,7 +41,7 @@ describe("ColonyPicker", () => {
   });
 
   it("shows an empty-state message when there are no colonies", () => {
-    render(<ColonyPicker colonies={[]} onSelect={vi.fn()} onUpload={vi.fn()} />);
+    render(<ColonyPicker colonies={[]} onSelect={vi.fn()} onUpload={vi.fn()} onLogout={vi.fn()} />);
 
     expect(screen.getByText("Nimantran Group Colonies")).toBeTruthy();
     expect(screen.getByText("No colonies yet.")).toBeTruthy();
@@ -47,10 +49,32 @@ describe("ColonyPicker", () => {
 
   it("calls onUpload when the upload button is clicked", () => {
     const onUpload = vi.fn();
-    render(<ColonyPicker colonies={[colonyRow({})]} onSelect={vi.fn()} onUpload={onUpload} />);
+    render(
+      <ColonyPicker
+        colonies={[colonyRow({})]}
+        onSelect={vi.fn()}
+        onUpload={onUpload}
+        onLogout={vi.fn()}
+      />,
+    );
 
     fireEvent.click(screen.getByText("Upload a colony"));
     expect(onUpload).toHaveBeenCalled();
+  });
+
+  it("calls onLogout when the log out button is clicked", () => {
+    const onLogout = vi.fn();
+    render(
+      <ColonyPicker
+        colonies={[colonyRow({})]}
+        onSelect={vi.fn()}
+        onUpload={vi.fn()}
+        onLogout={onLogout}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Log out"));
+    expect(onLogout).toHaveBeenCalled();
   });
 
   it("shows the freshness label when the list came from the offline cache", () => {
@@ -59,6 +83,7 @@ describe("ColonyPicker", () => {
         colonies={[colonyRow({})]}
         onSelect={vi.fn()}
         onUpload={vi.fn()}
+        onLogout={vi.fn()}
         freshnessLabel="Offline — last synced 3h ago"
       />,
     );
@@ -67,7 +92,14 @@ describe("ColonyPicker", () => {
   });
 
   it("renders no freshness label for a live (non-cached) list", () => {
-    render(<ColonyPicker colonies={[colonyRow({})]} onSelect={vi.fn()} onUpload={vi.fn()} />);
+    render(
+      <ColonyPicker
+        colonies={[colonyRow({})]}
+        onSelect={vi.fn()}
+        onUpload={vi.fn()}
+        onLogout={vi.fn()}
+      />,
+    );
 
     expect(screen.queryByText(/last synced/)).toBeNull();
   });
@@ -78,6 +110,7 @@ describe("ColonyPicker", () => {
         colonies={[]}
         onSelect={vi.fn()}
         onUpload={vi.fn()}
+        onLogout={vi.fn()}
         freshnessLabel="Offline — last synced 3h ago"
       />,
     );

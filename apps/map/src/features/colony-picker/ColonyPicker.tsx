@@ -10,15 +10,22 @@ interface Props {
   // Opens ColonyUploadScreen (docs/plans/11.md, D-025) — every signed-in family member is
   // an equal admin (D-007), so no role gating here.
   onUpload: () => void;
+  // Signs the current session out (owner ask, 2026-08-25: there was no way to switch
+  // accounts on a shared device once signed in — App.tsx's signOut() was reachable only
+  // from its own internal stale/invalid-session cases, never from a button).
+  onLogout: () => void;
 }
 
 // Owner's original design: a list of colonies on open, tapping one opens its map.
 // `colonies` is pre-filtered to `verified: true` by App.tsx (see loadVerifiedColonies,
 // D-108) — this component never re-checks that, it just renders what it's given.
-export function ColonyPicker({ colonies, onSelect, freshnessLabel, onUpload }: Props) {
+export function ColonyPicker({ colonies, onSelect, freshnessLabel, onUpload, onLogout }: Props) {
   if (colonies.length === 0) {
     return (
       <div className="colony-picker-overlay">
+        <button type="button" className="colony-picker-logout" onClick={onLogout}>
+          Log out
+        </button>
         <h1 className="colony-picker-heading">Nimantran Group Colonies</h1>
         {freshnessLabel && <p className="colony-picker-freshness">{freshnessLabel}</p>}
         <p className="colony-picker-empty">No colonies yet.</p>
@@ -31,6 +38,9 @@ export function ColonyPicker({ colonies, onSelect, freshnessLabel, onUpload }: P
 
   return (
     <div className="colony-picker-overlay">
+      <button type="button" className="colony-picker-logout" onClick={onLogout}>
+        Log out
+      </button>
       <h1 className="colony-picker-heading">Nimantran Group Colonies</h1>
       {freshnessLabel && <p className="colony-picker-freshness">{freshnessLabel}</p>}
       <ul className="colony-picker-list">

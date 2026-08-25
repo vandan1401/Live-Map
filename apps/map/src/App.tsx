@@ -215,6 +215,7 @@ function App() {
         colonies={colonies}
         onSelect={setSelectedColonyId}
         onUpload={() => setShowUpload(true)}
+        onLogout={() => void signOut(client)}
         freshnessLabel={freshnessLabel}
       />
     );
