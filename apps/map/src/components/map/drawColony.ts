@@ -156,8 +156,6 @@ export function drawColony(
   ctx.lineWidth = theme.plotStrokeWidth;
   ctx.stroke(strokes);
 
-  drawLabels(ctx, model, theme, state, bounds);
-
   // The selected plot is drawn last, scaled about its own centre — paint order is the
   // "comes above everything" effect the old renderer faked by reparenting DOM nodes.
   if (state.selectedId) {
@@ -194,7 +192,19 @@ export function drawColony(
       ctx.lineWidth = theme.plotStrokeWidth;
       ctx.stroke(path);
       ctx.restore();
+    }
+  }
 
+  // Labels draw after the selected plot's own scaled repaint above — otherwise that
+  // repaint (which must come last to sit on top of every other plot) painted straight
+  // over the selected plot's own number, the one label that most needs to stay legible
+  // (owner ask, 2026-08-25). Every other label's position in the paint order is
+  // unaffected: nothing between the old and new call sites draws on top of them.
+  drawLabels(ctx, model, theme, state, bounds);
+
+  if (state.selectedId) {
+    const plot = model.plots.find((p) => p.id === state.selectedId);
+    if (plot) {
       // Dimension callout last of all, so it is never painted over. Drawn only once the
       // stored length/breadth have arrived — derived from the manifest's numbers, never
       // recomputed from geometry (spec/00-rules.md, dead computation).
