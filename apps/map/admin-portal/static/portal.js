@@ -14,8 +14,15 @@ function setStatus(message, isError) {
 
 async function api(method, path, body) {
   const options = { method };
-  if (body !== undefined) {
+  // server.ts requires Content-Type: application/json on every non-GET request, even a
+  // body-less one (generate-link/revoke-link) — the CSRF check added by /review 2026-08-31
+  // runs before any route dispatches, so this header must always be sent, not only when
+  // there's a body to serialize (a real bug: the generate/revoke buttons had no body and
+  // were getting rejected with 415 until this was fixed live against production).
+  if (method !== "GET") {
     options.headers = { "Content-Type": "application/json" };
+  }
+  if (body !== undefined) {
     options.body = JSON.stringify(body);
   }
   const res = await fetch(path, options);

@@ -1,7 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { parsePublicToken } from "./publicLinkUrl.ts";
+import { buildPublicLinkHash, parsePublicToken } from "./publicLinkUrl.ts";
 
 const TOKEN = "3fa85f64-5717-4562-b3fc-2c963f66afa6";
+
+describe("buildPublicLinkHash", () => {
+  it("builds the hash parsePublicToken can parse back out (round-trip)", () => {
+    const hash = buildPublicLinkHash(TOKEN);
+    expect(parsePublicToken(hash)).toBe(TOKEN);
+  });
+
+  it("produces the exact #/public/<token> shape", () => {
+    expect(buildPublicLinkHash(TOKEN)).toBe(`#/public/${TOKEN}`);
+  });
+});
 
 describe("parsePublicToken", () => {
   it("extracts the token from a valid public hash", () => {

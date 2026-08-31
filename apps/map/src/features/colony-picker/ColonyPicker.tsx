@@ -1,4 +1,5 @@
 import type { ColonyRow } from "../../lib/db/types.ts";
+import { ShareLinkButton } from "./ShareLinkButton.tsx";
 
 interface Props {
   colonies: ColonyRow[];
@@ -45,7 +46,7 @@ export function ColonyPicker({ colonies, onSelect, freshnessLabel, onUpload, onL
       {freshnessLabel && <p className="colony-picker-freshness">{freshnessLabel}</p>}
       <ul className="colony-picker-list">
         {colonies.map((colony) => (
-          <li key={colony.id}>
+          <li key={colony.id} className="colony-picker-row">
             <button
               type="button"
               className="colony-picker-item"
@@ -53,6 +54,7 @@ export function ColonyPicker({ colonies, onSelect, freshnessLabel, onUpload, onL
             >
               {colony.name}
             </button>
+            <ShareLinkButton token={colony.public_token} />
           </li>
         ))}
       </ul>

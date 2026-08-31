@@ -8,6 +8,10 @@ apps/map/*.local
 apps/map/.env
 apps/map/.env.*
 !apps/map/.env.example
+# A manual backup made before editing .env (2026-09-01 incident, PROGRESS.md) — real
+# credentials, same secret status as .env itself, but the space in the name means neither
+# pattern above matches it.
+apps/map/.env copy*
 apps/map/supabase/.branches/
 apps/map/supabase/.temp/
 

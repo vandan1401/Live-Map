@@ -2,6 +2,106 @@
 
 ## Current
 
+- **"Copy share link" added to the home-screen colony picker (2026-09-01, Tier 3, no
+  migration, no new RPC).** Owner's ask ("generate link and share public link should also
+  be available on the user/colony owner's portal") turned out, on clarification, to be
+  simpler than it first sounded: not a new secured write path for regular family members to
+  *generate* a link (that stays admin-only — `admin-portal/` or
+  `scripts/generate-public-link.ts`), just a way to **see and copy** an already-generated
+  one from inside the app they already use. `colonies.public_token` is already readable by
+  any authenticated org member (plain `select`, no new grant) and already part of every
+  `ColonyRow` the picker fetches — no new query needed. New `ShareLinkButton.tsx`
+  (`apps/map/src/features/colony-picker/`) renders per colony row: "No public link yet" if
+  `public_token` is null, or a "Copy share link" button that writes
+  `${origin}${pathname}#/public/${token}` to the clipboard and shows "Copied!" for 2s.
+  `buildPublicLinkHash(token)` (`lib/colony/publicLinkUrl.ts`) is the pure inverse of the
+  existing `parsePublicToken`.
+  **First design was over-scoped** — initially started planning a whole new
+  `security definer` RPC + migration for self-service generation before the owner corrected
+  the actual ask mid-conversation; caught before any plan file was written, no wasted build.
+  **Verified:** `apps/map` typecheck/lint/build clean; `pnpm exec vitest run
+  --no-file-parallelism` — new tests (2 for `buildPublicLinkHash`, 5 for `ShareLinkButton`,
+  existing `ColonyPicker.test.tsx` unmodified and still passing) all green; full suite
+  220/225 (4 pre-existing anon-grant failures + 1 confirmed pre-existing `subscribePlots`
+  flake, neither from this diff); `tools/pipeline` untouched (129/1 skipped).
+  **Also this session — a real incident, not part of this diff's own scope:** while setting
+  up `apps/map/.env` for the admin portal's first live use against production (separate
+  work, see the phase-3 entry below), the owner updated `VITE_SUPABASE_URL` and
+  `SUPABASE_SERVICE_ROLE_KEY` to production values but left `VITE_SUPABASE_ANON_KEY` on the
+  local Docker demo key — a mismatched combination that surfaced as "Invalid API key" across
+  a third of the live-integration test suite the next time it ran. **No data was at risk**:
+  every failing call was rejected by Supabase at the API-key-validation layer, before
+  reaching any query, so nothing could have written to production during the mismatch.
+  Fixed by bringing the local stack up (`make db-up`, Docker wasn't running either) and
+  restoring all three `.env` values from `supabase start`'s own printed output, not by
+  guessing. Confirmed clean by re-running the full suite (back to the documented 4-failure
+  baseline). This is the exact risk this repo's own convention already names ("`.env`'s
+  `VITE_SUPABASE_URL` drifted..." appears in nearly every session's Log) — first time it was
+  a three-way partial edit rather than a single stale value.
+
+- **All three pending migrations applied to the real production Supabase project (2026-08-31,
+  owner-run, data action not a code change).** Owner ran, in order, via the Supabase
+  Dashboard SQL Editor (manual paste — this project's normal method, not the CLI):
+  `20260829000000_select_zoom_ref.sql` (deferred since 2026-08-30 — see `## Deferred`, now
+  resolved), `20260831000000_m16_organizations.sql` (phase 1, D-030), and
+  `20260831010000_m17_public_colony_link.sql` (phase 2, D-031). Each followed by
+  `NOTIFY pgrst, 'reload schema';` (the exact PostgREST schema-cache-lag gotcha the portfolio
+  fix had already surfaced). After the organizations migration, `delete from
+  auth.refresh_tokens;` was run to stop already-issued sessions from silently renewing
+  without an `org_id` claim — the owner explicitly chose not to ask the family to re-login
+  immediately (map isn't in active use right now), so existing sessions keep working until
+  their own ~1h JWT expiry, then require a fresh sign-in.
+  **Verified, at every step, before proceeding to the next:** `select pronargs from pg_proc
+  where proname = 'create_colony_from_manifest';` → `9` (zoom-ref); `select id, name from
+  organizations;` → one row, "Original organisation (rename me)"; `select email,
+  raw_app_meta_data->>'org_id' from auth.users;` → all 6 accounts (5 real + `demo`) share
+  that org id (m16); `select column_name from information_schema.columns where table_name =
+  'colonies' and column_name = 'public_token';` and `select proname, pronargs from pg_proc
+  where proname = 'get_public_colony';` → both present, `pronargs = 1` (m17).
+  **One real hiccup, not a data issue:** the first attempt at the organizations migration's
+  `create policy ... using (...)` statement failed with a Postgres syntax error — a
+  chat-widget copy/paste had truncated the line mid-statement (`and id = nullif(auth.jwt()
+  -> 'app_metadata'` with the rest of the line silently dropped). Since Supabase's SQL editor
+  runs a multi-statement paste as one implicit transaction, the partial `create table
+  organizations` from that same failed paste rolled back too — confirmed by writing the full,
+  corrected migration to a local file (avoiding the chat-copy truncation entirely) and
+  re-running it clean with no "already exists" conflict.
+  **Pushed 2026-08-31** (`c465105`, `origin/master`, owner's own terminal — the auto-mode
+  classifier blocked Claude's own `git push` attempt, a harness-level guardrail) — Cloudflare's
+  Git-integration auto-deploy (D-026) has now shipped all three phases' code. Confirmed live:
+  a `generate-public-link`-style token generated via the admin portal before the push
+  resolved to nothing (expected — the deployed bundle had no `#/public/` route yet); the same
+  token worked once the push landed.
+  **Also this session, using the admin portal for real against production (its first live
+  use) — found and fixed a real bug:** `admin-portal/static/portal.js`'s `api()` helper only
+  set `Content-Type: application/json` when a request body was present; the "Generate link"/
+  "Revoke link" buttons call their routes with no body, so they were rejected with 415 by
+  `server.ts`'s CSRF content-type check (added in this session's own `/review`) —
+  the client and server sides of that check had drifted apart, one only exercised once a real
+  browser hit it. Fixed: the header is now sent for every non-GET request regardless of
+  whether there's a body. A second, unrelated mix-up during this same session: `.env` was
+  briefly pointed at the **portfolio** Supabase project's credentials instead of the main
+  one while setting up for the admin portal, producing a `relation "organizations" does not
+  exist` error that looked like a schema-cache problem at first — resolved by confirming the
+  project ref mismatch directly rather than chasing cache-reload fixes further.
+  A new **"Indravardhan Moonat"** organization and a `vandan` account were created via the
+  portal for onboarding the Bharatkshetra colony (previously only live on the separate
+  `Colony Viewer - Portfolio` deployment) into the main app as its own tenant — the actual
+  colony upload (via the app's own upload screen, the human-verification gate, D-025) and
+  the portfolio project's eventual decommissioning are still pending, owner-run, not yet
+  done.
+
+- **Next:** (1) owner uploads Bharatkshetra (`tools/pipeline/out/bharatkshetra/colony.svg`+
+  `colony.json` already exported and ready) through the main app's upload screen while signed
+  in as `vandan`, into the new "Indravardhan Moonat" org; (2) once confirmed live and correct,
+  decommission the portfolio Supabase project + its Cloudflare deployment (owner's call on
+  timing); (3) a new ask from this session, not yet planned: expose generate/revoke-public-
+  link as a self-service action inside the main app itself (not just the admin portal/CLI),
+  for a signed-in org member to use directly — needs its own `/plan` first, since
+  `colonies.public_token` currently has no client-write path at all, by design (M17's own
+  comment: "Never a client-writable column") — this is a new secured RPC, not a UI-only
+  change.
+
 - **Multi-tenant SaaS conversion, phase 3 of 3: the admin portal (2026-08-31, Tier 1,
   docs/plans/23.md, D-032).** Last of the three planned phases. Built a small local Node
   tool — `apps/map/admin-portal/` (`server.ts` + `actions.ts` + a plain HTML/JS/CSS static
@@ -649,6 +749,27 @@
   feature-labels yet, so this is latent, not live).
 
 ## Log
+
+### 2026-08-31 — Production Supabase caught up: zoom-ref + org isolation + public link (owner-run, no code change)
+
+**Done:** Owner applied all three pending migrations to the real production Supabase
+project via the Dashboard SQL Editor, in order (zoom-ref → organizations → public link),
+each followed by a schema-cache reload and read-only verification before proceeding to the
+next. Refresh tokens were revoked project-wide after the org migration; the family was not
+asked to re-login immediately since the map isn't in active use right now.
+
+**Next:** owner's go-ahead to `git push origin master` (7 local commits, triggers
+Cloudflare's auto-deploy).
+
+**Surprises:** The organizations migration's `create policy` statement failed once with a
+Postgres syntax error — traced to a chat-widget copy/paste silently truncating one line
+mid-statement, not a SQL or data problem. Fixed by writing the migration to a local file and
+pasting from there instead of from the chat transcript directly, which avoided the
+truncation entirely on retry.
+
+**Verified:** `pronargs` checks and table/column existence checks after each of the three
+migrations (see `## Current`'s dated entry for the exact queries and expected results) — all
+matched. No app code was touched this session; this was a pure data-plane action.
 
 ### 2026-08-31 — Multi-tenant SaaS conversion, phase 3 of 3: admin portal (Tier 1, docs/plans/23.md, D-032)
 
@@ -1961,20 +2082,15 @@ on a real phone. Not verified by anyone: the five visual behaviours in `## Curre
 
 ## Deferred
 
-- **The `20260829000000_select_zoom_ref.sql` migration has only been applied to the local
-  Docker Supabase (this repo's dev/test stack) and to the `Colony Viewer - Portfolio`
-  sibling project's live hosted Supabase — not to the real production Supabase project the
-  family's actual deployed app (`live-map` on Cloudflare) uses (2026-08-30, owner:
-  "we need to make changes in current supabase project also but this is to be done
-  later").** Until that production project gets the same migration (new
-  `colonies.select_zoom_ref_width_px`/`select_zoom_ref_height_px` columns +
-  `create_colony_from_manifest`'s new 9-parameter signature — see the portfolio fix for the
-  exact gotcha: `create or replace function` alone won't drop the old 7-arg overload, and a
-  schema-cache reload via `NOTIFY pgrst, 'reload schema';` may be needed after applying it
-  manually), deploying this session's `apps/map` code changes to the real production site
-  would break `create_colony_from_manifest` there (function-signature mismatch), exactly the
-  failure hit and fixed on the portfolio project this session. **Not fixed here on
-  purpose** — explicitly deferred by the owner, do not apply it without being asked.
+- ~~**The `20260829000000_select_zoom_ref.sql` migration has only been applied to the local
+  Docker Supabase... not to the real production Supabase project...**~~ **Resolved
+  2026-08-31** — applied to the real production project, along with
+  `20260831000000_m16_organizations.sql` and `20260831010000_m17_public_colony_link.sql`, in
+  that order, via the Dashboard SQL Editor. See `## Current`'s dated entry for the full
+  verification trail. The 7-arg-to-9-arg `create_colony_from_manifest` gotcha this entry
+  originally warned about was hit and worked around exactly as described (the old 7-arg
+  signature was dropped explicitly, matching this migration file's own `drop function if
+  exists` line, before the 9-arg one was created).
 - **Local Supabase stack's default privilege grants now give `anon` direct EXECUTE on every
   `security definer` function that uses the `revoke ... from public; grant ... to
   authenticated;` pattern, breaking the `42501`-expecting anon-rejection tests (2026-08-29,
