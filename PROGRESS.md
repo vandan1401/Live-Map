@@ -1584,6 +1584,20 @@ on a real phone. Not verified by anyone: the five visual behaviours in `## Curre
 
 ## Deferred
 
+- **The `20260829000000_select_zoom_ref.sql` migration has only been applied to the local
+  Docker Supabase (this repo's dev/test stack) and to the `Colony Viewer - Portfolio`
+  sibling project's live hosted Supabase — not to the real production Supabase project the
+  family's actual deployed app (`live-map` on Cloudflare) uses (2026-08-30, owner:
+  "we need to make changes in current supabase project also but this is to be done
+  later").** Until that production project gets the same migration (new
+  `colonies.select_zoom_ref_width_px`/`select_zoom_ref_height_px` columns +
+  `create_colony_from_manifest`'s new 9-parameter signature — see the portfolio fix for the
+  exact gotcha: `create or replace function` alone won't drop the old 7-arg overload, and a
+  schema-cache reload via `NOTIFY pgrst, 'reload schema';` may be needed after applying it
+  manually), deploying this session's `apps/map` code changes to the real production site
+  would break `create_colony_from_manifest` there (function-signature mismatch), exactly the
+  failure hit and fixed on the portfolio project this session. **Not fixed here on
+  purpose** — explicitly deferred by the owner, do not apply it without being asked.
 - **Local Supabase stack's default privilege grants now give `anon` direct EXECUTE on every
   `security definer` function that uses the `revoke ... from public; grant ... to
   authenticated;` pattern, breaking the `42501`-expecting anon-rejection tests (2026-08-29,
