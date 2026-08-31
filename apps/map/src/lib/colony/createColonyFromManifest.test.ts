@@ -5,6 +5,7 @@ import { fetchColonyById } from "../db/colonies.ts";
 import { fetchPlotBySvgId, fetchPlotsByColony } from "../db/plots.ts";
 import { fetchRecentHistoryForPlots } from "../db/plotHistory.ts";
 import {
+  createScratchOrg,
   createScratchUser,
   createStatelessAnonClient,
   deleteScratchUser,
@@ -59,7 +60,7 @@ const SVG = `<svg><path id="plot-A-01"/></svg>`;
 describe("createColonyFromManifest — live integration", () => {
   let user: ScratchUser;
   beforeAll(async () => {
-    user = await createScratchUser("Test Colony Uploader");
+    user = await createScratchUser("Test Colony Uploader", await createScratchOrg());
   }, 15_000);
   afterAll(async () => {
     await deleteScratchUser(user);

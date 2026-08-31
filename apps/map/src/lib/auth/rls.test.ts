@@ -5,16 +5,15 @@
 // each test body) — vitest runs afterAll even when a test assertion throws, so a failing
 // test can no longer leak a scratch account the way a body-level teardown call could.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { insertColony } from "../db/colonies.ts";
-import { insertPlots } from "../db/plots.ts";
 import { applyPlotTransition } from "../plot-status/applyPlotTransition.ts";
 import { usernameToEmail } from "./username.ts";
 import type { PlotRow } from "../db/types.ts";
 import {
+  createScratchOrg,
+  createScratchPlot,
   createScratchUser,
   createStatelessAnonClient,
   deleteScratchUser,
-  serviceRoleClient,
   type ScratchUser,
 } from "./testHelpers.ts";
 
@@ -23,32 +22,10 @@ import {
 // unrelated failure like a renamed parameter or a schema-cache miss (/review finding).
 const PERMISSION_DENIED = "42501";
 
-async function createScratchPlot(): Promise<{ plotId: string; colonyId: string }> {
-  const admin = serviceRoleClient();
-  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const colonyId = `test-rls-${suffix}`;
-  await insertColony(admin, { id: colonyId, name: "RLS scratch colony", verified: false, svg: "<svg></svg>" });
-  const [plot] = await insertPlots(admin, [
-    {
-      colony_id: colonyId,
-      svg_id: `plot-A-${suffix.slice(0, 8)}`,
-      block: "A",
-      number: "1",
-      area_sqft: 1200,
-      length_ft: 30,
-      breadth_ft: 40,
-      facing: "north",
-      is_corner: false,
-      status: "available",
-      updated_by: "test-setup",
-    },
-  ]);
-  return { plotId: plot.id, colonyId };
-}
-
 describe("RLS — anon reads (spec/08 criterion 2)", () => {
   it("anon select on colonies/plots/plot_history all return zero rows", async () => {
-    await createScratchPlot();
+    const orgId = await createScratchOrg();
+    await createScratchPlot(orgId);
     const anon = createStatelessAnonClient();
 
     const [colonies, plots, history] = await Promise.all([
@@ -68,15 +45,17 @@ describe("RLS — anon reads (spec/08 criterion 2)", () => {
 
 describe("RLS — authenticated reads", () => {
   let user: ScratchUser;
+  let orgId: string;
   beforeAll(async () => {
-    user = await createScratchUser("RLS Reader");
+    orgId = await createScratchOrg();
+    user = await createScratchUser("RLS Reader", orgId);
   });
   afterAll(async () => {
     await deleteScratchUser(user);
   });
 
   it("a signed-in user's select on colonies/plots/plot_history returns real rows", async () => {
-    const { plotId, colonyId } = await createScratchPlot();
+    const { plotId, colonyId } = await createScratchPlot(orgId);
 
     const [colonies, plots] = await Promise.all([
       user.client.from("colonies").select("id").eq("id", colonyId),
@@ -90,15 +69,17 @@ describe("RLS — authenticated reads", () => {
 
 describe("plot_history — append-only for every role (spec/08 criterion 3)", () => {
   let user: ScratchUser;
+  let orgId: string;
   beforeAll(async () => {
-    user = await createScratchUser("RLS Writer");
+    orgId = await createScratchOrg();
+    user = await createScratchUser("RLS Writer", orgId);
   });
   afterAll(async () => {
     await deleteScratchUser(user);
   });
 
   it("anon UPDATE and DELETE are both rejected", async () => {
-    const { plotId } = await createScratchPlot();
+    const { plotId } = await createScratchPlot(orgId);
     const anon = createStatelessAnonClient();
 
     const update = await anon.from("plot_history").update({ note: "tampered" }).eq("plot_id", plotId);
@@ -109,7 +90,7 @@ describe("plot_history — append-only for every role (spec/08 criterion 3)", ()
   });
 
   it("an authenticated user's UPDATE and DELETE are both rejected", async () => {
-    const { plotId } = await createScratchPlot();
+    const { plotId } = await createScratchPlot(orgId);
 
     const update = await user.client
       .from("plot_history")
@@ -125,10 +106,12 @@ describe("plot_history — append-only for every role (spec/08 criterion 3)", ()
 describe("apply_plot_transition — server-side attribution (spec/08 criterion 4)", () => {
   let userA: ScratchUser;
   let userB: ScratchUser;
+  let orgId: string;
   beforeAll(async () => {
+    orgId = await createScratchOrg();
     [userA, userB] = await Promise.all([
-      createScratchUser("Alpha Actor"),
-      createScratchUser("Beta Actor"),
+      createScratchUser("Alpha Actor", orgId),
+      createScratchUser("Beta Actor", orgId),
     ]);
   }, 15_000);
   afterAll(async () => {
@@ -136,8 +119,8 @@ describe("apply_plot_transition — server-side attribution (spec/08 criterion 4
   });
 
   it("two different real sessions each get their own real name attributed, never a forged one", async () => {
-    const { plotId: plotIdA } = await createScratchPlot();
-    const { plotId: plotIdB } = await createScratchPlot();
+    const { plotId: plotIdA } = await createScratchPlot(orgId);
+    const { plotId: plotIdB } = await createScratchPlot(orgId);
 
     const resultA = await applyPlotTransition(userA.client, {
       plotId: plotIdA,
@@ -159,7 +142,7 @@ describe("apply_plot_transition — server-side attribution (spec/08 criterion 4
   });
 
   it("self-updating user_metadata does not change who a write is attributed to", async () => {
-    const { plotId } = await createScratchPlot();
+    const { plotId } = await createScratchPlot(orgId);
     // Every signed-in user can PUT their own user_metadata with nothing but their own
     // session — proving this doesn't change attribution is what actually closes the
     // forgery, since apply_plot_transition() must read app_metadata, not user_metadata.
@@ -181,7 +164,8 @@ describe("apply_plot_transition — server-side attribution (spec/08 criterion 4
 
 describe("apply_plot_transition — no session, no access (spec/08 criteria 1/4)", () => {
   it("an anon call is rejected outright, not just ignored", async () => {
-    const { plotId } = await createScratchPlot();
+    const orgId = await createScratchOrg();
+    const { plotId } = await createScratchPlot(orgId);
     const anon = createStatelessAnonClient();
 
     const { error } = await anon.rpc("apply_plot_transition", {

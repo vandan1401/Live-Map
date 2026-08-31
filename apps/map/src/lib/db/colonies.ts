@@ -70,8 +70,10 @@ export async function callCreateColonyFromManifest(
   const result = data as
     | { ok: true; colony_id: string }
     | { ok: false; reason: "colony_exists" }
-    | { ok: false; reason: "would_orphan_history"; missing_svg_ids: string[] };
+    | { ok: false; reason: "would_orphan_history"; missing_svg_ids: string[] }
+    | { ok: false; reason: "org_mismatch" };
   if (result.ok) return { ok: true, colonyId: result.colony_id };
   if (result.reason === "colony_exists") return { ok: false, reason: "colony_exists" };
+  if (result.reason === "org_mismatch") return { ok: false, reason: "org_mismatch" };
   return { ok: false, reason: "would_orphan_history", missingSvgIds: result.missing_svg_ids };
 }

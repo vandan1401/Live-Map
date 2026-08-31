@@ -3,7 +3,9 @@
 - [Docs vs enforcement drift](review-docs-vs-enforcement-drift.md) — 11x: docs claim a guarantee the runtime lacks; (11) a new `make ui` guard.sh never blocks, and a stale "eight layers".
 - [Contract widening consumers](review-contract-widening-consumers.md) — 3x: widening `svg_id` broke sort/uniqueness; (3) raw operator text into SVG = malformed XML, empty map. Grep consumers that *assume*.
 - [Line-cap breaches](review-line-cap-breaches.md) — 4x: `filesize.sh` is PostToolUse (advisory) and `make gate` never checks length; `wc -l` every touched file vs `git show HEAD:<f>`.
-- [Vacuous acceptance tests](review-vacuous-acceptance-tests.md) — 10x: tests passing for the wrong reason; (10) a new extracted hook with zero tests, only its pure helper covered.
+- [Vacuous acceptance tests](review-vacuous-acceptance-tests.md) — 11x: tests passing for the wrong reason; (11) a migration backfill hitting an append-only trigger only on prod data.
+- [Migrations run on an empty DB](review-migration-empty-db-blind-spot.md) — `db reset` replays migrations before any seed, so triggers/nullability/constraints over existing rows are untestable locally.
+- [Non-TypeScript call sites](review-non-ts-call-sites.md) — "tsc caught every call site" misses the Makefile, package.json scripts and hooks; `make db-reseed` broke on a new required CLI arg.
 - [Constants invented outside the plan](review-unpinned-constants.md) — a pinned tolerance grew a second, unpinned bound that silently widened the accept window.
 - [Attribution fallbacks](review-attribution-fallbacks.md) — 7x: `??` placeholders, bogus `confidence`, `import` rows, sticky `owner_name`, a self-writable `user_metadata` JWT claim. Ask who can write it.
 - [Fixture geometry unchecked](review-fixture-geometry-unchecked.md) — 3x: nothing checks overlap, viewBox drift, or derived `facing`/`is_corner`; recompute them from `colony.svg` yourself.

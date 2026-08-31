@@ -5,6 +5,7 @@ import { insertColony } from "../db/colonies.ts";
 import { insertPlots } from "../db/plots.ts";
 import { fetchPlotHistory } from "../db/plotHistory.ts";
 import {
+  createScratchOrg,
   createScratchUser,
   deleteScratchUser,
   serviceRoleClient,
@@ -38,7 +39,7 @@ describe("applyPlotTransition — illegal transition short-circuits", () => {
 // same requirement as `pnpm import:seed`). Each test creates its own scratch colony/plot
 // via the service-role client (docs/plans/09.md — anon/authenticated have no insert
 // grant since the M8 RLS lockdown); harmless residue, cleared on the next `db reset`.
-async function createScratchPlot(client: SupabaseClient): Promise<{
+async function createScratchPlot(client: SupabaseClient, orgId: string): Promise<{
   plotId: string;
   colonyId: string;
   svgId: string;
@@ -46,10 +47,17 @@ async function createScratchPlot(client: SupabaseClient): Promise<{
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const colonyId = `test-m4-${suffix}`;
   const svgId = `plot-A-${suffix.slice(0, 8)}`;
-  await insertColony(client, { id: colonyId, name: "M4 scratch colony", verified: false, svg: "<svg></svg>" });
+  await insertColony(client, {
+    id: colonyId,
+    org_id: orgId,
+    name: "M4 scratch colony",
+    verified: false,
+    svg: "<svg></svg>",
+  });
   const [plot] = await insertPlots(client, [
     {
       colony_id: colonyId,
+      org_id: orgId,
       svg_id: svgId,
       block: "A",
       number: "1",
@@ -72,10 +80,12 @@ describe("applyPlotTransition — live integration", () => {
   // user state, only its own scratch plot.
   let userA: ScratchUser;
   let userB: ScratchUser;
+  let orgId: string;
   beforeAll(async () => {
+    orgId = await createScratchOrg();
     [userA, userB] = await Promise.all([
-      createScratchUser("Test Actor A"),
-      createScratchUser("Test Actor B"),
+      createScratchUser("Test Actor A", orgId),
+      createScratchUser("Test Actor B", orgId),
     ]);
   }, 15_000);
   afterAll(async () => {
@@ -84,7 +94,7 @@ describe("applyPlotTransition — live integration", () => {
 
   it("success path: status, version, and history all update together, attributed to the real signed-in session (D-020)", async () => {
     const admin = serviceRoleClient();
-    const { plotId } = await createScratchPlot(admin);
+    const { plotId } = await createScratchPlot(admin, orgId);
 
     const result = await applyPlotTransition(userA.client, {
       plotId,
@@ -108,7 +118,7 @@ describe("applyPlotTransition — live integration", () => {
 
   it("concurrent conflicting writes: one wins, one fails named with the real winner's session name", async () => {
     const admin = serviceRoleClient();
-    const { plotId } = await createScratchPlot(admin);
+    const { plotId } = await createScratchPlot(admin, orgId);
 
     const [a, b] = await Promise.allSettled([
       applyPlotTransition(userA.client, {
@@ -142,7 +152,7 @@ describe("applyPlotTransition — live integration", () => {
 
   it("double-tap Save: second call with the same stale version is a named conflict, exactly one history row", async () => {
     const admin = serviceRoleClient();
-    const { plotId } = await createScratchPlot(admin);
+    const { plotId } = await createScratchPlot(admin, orgId);
 
     const first = await applyPlotTransition(userA.client, {
       plotId,
@@ -166,7 +176,7 @@ describe("applyPlotTransition — live integration", () => {
 
   it("a fresh booking writes owner_name; later transitions that omit it leave it untouched (docs/plans/08.md)", async () => {
     const admin = serviceRoleClient();
-    const { plotId } = await createScratchPlot(admin);
+    const { plotId } = await createScratchPlot(admin, orgId);
 
     const booked = await applyPlotTransition(userA.client, {
       plotId,
@@ -190,7 +200,7 @@ describe("applyPlotTransition — live integration", () => {
 
   it("undo-into-booked restores the correct prior buyer with no owner name supplied", async () => {
     const admin = serviceRoleClient();
-    const { plotId } = await createScratchPlot(admin);
+    const { plotId } = await createScratchPlot(admin, orgId);
 
     await applyPlotTransition(userA.client, {
       plotId,
@@ -223,7 +233,7 @@ describe("applyPlotTransition — live integration", () => {
 
   it("forced mid-transaction failure: the plot update rolls back with the failed history insert", async () => {
     const admin = serviceRoleClient();
-    const { plotId, colonyId, svgId } = await createScratchPlot(admin);
+    const { plotId, colonyId, svgId } = await createScratchPlot(admin, orgId);
 
     // Bypasses both TS wrappers, calling the RPC directly (5-arg, no p_actor). p_note
     // is written only to plot_history, so an over-length note fails after the plots

@@ -4,6 +4,8 @@
 // scratch-colony pattern. Not imported from any app code — test-only.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createDbClient } from "../db/client.ts";
+import { insertColony } from "../db/colonies.ts";
+import { insertPlots } from "../db/plots.ts";
 import { usernameToEmail } from "./username.ts";
 
 // Distinct from getBrowserDbClient(): persistSession: false so this client never reads
@@ -43,7 +45,23 @@ export function serviceRoleClient(): SupabaseClient {
   return createDbClient(url, serviceRoleKey);
 }
 
-export async function createScratchUser(displayName: string): Promise<ScratchUser> {
+// docs/plans/21.md phase 1: one throwaway organization per call — no shared default org,
+// since a hidden shared default between parallel test files is exactly the kind of
+// cross-test collision this table exists to prevent. Not cleaned up by any counterpart
+// deleteScratchOrg — see the comment on deleteScratchUser below for why that matches this
+// repo's existing convention rather than fighting it.
+export async function createScratchOrg(): Promise<string> {
+  const admin = serviceRoleClient();
+  const { data, error } = await admin
+    .from("organizations")
+    .insert({ name: `scratch-org-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` })
+    .select("id")
+    .single();
+  if (error) throw new Error(`createScratchOrg: insert failed: ${error.message}`);
+  return (data as { id: string }).id;
+}
+
+export async function createScratchUser(displayName: string, orgId: string): Promise<ScratchUser> {
   const admin = serviceRoleClient();
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const username = `test-${suffix}`;
@@ -56,8 +74,9 @@ export async function createScratchUser(displayName: string): Promise<ScratchUse
     email_confirm: true,
     // app_metadata, NOT user_metadata (docs/plans/09.md /review finding) — matches
     // scripts/create-user.ts exactly, since these tests must exercise the real
-    // attribution path, not a looser one.
-    app_metadata: { display_name: displayName },
+    // attribution path, not a looser one. org_id (docs/plans/21.md phase 1) is required,
+    // no default — see createScratchOrg above.
+    app_metadata: { display_name: displayName, org_id: orgId },
   });
   if (error) throw new Error(`createScratchUser: createUser failed: ${error.message}`);
 
@@ -79,8 +98,51 @@ export async function createScratchUser(displayName: string): Promise<ScratchUse
   return { id: data.user.id, displayName, client };
 }
 
+// Does not delete the user's scratch org (see createScratchOrg above) — this repo's tests
+// already never clean up scratch colonies/plots either (they accumulate until
+// `make db-reseed`, PROGRESS.md 2026-08-25/2026-08-30); matching that convention avoids a
+// foreign-key-order cleanup problem (an org can't be deleted while a colony still
+// references it) for no real benefit at this test volume. Do not "fix" this into an
+// org-delete call — it would fail the moment a test's scratch colony outlives it.
 export async function deleteScratchUser(user: ScratchUser): Promise<void> {
   await user.client.auth.signOut();
   const admin = serviceRoleClient();
   await admin.auth.admin.deleteUser(user.id);
+}
+
+// Shared by rls.test.ts and rls-cross-org.test.ts (docs/plans/21.md phase 1 split it out
+// of rls.test.ts, which had grown past invariant 7's 250-line cap) — a disposable colony
+// + one plot, service-role, bypassing RLS entirely. orgId is explicit, no default: a
+// cross-org test needs two scratch plots in two deliberately different orgs.
+export async function createScratchPlot(
+  orgId: string,
+): Promise<{ plotId: string; colonyId: string; svgId: string }> {
+  const admin = serviceRoleClient();
+  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  const colonyId = `test-rls-${suffix}`;
+  const svgId = `plot-A-${suffix.slice(0, 8)}`;
+  await insertColony(admin, {
+    id: colonyId,
+    org_id: orgId,
+    name: "RLS scratch colony",
+    verified: false,
+    svg: "<svg></svg>",
+  });
+  const [plot] = await insertPlots(admin, [
+    {
+      colony_id: colonyId,
+      org_id: orgId,
+      svg_id: svgId,
+      block: "A",
+      number: "1",
+      area_sqft: 1200,
+      length_ft: 30,
+      breadth_ft: 40,
+      facing: "north",
+      is_corner: false,
+      status: "available",
+      updated_by: "test-setup",
+    },
+  ]);
+  return { plotId: plot.id, colonyId, svgId };
 }

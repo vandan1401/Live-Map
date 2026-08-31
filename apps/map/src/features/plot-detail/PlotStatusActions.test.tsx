@@ -10,6 +10,7 @@ afterEach(() => {
 const basePlot: PlotRow = {
   id: "plot-1",
   colony_id: "shree-vatika-2",
+  org_id: "org-test-1",
   svg_id: "plot-A-01",
   block: "A",
   number: "1",
@@ -37,6 +38,7 @@ function historyRow(overrides: Partial<PlotHistoryRow>): PlotHistoryRow {
   return {
     id: "hist-1",
     plot_id: "plot-1",
+    org_id: "org-test-1",
     status: "available",
     changed_by: "test-actor-a",
     changed_at: new Date("2020-01-01").toISOString(),

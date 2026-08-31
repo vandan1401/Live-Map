@@ -115,6 +115,20 @@ branches of the null/computed fallback were shipped unexercised. `ColonyMap.test
 hook, not just the pure helper it delegates to — pure-function coverage reads as coverage
 and is not.**
 
+**11th recurrence, 2026-08-31 (plan 21, M16) — a direct repeat of recurrence #2 above,
+three months later.** `20260831000000_m16_organizations.sql` backfills with
+`update plot_history set org_id = v_org_id;`. M2 installs `plot_history_no_update`, a
+`before update … for each row` trigger that raises unconditionally (invariant 5). Locally
+the migration runs against an **empty** `plot_history` (no `apps/map/supabase/seed.sql`
+exists; `make db-reseed` = `supabase db reset` *then* `pnpm import:seed`), so zero rows →
+trigger never fires → `make gate` green. Against production, where `plot_history` holds
+every real row, the trigger aborts the whole migration. The plan's §6 "Partial writes"
+walk-through even reasoned about the transaction and missed it. **Rule: for any migration
+that `update`s or `delete`s an existing table, list that table's triggers
+(`\d+ <table>` / `select tgname from pg_trigger where tgrelid = '<table>'::regclass`) before
+accepting a green gate — and treat "the local gate passed" as saying nothing at all about
+the pre-existing-data path.** Related: [[review-migration-empty-db-blind-spot]].
+
 **How to apply:** the local Supabase Docker stack is usually up
 (`docker exec supabase_db_colony-map psql -U postgres -d postgres -c "..."`). Postgres's
 `CONTEXT:` line names the exact failing SQL statement — one command settles it. For a

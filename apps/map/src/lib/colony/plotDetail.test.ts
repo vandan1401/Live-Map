@@ -4,6 +4,7 @@ import { loadPlotDetail } from "./plotDetail.ts";
 import { insertColony } from "../db/colonies.ts";
 import { insertPlots } from "../db/plots.ts";
 import {
+  createScratchOrg,
   createScratchUser,
   deleteScratchUser,
   serviceRoleClient,
@@ -12,18 +13,27 @@ import {
 
 // Live integration test against the local Supabase instance (Docker must be up — same
 // requirement as pnpm import:seed). Matching gate to plotStatus.test.ts's — D-108 must
-// hold for the detail sheet's read path too.
+// hold for the detail sheet's read path too. orgId (docs/plans/21.md phase 1) must match
+// the reading user's own org.
 async function createScratchColony(
   client: SupabaseClient,
+  orgId: string,
   verified: boolean,
 ): Promise<{ colonyId: string; svgId: string }> {
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const colonyId = `test-verified-gate-detail-${suffix}`;
   const svgId = `plot-A-${suffix.slice(0, 8)}`;
-  await insertColony(client, { id: colonyId, name: "verified-gate scratch", verified, svg: "<svg></svg>" });
+  await insertColony(client, {
+    id: colonyId,
+    org_id: orgId,
+    name: "verified-gate scratch",
+    verified,
+    svg: "<svg></svg>",
+  });
   await insertPlots(client, [
     {
       colony_id: colonyId,
+      org_id: orgId,
       svg_id: svgId,
       block: "A",
       number: "1",
@@ -53,8 +63,10 @@ describe("loadPlotDetail — unverified colony gate (D-108)", () => {
   // finding — per-test create+delete multiplies Auth-container contention under a full
   // parallel suite run; both tests only read, so sharing one reader is safe).
   let user: ScratchUser;
+  let orgId: string;
   beforeAll(async () => {
-    user = await createScratchUser("Plot Detail Reader");
+    orgId = await createScratchOrg();
+    user = await createScratchUser("Plot Detail Reader", orgId);
   }, 15_000);
   afterAll(async () => {
     await deleteScratchUser(user);
@@ -62,7 +74,7 @@ describe("loadPlotDetail — unverified colony gate (D-108)", () => {
 
   it("returns null for a plot in an unverified colony", async () => {
     const admin = serviceRoleClient();
-    const { colonyId, svgId } = await createScratchColony(admin, false);
+    const { colonyId, svgId } = await createScratchColony(admin, orgId, false);
 
     const detail = await loadPlotDetail(user.client, colonyId, svgId);
     expect(detail).toBeNull();
@@ -70,7 +82,7 @@ describe("loadPlotDetail — unverified colony gate (D-108)", () => {
 
   it("returns the plot for a verified colony", async () => {
     const admin = serviceRoleClient();
-    const { colonyId, svgId } = await createScratchColony(admin, true);
+    const { colonyId, svgId } = await createScratchColony(admin, orgId, true);
 
     try {
       const detail = await loadPlotDetail(user.client, colonyId, svgId);

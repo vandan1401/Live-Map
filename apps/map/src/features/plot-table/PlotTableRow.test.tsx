@@ -10,6 +10,7 @@ afterEach(() => {
 const basePlot: PlotRow = {
   id: "plot-1",
   colony_id: "shree-vatika-2",
+  org_id: "org-test-1",
   svg_id: "plot-A-01",
   block: "A",
   number: "1",

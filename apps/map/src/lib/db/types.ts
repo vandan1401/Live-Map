@@ -15,6 +15,12 @@ export type Facing =
 
 export interface ColonyInsert {
   id: string;
+  // docs/plans/21.md phase 1: which organization owns this row. Service-role-path-only —
+  // the real app never constructs one of these directly (the only client-visible write
+  // path, create_colony_from_manifest, derives it server-side from the caller's session
+  // and takes no org_id parameter at all, same D-020 shape as attribution). Only
+  // scripts/import-seed.ts and test setup (rls.test.ts's createScratchPlot) supply this.
+  org_id: string;
   name: string;
   verified: boolean;
   source_file?: string | null;
@@ -39,6 +45,9 @@ export interface ColonyRow extends Omit<ColonyInsert, "svg"> {
 
 export interface PlotInsert {
   colony_id: string;
+  // docs/plans/21.md phase 1: same posture as ColonyInsert.org_id above — service-role-
+  // path-only, never a client-supplied parameter on the real write path.
+  org_id: string;
   svg_id: string;
   block: string;
   number: string;
@@ -68,6 +77,10 @@ export interface PlotRow extends PlotInsert {
 
 export interface PlotHistoryInsert {
   plot_id: string;
+  // docs/plans/21.md phase 1: same posture as ColonyInsert.org_id/PlotInsert.org_id —
+  // service-role-path-only. The real write path (apply_plot_transition,
+  // bulk_set_initial_plot_data) derives and inserts this itself, inside the RPC.
+  org_id: string;
   status: PlotStatus;
   changed_by: string;
   note?: string | null;
@@ -139,4 +152,7 @@ export interface ColonyManifest {
 export type CreateColonyResult =
   | { ok: true; colonyId: string }
   | { ok: false; reason: "colony_exists" }
-  | { ok: false; reason: "would_orphan_history"; missingSvgIds: string[] };
+  | { ok: false; reason: "would_orphan_history"; missingSvgIds: string[] }
+  // docs/plans/21.md phase 1: a replace whose existing colony belongs to a different
+  // organization than the caller's own. Not reachable in normal single-org use.
+  | { ok: false; reason: "org_mismatch" };

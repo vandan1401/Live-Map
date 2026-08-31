@@ -13,17 +13,33 @@ import {
 // must never appear in the home-screen picker's options, not just be refused once opened.
 async function createScratchColony(
   client: SupabaseClient,
+  orgId: string,
   verified: boolean,
 ): Promise<string> {
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const colonyId = `test-list-colonies-${suffix}`;
   await insertColony(client, {
     id: colonyId,
+    org_id: orgId,
     name: `list-colonies scratch (${verified ? "verified" : "unverified"})`,
     verified,
     svg: "<svg></svg>",
   });
   return colonyId;
+}
+
+// docs/plans/21.md phase 1: this test asserts the real shree-vatika-2 fixture colony is
+// visible, so the scratch user/colony here must share *its* org — a fresh scratch org
+// (the pattern every other live-integration test uses) would make shree-vatika-2
+// correctly, but misleadingly, invisible under the new org-scoped RLS.
+async function fixtureColonyOrgId(client: SupabaseClient): Promise<string> {
+  const { data, error } = await client
+    .from("colonies")
+    .select("org_id")
+    .eq("id", "shree-vatika-2")
+    .single();
+  if (error) throw new Error(`fixtureColonyOrgId: lookup failed: ${error.message}`);
+  return (data as { org_id: string }).org_id;
 }
 
 // The `colonies` table has no DELETE grant (M2) — scratch rows are normally harmless
@@ -44,12 +60,14 @@ describe("loadVerifiedColonies — D-108 list-level gate", () => {
   // full parallel-suite contention on the local Docker Supabase stack, not a real bug.
   it("includes a verified scratch colony and the real shree-vatika-2 colony, excludes an unverified one", async () => {
     const admin = serviceRoleClient();
-    const verifiedId = await createScratchColony(admin, true);
-    const unverifiedId = await createScratchColony(admin, false);
+    const orgId = await fixtureColonyOrgId(admin);
+    const verifiedId = await createScratchColony(admin, orgId, true);
+    const unverifiedId = await createScratchColony(admin, orgId, false);
     // Reads go through a real authenticated session (docs/plans/09.md) — anon is
     // filtered to zero rows by RLS regardless of `verified`, which would defeat this
-    // test's whole purpose.
-    const user = await createScratchUser("List Colonies Reader");
+    // test's whole purpose. Same org as the fixture colony (docs/plans/21.md phase 1) —
+    // see fixtureColonyOrgId above.
+    const user = await createScratchUser("List Colonies Reader", orgId);
 
     try {
       const colonies = await loadVerifiedColonies(user.client);

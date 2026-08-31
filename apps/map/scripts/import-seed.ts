@@ -30,10 +30,18 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(scriptDir, "../../..");
 const manifestPath = resolve(repoRoot, process.argv[2] ?? "fixtures/shree-vatika-2/colony.json");
 const csvPath = resolve(repoRoot, process.argv[3] ?? "seed/plot-status-seed.csv");
+// docs/plans/21.md phase 1: required, no default — this script bypasses RLS/the RPCs
+// entirely via the service-role key, so nothing derives org_id for it the way a real
+// session does. Find a target org's uuid via `select id, name from organizations`.
+const orgId = process.argv[4];
 
 function fail(message: string): never {
   console.error(`import-seed: ${message}`);
   process.exit(1);
+}
+
+if (!orgId) {
+  fail("usage: pnpm import:seed [manifest.json] [seed.csv] <org_id>");
 }
 
 function errMsg(error: unknown): string {
@@ -127,6 +135,7 @@ const plotInserts: PlotInsert[] = manifest.plots.map((plot) => {
 
   return {
     colony_id: manifest.colony.id,
+    org_id: orgId,
     svg_id: plot.svg_id,
     block: plot.block,
     number: plot.number,
@@ -161,6 +170,7 @@ const client = createDbClient(url, serviceRoleKey);
 async function main() {
   await insertColony(client, {
     id: manifest.colony.id,
+    org_id: orgId,
     name: manifest.colony.name,
     verified: manifest.colony.verified,
     source_file: manifest.colony.source.file,
@@ -176,6 +186,7 @@ async function main() {
     client,
     insertedPlots.map((row) => ({
       plot_id: row.id,
+      org_id: orgId,
       status: row.status,
       changed_by: "import",
       note: "initial load",

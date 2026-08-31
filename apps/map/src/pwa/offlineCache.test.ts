@@ -29,6 +29,7 @@ describe("offlineCache", () => {
     const colonies: ColonyRow[] = [
       {
         id: "offline-test-colony-a",
+        org_id: "org-test-1",
         name: "Test Colony A",
         verified: true,
         source_file: null,

@@ -27,8 +27,18 @@ db-up:  ## start Docker Desktop if it isn't running, wait for it, then db-start.
 
 db-reseed:  ## wipe local DB, reseed the fixture colony, recreate the demo account — run after live-integration tests leak scratch colonies (documented DB-warm-up flake, PROGRESS.md)
 	cd apps/map && npx -y supabase db reset
-	cd apps/map && pnpm import:seed
-	cd apps/map && pnpm create-user demo demo-pass-123 "Demo User"
+	@# docs/plans/21.md phase 1: import:seed/create-user both require an org id now (no
+	@# default) — the reset always leaves exactly one organizations row (org #1, created by
+	@# 20260831000000_m16_organizations.sql's own backfill, which runs even against an
+	@# otherwise-empty database), so fetch its id fresh each time rather than hardcoding it.
+	@# One recipe line, not $(eval)+$(shell) split across lines — GNU Make expands every
+	@# line of a recipe up front, so a $(shell ...) meant to run *after* the reset above
+	@# actually runs before it, capturing the org id from the DB this reset just replaced
+	@# (a real bug caught by actually running this target, not by reading the Makefile).
+	org_id=$$(docker exec supabase_db_colony-map psql -U postgres -d postgres -tAc "select id from organizations order by created_at limit 1" | tr -d '[:space:]') && \
+	cd apps/map && \
+	pnpm import:seed fixtures/shree-vatika-2/colony.json seed/plot-status-seed.csv "$$org_id" && \
+	pnpm create-user demo demo-pass-123 "Demo User" "$$org_id"
 
 verify-map:
 	cd apps/map && pnpm typecheck && pnpm test

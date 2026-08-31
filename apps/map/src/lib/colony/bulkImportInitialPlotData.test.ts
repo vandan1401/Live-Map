@@ -6,6 +6,7 @@ import { insertColony } from "../db/colonies.ts";
 import { insertPlots, fetchPlotBySvgId } from "../db/plots.ts";
 import { insertPlotHistory, fetchPlotHistory } from "../db/plotHistory.ts";
 import {
+  createScratchOrg,
   createScratchUser,
   deleteScratchUser,
   serviceRoleClient,
@@ -15,9 +16,12 @@ import type { BulkImportRow } from "../db/types.ts";
 
 // Mirrors scripts/import-seed.ts's actual write shape: a plot inserted with
 // updated_by: "import" plus a matching plot_history row — that combination is what makes
-// a plot "eligible" for bulk_set_initial_plot_data (docs/plans/10.md §3).
+// a plot "eligible" for bulk_set_initial_plot_data (docs/plans/10.md §3). orgId
+// (docs/plans/21.md phase 1) must match the calling user's own org, or the RPC's org
+// re-check treats every svg_id here as unknown.
 async function createScratchColonyWithImportedPlots(
   client: SupabaseClient,
+  orgId: string,
   svgIds: string[],
 ): Promise<{ colonyId: string }> {
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -26,11 +30,18 @@ async function createScratchColonyWithImportedPlots(
   // applyPlotTransition.test.ts/rls.test.ts/subscribePlots.test.ts's own precedent). This
   // RPC and fetchPlotBySvgId/fetchPlotHistory don't gate on colonies.verified, so the
   // tests below need nothing else changed.
-  await insertColony(client, { id: colonyId, name: "Bulk import scratch colony", verified: false, svg: "<svg></svg>" });
+  await insertColony(client, {
+    id: colonyId,
+    org_id: orgId,
+    name: "Bulk import scratch colony",
+    verified: false,
+    svg: "<svg></svg>",
+  });
   const inserted = await insertPlots(
     client,
     svgIds.map((svgId, i) => ({
       colony_id: colonyId,
+      org_id: orgId,
       svg_id: svgId,
       block: "A",
       number: String(i + 1),
@@ -45,7 +56,13 @@ async function createScratchColonyWithImportedPlots(
   );
   await insertPlotHistory(
     client,
-    inserted.map((row) => ({ plot_id: row.id, status: row.status, changed_by: "import", note: "initial load" })),
+    inserted.map((row) => ({
+      plot_id: row.id,
+      org_id: orgId,
+      status: row.status,
+      changed_by: "import",
+      note: "initial load",
+    })),
   );
   return { colonyId };
 }
@@ -68,8 +85,10 @@ function row(svgId: string, overrides: Partial<BulkImportRow> = {}): BulkImportR
 
 describe("bulkImportInitialPlotData — live integration", () => {
   let user: ScratchUser;
+  let orgId: string;
   beforeAll(async () => {
-    user = await createScratchUser("Test Bulk Importer");
+    orgId = await createScratchOrg();
+    user = await createScratchUser("Test Bulk Importer", orgId);
   }, 15_000);
   afterAll(async () => {
     await deleteScratchUser(user);
@@ -77,7 +96,7 @@ describe("bulkImportInitialPlotData — live integration", () => {
 
   it("applies eligible rows and writes attributable history under the bulk_import sentinel", async () => {
     const admin = serviceRoleClient();
-    const { colonyId } = await createScratchColonyWithImportedPlots(admin, ["plot-A-1"]);
+    const { colonyId } = await createScratchColonyWithImportedPlots(admin, orgId, ["plot-A-1"]);
 
     const result = await bulkImportInitialPlotData(user.client, colonyId, [
       row("plot-A-1", { status: "booked", owner_name: "Rajesh Shah", rate_paise: 150000000 }),
@@ -102,7 +121,7 @@ describe("bulkImportInitialPlotData — live integration", () => {
 
   it("skips an unknown svg_id with a named reason and applies the rest", async () => {
     const admin = serviceRoleClient();
-    const { colonyId } = await createScratchColonyWithImportedPlots(admin, ["plot-A-1"]);
+    const { colonyId } = await createScratchColonyWithImportedPlots(admin, orgId, ["plot-A-1"]);
 
     const result = await bulkImportInitialPlotData(user.client, colonyId, [
       row("plot-A-1"),
@@ -115,7 +134,7 @@ describe("bulkImportInitialPlotData — live integration", () => {
 
   it("re-running before any real edit re-applies (the onboarding correction window)", async () => {
     const admin = serviceRoleClient();
-    const { colonyId } = await createScratchColonyWithImportedPlots(admin, ["plot-A-1"]);
+    const { colonyId } = await createScratchColonyWithImportedPlots(admin, orgId, ["plot-A-1"]);
 
     const first = await bulkImportInitialPlotData(user.client, colonyId, [
       row("plot-A-1", { status: "booked", owner_name: "Typo Name" }),
@@ -133,7 +152,7 @@ describe("bulkImportInitialPlotData — live integration", () => {
 
   it("skips a plot that already has a real operational transition, and never overwrites it", async () => {
     const admin = serviceRoleClient();
-    const { colonyId } = await createScratchColonyWithImportedPlots(admin, ["plot-A-1"]);
+    const { colonyId } = await createScratchColonyWithImportedPlots(admin, orgId, ["plot-A-1"]);
     const before = await fetchPlotBySvgId(user.client, colonyId, "plot-A-1");
 
     await applyPlotTransition(user.client, {
@@ -158,7 +177,7 @@ describe("bulkImportInitialPlotData — live integration", () => {
 
   it("an unexpected mid-batch error rolls back the entire call, not just the failing row", async () => {
     const admin = serviceRoleClient();
-    const { colonyId } = await createScratchColonyWithImportedPlots(admin, ["plot-A-1", "plot-A-2"]);
+    const { colonyId } = await createScratchColonyWithImportedPlots(admin, orgId, ["plot-A-1", "plot-A-2"]);
 
     // Bypasses the TS wrapper to send a value jsonb_to_recordset cannot cast to `date` —
     // same "call the RPC directly" precedent as applyPlotTransition.test.ts's forced

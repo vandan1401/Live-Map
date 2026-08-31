@@ -102,6 +102,15 @@ export function ColonyUploadScreen({ client, onClose }: Props) {
           // (/review finding, plan §3: replace must never be the default).
           setConfirmed(false);
           setStage({ kind: "exists", manifest, svg });
+        } else if (result.reason === "org_mismatch") {
+          // docs/plans/21.md phase 1: this colony id belongs to a different organization.
+          // Not reachable in normal single-org use today — every account has exactly one
+          // org, so a same-org replace never hits this. Treated as a failure, not a
+          // confirmable stage, since there is nothing the user can do about it here.
+          setStage({
+            kind: "failed",
+            message: "This colony belongs to a different organization and cannot be replaced.",
+          });
         } else {
           setStage({ kind: "orphan", missingSvgIds: result.missingSvgIds });
         }

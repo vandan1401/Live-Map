@@ -2,6 +2,134 @@
 
 ## Current
 
+- **Multi-tenant data model, phase 1 of 3: `organizations`, org-scoped RLS, existing data
+  → org #1 (2026-08-31, Tier 1, docs/plans/21.md).** Owner asked to resume the 2026-08-27
+  multi-tenant SaaS exploration: a public per-colony link, a private per-org login, and an
+  owner-only portal to add people. Clarified three open questions with the owner before
+  planning — public link is per-colony (not per-org), the admin portal is a separate small
+  tool (not a screen in `apps/map`'s shipped bundle), and existing colonies/accounts become
+  "org #1" by migration. This phase is the data model only — no public link, no portal yet
+  (both are separate, later plans; see Non-goals in docs/plans/21.md).
+  New migration `20260831000000_m16_organizations.sql`: `organizations` table (RLS,
+  select-only, scoped to the caller's own org); `org_id uuid not null` added to `colonies`/
+  `plots`/`plot_history` (denormalized on all three, not joined — matches this project's
+  real scale, ≤20 orgs); a one-time backfill (`do $$ ... $$` block, one generated id reused
+  by reference) creates org #1 ("Original organisation (rename me)", a deliberate
+  placeholder — never guessed from account usernames/passwords) and assigns every existing
+  colony/plot/plot_history row plus every existing `auth.users` row's `app_metadata.org_id`
+  to it; the three M8 `_authenticated_select` RLS policies gain an org check
+  (`nullif(x, '')::uuid`, never a bare cast — an absent/blank claim must fail to zero rows,
+  never throw). **The load-bearing part:** all three security-definer RPCs
+  (`apply_plot_transition`, `bulk_set_initial_plot_data`, `create_colony_from_manifest`)
+  independently re-check org ownership, since RLS never applies inside a `security definer`
+  function body — without this, org isolation would exist only for direct PostgREST
+  queries and every RPC would remain a cross-org write hole. `create_colony_from_manifest`
+  had to be layered onto the *current* 9-argument signature (docs/plans/20.md's zoom-ref
+  migration already added two trailing params) — layering onto the original 7-arg M15
+  signature first produced a real `function name is not unique` error (SQLSTATE 42725),
+  caught immediately by `supabase db reset`, not left in.
+  `org_id` is always server-derived from `auth.jwt()`'s `app_metadata`, never a client
+  parameter — the exact D-020 shape attribution already used; no RPC signature gained a
+  `p_org_id` argument. `scripts/create-user.ts`/`scripts/import-seed.ts` both gained a
+  required org-id argument (no default, fail loud) — both exercised for real against the
+  local Docker stack, not just type-checked. `apps/map/src/lib/db/types.ts`'s
+  `ColonyInsert`/`PlotInsert`/`PlotHistoryInsert` gained a required `org_id: string`
+  (service-role-path-only; the real app never constructs one of these directly).
+  `CreateColonyResult` gained an `"org_mismatch"` reason (a replace whose existing colony
+  belongs to a different org is refused, not silently allowed) — threaded through
+  `lib/db/colonies.ts` and `ColonyUploadScreen.tsx` (routed to the existing `"failed"`
+  stage; not reachable in normal single-org use today).
+  `lib/auth/testHelpers.ts` gained `createScratchOrg()` and `createScratchPlot()` (the
+  latter moved out of `rls.test.ts`, now shared with the new file below); `createScratchUser`
+  takes a required `orgId` (no shared default org — a hidden shared default between
+  parallel test files is exactly the collision this table exists to prevent). A new
+  cross-org isolation test (`rls-cross-org.test.ts`, split out of `rls.test.ts` once adding
+  it pushed that file past invariant 7's 250-line cap) is the acceptance-critical proof:
+  two real scratch orgs, each user gets zero rows for the other's colony/plot, and
+  `apply_plot_transition` against the other org's plot id is refused outright, not a silent
+  no-op.
+  **TypeScript caught every affected call site** once `org_id` became required — nine more
+  test files needed a trivial `org_id` addition to a fixture/scratch-insert than the plan
+  anticipated (`bulkImportInitialPlotData`, `createColonyFromManifest`, `listColonies`,
+  `plotDetail`, `plotStatus`, `searchPlots`, `applyPlotTransition`, `subscribePlots`,
+  `offlineCache`, plus three component fixture files) — exactly the kind of breadth a
+  required-field change should surface, not silently miss. One of those,
+  `listColonies.test.ts`, needed a real fix, not just a type patch: it asserts the real
+  `shree-vatika-2` fixture colony is visible, so its scratch user had to join *that*
+  colony's own org (looked up live, `fixtureColonyOrgId()`) rather than a fresh scratch org
+  — a fresh org would have made the fixture colony correctly, but misleadingly, invisible.
+  **Also found and fixed, not part of the plan's own diff:** doing a raw `supabase db reset`
+  (rather than `make db-reseed`) wipes the `shree-vatika-2` fixture and the `demo` account
+  along with everything else — re-ran `pnpm import:seed`/`pnpm create-user demo` with org
+  #1's id (fetched via the REST API with the service-role key) to restore local dev state.
+  **Verified (post-review, final):** `mingw32-make gate` from repo root — contract 4/4;
+  `apps/map` typecheck/lint/build clean; `pnpm exec vitest run --no-file-parallelism`
+  193/197 (up from 190/194 pre-review — the 3 new `/review`-requested cross-org RPC tests
+  all pass; the remaining 4 failures confirmed pre-existing and unrelated by direct grant
+  inspection inside the local Postgres container — `anon` role has `UPDATE`/`DELETE` on
+  `plot_history` and `EXECUTE` on both security-definer RPCs despite every migration's
+  explicit revoke, the exact "anon-privilege-grant environment drift" already documented
+  in this file's Deferred section, not something this diff introduced or can fix from
+  here). `mingw32-make gate`'s own full-parallel run additionally hit the documented
+  pre-existing `subscribePlots.test.ts` realtime-flake pattern (5th failure, 192/197) —
+  confirmed unrelated by the isolated `--no-file-parallelism` rerun above coming back
+  clean of it (193/197). Also directly verified the fixed backfill (disable/update/
+  enable around `plot_history_no_update`) against the live, already-populated
+  `plot_history` table inside a rolled-back transaction — 26 rows updated with no trigger
+  error, where the original plain `update` would have raised. `tools/pipeline`
+  byte-identical to its last recorded baseline (129 passed, 1 skipped, ruff/mypy clean,
+  golden passed) — untouched by this diff, as planned. The new cross-org isolation test
+  passed in both runs.
+  **Not run, tracked separately (pinned in the plan as a distinct, later step):** applying
+  this migration to the production Supabase project and confirming the 5 real family
+  accounts still sign in and see their colonies afterward — needs the owner's explicit
+  go-ahead first, real production data.
+  **`/review` (2026-08-31) found 5 issues, 4 fixed same session, 1 left as a tracked
+  production-runbook step:** (1) **real, production-breaking bug** — the backfill's plain
+  `update plot_history set org_id = ...` would have been rejected outright by
+  `plot_history_no_update` (M2's append-only trigger fires for any role, `BYPASSRLS`
+  doesn't skip triggers), aborting the whole migration on any database where
+  `plot_history` already has rows — invisible locally only because `supabase db reset`
+  leaves it empty until a separate `pnpm import:seed` step runs. Fixed: disable/re-enable
+  that one trigger around the single backfill statement it needs to bypass. (2) **real
+  bug** — `raw_app_meta_data || jsonb_build_object(...)` on a nullable column silently
+  produces `null` for any account whose value was null, leaving that account with no
+  `org_id` claim and a permanently empty map with no error; fixed with `coalesce(...,
+  '{}'::jsonb)` first. (3) `make db-reseed` was never updated for the new required org-id
+  argument and would fail immediately after wiping the database — worse, first fix
+  attempt (`$(eval ...)` + `$(shell ...)` split across two recipe lines) silently captured
+  the *pre-reset* org id, since GNU Make expands a recipe's lines before executing any of
+  them; fixed by moving the whole fetch-and-reseed sequence into one shell-continued
+  recipe line, verified by actually running `make db-reseed` twice (once to confirm the
+  bug, once to confirm the fix). (4) two of the three "not optional hardening" org
+  re-checks had no test — `rls-cross-org.test.ts` gained cases for
+  `bulk_set_initial_plot_data` (cross-org svg_id skipped as unknown) and
+  `create_colony_from_manifest` (cross-org replace refused with `org_mismatch`), plus an
+  anon-zero-rows case for the new `organizations` table's own RLS policy, which had none.
+  (5) **not fixed, tracked as a production-runbook step instead** — applying this
+  migration doesn't invalidate already-issued JWTs, so an already-signed-in family
+  member's session reads zero rows (empty map, no error) until their token refreshes or
+  they sign in again; noted in this entry's Next line rather than solved in code, since
+  the actual fix (revoke refresh tokens, or a heads-up) is an operational decision at
+  deploy time, not a schema change.
+
+- **Next:** `/review` ran, found 5 issues, 4 fixed same session (see above), 1 left as a
+  production-runbook step (below) — docs/plans/21.md marked `Status: complete`. The owner
+  decides when to apply `20260831000000_m16_organizations.sql` to the production Supabase
+  project (real data, 5 real accounts — needs explicit go-ahead, not a default next
+  action) and can rename org #1 away from its placeholder name. **Do this alongside that
+  production apply, not separately:** the `org_id` claim is minted into a session's JWT at
+  sign-in/refresh, so every already-signed-in family member's current access token has no
+  `org_id` and, by design, reads zero rows (an empty map, no error) until it refreshes or
+  they sign in again — revoke existing refresh tokens (forces a fresh sign-in for
+  everyone) or give the family a heads-up that the map may briefly look empty until they
+  reopen the app. Phase 2 (the per-colony public read-only link/token) and phase 3 (the
+  admin portal tool for creating orgs/adding people) are still queued, each its own
+  `/plan` when picked up. Separately, still open from prior sessions: the anon-privilege-
+  grant environment drift (now confirmed by direct grant inspection, not just observed as
+  a symptom — see Deferred) and the owner's live click-to-focus-zoom check from
+  docs/plans/20.md.
+
 - **Per-colony, owner-drawn click-to-focus zoom (2026-08-29, Tier 1, docs/plans/20.md).**
   Owner-reported bug: clicking a plot flew to a visibly different zoom level in different
   colonies. Root cause: `pipeline/export/normalise.py` normalises every colony's SVG to a
@@ -385,6 +513,41 @@
   feature-labels yet, so this is latent, not live).
 
 ## Log
+
+### 2026-08-31 — Multi-tenant data model, phase 1 of 3 (Tier 1, docs/plans/21.md)
+
+**Done:** Built the data-model foundation for the multi-tenant SaaS conversion the owner
+asked to resume: an `organizations` table, `org_id` on `colonies`/`plots`/`plot_history`,
+org-scoped RLS, and an independent org-ownership re-check inside all three
+security-definer RPCs (`apply_plot_transition`, `bulk_set_initial_plot_data`,
+`create_colony_from_manifest`), since RLS never applies inside a `security definer`
+function body. Existing data backfilled into "org #1". `/review` found and fixed 4 real
+issues (a production-breaking backfill/trigger interaction, a silent-null grant bug, a
+broken `make db-reseed`, missing RPC-level test coverage); 1 finding (JWT/session
+invalidation on deploy) tracked as a production-runbook step instead of a code fix.
+
+**Next:** owner's go-ahead to apply the migration to production, paired with a
+session-invalidation step (see `## Current`). Phase 2 (public per-colony link) and phase 3
+(admin portal tool) are separate, later plans.
+
+**Surprises:** Two, both only surfaced by actually running things, not by reading the
+diff. (1) `plot_history_no_update` (M2's append-only trigger) fires for any role
+regardless of `BYPASSRLS`, so the backfill's plain `update plot_history` would have
+aborted the entire migration on any database where that table already has rows — invisible
+locally only because `supabase db reset` leaves it empty until a separate `pnpm
+import:seed` step runs; the local gate being green proved nothing about this path. (2) A
+first fix to `make db-reseed` (`$(eval ...)` + `$(shell ...)` split across two recipe
+lines) silently captured the *pre-reset* organization id — GNU Make expands a recipe's
+lines before executing any of them, a genuine footgun distinct from normal shell
+sequencing, caught only by actually running the target twice and comparing the id used
+against the id that existed afterward.
+
+**Verified:** `mingw32-make gate` — contract 4/4; `apps/map` typecheck/lint/build clean;
+`pnpm exec vitest run --no-file-parallelism` 193/197 (4 failures, confirmed pre-existing
+"anon-privilege-grant environment drift" via direct grant inspection in the local Postgres
+container, not this diff); `tools/pipeline` byte-identical to baseline (129/1 skipped,
+untouched, as planned). `make db-reseed` and the fixed backfill both exercised for real
+against the local Docker stack, not just read back from the SQL.
 
 ### 2026-08-30 — Local pipeline UI: gate closed, guard hook hardened (Tier 3, tools/pipeline/ui/)
 
@@ -1639,6 +1802,13 @@ on a real phone. Not verified by anyone: the five visual behaviours in `## Curre
   uses this pattern (`apply_plot_transition`, `bulk_set_initial_plot_data`,
   `create_colony_from_manifest`), which is a security-relevant, cross-cutting change bigger
   than any one session's task and needs the owner's sign-off before touching grants repo-wide.
+  **Confirmed directly, not just observed (2026-08-31, docs/plans/21.md):** queried the local
+  Postgres container directly (`docker exec ... psql`) rather than inferring from test
+  output — `anon` genuinely has `UPDATE`/`DELETE`/`REFERENCES`/`TRIGGER` on `plot_history`
+  (M2's migration only ever grants `select, insert`) and `EXECUTE` on both
+  `apply_plot_transition` and `create_colony_from_manifest` despite their migrations'
+  explicit `revoke ... from public`. Same 4 tests fail identically before and after this
+  session's org-scoping changes — confirms this drift, not this diff, is the cause.
 - **`apps/map/src/components/map/useColonyCanvas.ts` was already 281 lines (31 over invariant
   7's 250-line cap) before this session touched it (2026-08-29) — confirmed via `git show
   HEAD:...`.** This session's own change (docs/plans/20.md) extracted the fly-to-plot effect

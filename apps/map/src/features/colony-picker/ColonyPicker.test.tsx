@@ -10,6 +10,7 @@ afterEach(() => {
 function colonyRow(overrides: Partial<ColonyRow>): ColonyRow {
   return {
     id: "shree-vatika-2",
+    org_id: "org-test-1",
     name: "Shree Vatika Phase 2",
     verified: true,
     source_file: null,

@@ -12,6 +12,7 @@ import { applyPlotTransition } from "../plot-status/applyPlotTransition.ts";
 import { insertColony } from "../db/colonies.ts";
 import { insertPlots } from "../db/plots.ts";
 import {
+  createScratchOrg,
   createScratchUser,
   deleteScratchUser,
   serviceRoleClient,
@@ -22,8 +23,9 @@ import {
 // requirement as applyPlotTransition.test.ts, whose two-independent-client scratch-plot
 // pattern this reuses). Proves the plots table is actually in the supabase_realtime
 // publication (M5's migration) and that subscribePlotChanges wires postgres_changes
-// correctly — a broken filter or channel name fails silently otherwise.
-async function createScratchPlot(client: SupabaseClient): Promise<{
+// correctly — a broken filter or channel name fails silently otherwise. orgId
+// (docs/plans/21.md phase 1) must match both the subscriber's and the writer's own org.
+async function createScratchPlot(client: SupabaseClient, orgId: string): Promise<{
   plotId: string;
   colonyId: string;
   svgId: string;
@@ -31,10 +33,17 @@ async function createScratchPlot(client: SupabaseClient): Promise<{
   const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   const colonyId = `test-m5-${suffix}`;
   const svgId = `plot-A-${suffix.slice(0, 8)}`;
-  await insertColony(client, { id: colonyId, name: "M5 scratch colony", verified: false, svg: "<svg></svg>" });
+  await insertColony(client, {
+    id: colonyId,
+    org_id: orgId,
+    name: "M5 scratch colony",
+    verified: false,
+    svg: "<svg></svg>",
+  });
   const [plot] = await insertPlots(client, [
     {
       colony_id: colonyId,
+      org_id: orgId,
       svg_id: svgId,
       block: "A",
       number: "1",
@@ -56,13 +65,17 @@ describe("subscribePlotChanges — live integration", () => {
   // so a failing run can no longer leak these accounts.
   let subscriber: ScratchUser;
   let writer: ScratchUser;
+  let orgId: string;
   beforeAll(async () => {
     // RLS (docs/plans/09.md): both the subscriber and the writer must be authenticated
     // — anon is filtered to zero rows, and Realtime enforces the same RLS on
-    // postgres_changes, so an anon subscriber would never see the event at all.
+    // postgres_changes, so an anon subscriber would never see the event at all. Same org
+    // for both (docs/plans/21.md phase 1) — otherwise the writer's own org check inside
+    // apply_plot_transition would refuse the write outright.
+    orgId = await createScratchOrg();
     [subscriber, writer] = await Promise.all([
-      createScratchUser("Subscriber"),
-      createScratchUser("Writer"),
+      createScratchUser("Subscriber", orgId),
+      createScratchUser("Writer", orgId),
     ]);
   }, 15_000);
   afterAll(async () => {
@@ -70,7 +83,7 @@ describe("subscribePlotChanges — live integration", () => {
   });
 
   it("a write from one client is observed by another", async () => {
-    const { plotId, colonyId, svgId } = await createScratchPlot(serviceRoleClient());
+    const { plotId, colonyId, svgId } = await createScratchPlot(serviceRoleClient(), orgId);
 
     let resolveConnected: () => void;
     const connected = new Promise<void>((resolve) => {
@@ -127,7 +140,7 @@ describe("subscribePlotChanges — live integration", () => {
   // tree with no error boundary (a white screen). No WAL/timing dependency here, so no
   // long timeout needed: the throw (or lack of one) happens synchronously inside .on().
   it("two simultaneous subscriptions to the same colony do not collide", async () => {
-    const { colonyId } = await createScratchPlot(serviceRoleClient());
+    const { colonyId } = await createScratchPlot(serviceRoleClient(), orgId);
 
     let unsubscribeA: (() => void) | undefined;
     let unsubscribeB: (() => void) | undefined;
