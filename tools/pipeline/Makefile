@@ -5,7 +5,7 @@
 VENV := .venv
 PY := $(VENV)/Scripts/python.exe
 
-.PHONY: verify lint typecheck test contract golden gate inspect ingest export serve
+.PHONY: verify lint typecheck test contract golden gate inspect ingest export serve ui
 
 $(VENV)/pyvenv.cfg: pyproject.toml
 	python -m venv $(VENV)
@@ -44,3 +44,6 @@ export: $(VENV)/pyvenv.cfg  ## make export COLONY=<id> DXF=<path> — the real p
 
 serve:     ## I run this, not Claude — see .claude/hooks/guard.sh. Open http://localhost:8080/tools/pipeline/verify/
 	python3 -m http.server 8080 --directory ../..
+
+ui: $(VENV)/pyvenv.cfg  ## I run this, not Claude — same reason as serve. Open http://127.0.0.1:5001/
+	$(PY) ui/server.py

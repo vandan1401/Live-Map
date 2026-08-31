@@ -127,37 +127,40 @@
   admin-panel scope, public read-only token-link mechanism) once the owner's remaining
   questions are answered — this is the queued next step for that thread.
 
-- **Local pipeline UI started, paused mid-session at owner's request (2026-08-27) — code
-  written, NOT verified, NOT committed. Resume here next session.** Second thread from the
-  same 2026-08-27 session: owner wants a local web page wrapping the whole DXF-in-hand
-  workflow (the standalone `tools/cad-lisp/*.py` pre-normalisation scripts, then
-  `make export`) so they can run it without Claude/tokens. Scoped with the owner first
-  (local web page, not a desktop GUI; wraps pre-normalisation scripts too, not export-only).
-  **What exists on disk, uncommitted:** `tools/pipeline/ui/server.py` (Flask app, `127.0.0.1`-
-  only per D-011 — a route per pre-normalisation script via subprocess into
-  `tools/cad-lisp/`, `check_layers`/`close_polygons`/`derive_site`/`fill_missing_labels`/
-  `fix_plot_label_dashes` all wired; export calls `orchestrate_export` directly, not
-  shelled out; every DXF path is checked to resolve inside `tools/pipeline/ui/uploads/`
-  before touching a subprocess); `tools/pipeline/ui/static/{index.html,ui.js,ui.css}` (plain
-  JS, no build step, same philosophy as `verify/`, D-114); success links straight into
-  `verify/index.html?colony=<id>` (verify.js already reads that query param, unmodified).
+- **Local pipeline UI: gate closed, guard hook hardened, committed (2026-08-30, Tier 3,
+  `tools/pipeline/ui/`). Still needs a live owner pass before it's trustworthy.** Picked
+  back up from the 2026-08-27 pause: owner wants a local web page wrapping the whole
+  DXF-in-hand workflow (the standalone `tools/cad-lisp/*.py` pre-normalisation scripts, then
+  `make export`) so they can run it without Claude/tokens. `tools/pipeline/ui/server.py`
+  (Flask app, `127.0.0.1`-only per D-011 — a route per pre-normalisation script via
+  subprocess into `tools/cad-lisp/`, `check_layers`/`close_polygons`/`derive_site`/
+  `fill_missing_labels`/`fix_plot_label_dashes` all wired; export calls `orchestrate_export`
+  directly, not shelled out; every DXF path is checked to resolve inside
+  `tools/pipeline/ui/uploads/` before touching a subprocess); `tools/pipeline/ui/static/
+  {index.html,ui.js,ui.css}` (plain JS, no build step, same philosophy as `verify/`,
+  D-114); success links straight into `verify/index.html?colony=<id>` (unmodified).
   `tools/pipeline/pyproject.toml` gained `flask>=3.0`; both `Makefile`s gained a `ui` target
-  (`make ui`, delegates to `tools/pipeline`) marked **owner-run, not Claude** — same
-  "long-running servers are mine" rule as `serve` (`.claude/hooks/guard.sh`'s regex doesn't
-  literally match a bare `python server.py`, but the stated policy is broader than the
-  regex, so Claude has not started this server even once, briefly or otherwise);
-  `.gitignore` gained `tools/pipeline/ui/uploads/` (scratch, like `out/`).
-  **What's NOT done:** `make -C tools/pipeline verify` has not been re-run since the `flask`
-  dependency and new `ui/` code were added (ruff/mypy/pytest all unconfirmed against this
-  diff); `NAVIGATION.md`'s "Where do I change X?" table and the `tools/pipeline` narrative
-  section have no entry for `ui/` yet (an in-progress edit to add one was interrupted by the
-  owner's pause and not reapplied); the page itself has never been opened in a browser —
-  Claude cannot start the server to check (see above), so this needs a live owner pass
-  before it's trustworthy; no `git add`, nothing committed.
-  **Next:** re-run `make -C tools/pipeline verify` first (confirms the new dependency and
-  `ui/` code don't break the existing gate), then add the missing `NAVIGATION.md` entry,
-  then the owner runs `make ui` themselves and walks the real flow once against a real
-  working DXF before this is called done.
+  marked **owner-run, not Claude** — same "long-running servers are mine" rule as `serve`.
+  **Closed out this session:** `mingw32-make -C tools/pipeline verify` was failing on one
+  real ruff finding (`subprocess.run` with no explicit `check=`) — fixed with an explicit
+  `check=False` (the call already inspects `returncode` itself to build `{"ok": False,
+  ...}`, so raising on a non-zero exit would be wrong, not just unstyled); verify is now
+  fully green (ruff/mypy/pytest). `NAVIGATION.md`'s "Where do I change X?" table now has an
+  entry. `.claude/hooks/guard.sh` gained an actual regex block for `make ui` — the stated
+  policy ("long-running servers are mine") existed in prose since 2026-08-27 but the
+  enforcement hook never matched it; a real gap between stated and enforced policy, closed.
+  **Still NOT done, and can't be from here:** the page itself has never been opened in a
+  browser — Claude has no browser and cannot start the server to check either way. This
+  needs a live owner pass (`make ui`, then walk the real flow against a real working DXF)
+  before it's a trustworthy tool, not just a green gate.
+  **Verified:** `mingw32-make -C tools/pipeline verify` clean (ruff/mypy/pytest, 129
+  passed/1 skipped); `apps/map` typecheck/lint/build clean (unaffected by this diff, sanity
+  checked anyway); guard hook's new rule tested directly (`echo '{"tool_input":
+  {"command":"make ui"}}' | bash .claude/hooks/guard.sh` → blocks, exit 2; `make ingest ...`
+  → passes through, exit 0).
+  **Next:** owner runs `make ui` themselves and walks the real flow once against a real
+  working DXF (e.g. Bharatkshetra or Bibrod, both mid-normalisation already) before this is
+  called done.
 
 - **Selection/label UI fixes, registered-plot recolour, a log-out button, and 5 new
   production login accounts (2026-08-25, Tier 3, `apps/map/src/components/map/*`,
@@ -382,6 +385,24 @@
   feature-labels yet, so this is latent, not live).
 
 ## Log
+
+### 2026-08-30 — Local pipeline UI: gate closed, guard hook hardened (Tier 3, tools/pipeline/ui/)
+
+**Done:** Fixed the one real ruff finding blocking `mingw32-make -C tools/pipeline verify`
+on the paused 2026-08-27 pipeline-UI code (explicit `check=False` on a `subprocess.run` the
+function already inspects `returncode` from); added the missing `NAVIGATION.md` entry;
+closed a real enforcement gap in `.claude/hooks/guard.sh` — `make ui` starts a long-running
+server (stated policy: "Claude never starts them") but the regex never matched it.
+
+**Next:** owner runs `make ui` and walks the real flow against a real working DXF — the
+page has never been opened in a browser, and Claude has no way to do that itself.
+
+**Surprises:** none — this was exactly the punch list the 2026-08-27 entry already left,
+no new gaps found closing it out.
+
+**Verified:** `mingw32-make -C tools/pipeline verify` clean (ruff/mypy/pytest, 129/1
+skipped); `apps/map` typecheck/lint/build clean; guard hook's new `make ui` rule tested
+directly against both a blocked and a passthrough command.
 
 ### 2026-08-29/30 — Per-colony click-to-focus zoom, COL-ZOOM-REF (Tier 1, docs/plans/20.md, D-203)
 

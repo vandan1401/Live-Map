@@ -20,6 +20,7 @@ tools/pipeline/.pytest_cache/
 tools/pipeline/.mypy_cache/
 tools/pipeline/.ruff_cache/
 tools/pipeline/out/
+tools/pipeline/ui/uploads/
 
 # tools/pipeline/overrides/ is intentionally NOT ignored (D-107):
 # hand-made corrections keyed by centroid, cannot be regenerated.

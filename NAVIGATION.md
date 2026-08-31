@@ -112,6 +112,15 @@ fetches can resolve. Diagram above still holds: this is a read-only preview, nev
 `pipeline/geom/` imports no file-format library — no ezdxf, no fitz, no cv2, no PIL. That purity is
 what makes it cheap to test, and every other module depends on it.
 
+`tools/pipeline/ui/` (2026-08-27/30, owner-run only — `.claude/hooks/guard.sh` blocks Claude
+from starting it, same rule as `make serve`) is a small Flask app wrapping the whole
+DXF-in-hand workflow behind a browser page: one route per `tools/cad-lisp/*.py`
+pre-normalisation script (shelled out via `subprocess`), plus export calling
+`orchestrate_export` directly (not shelled out). `127.0.0.1`-only per D-011. `make ui`
+starts it. Every uploaded DXF path is checked to resolve inside `tools/pipeline/ui/
+uploads/` before touching a subprocess. A successful export links straight into
+`verify/index.html?colony=<id>`.
+
 ## Where do I change X?
 
 | I want to change… | Go to | Tier |
@@ -140,6 +149,7 @@ what makes it cheap to test, and every other module depends on it.
 | Roads, trees, facing, corner | `tools/pipeline/pipeline/derive/` | 2 |
 | ~~The tracing tools~~ | Cut — the operator has AutoCAD (D-118) | — |
 | The local export preview | `tools/pipeline/verify/index.html`, `verify.js` | 3 |
+| The local pipeline UI (owner-run web wrapper for pre-normalisation + export) | `tools/pipeline/ui/server.py`, `ui/static/{index.html,ui.js,ui.css}` | 3 |
 | The human verification gate | `apps/map/src/features/colony-upload/` | 1 |
 | How a colony's SVG reaches the app | `colonies.svg` column → `ColonyMap.tsx` | 1 |
 

@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Colony pipeline</title>
+  <link rel="stylesheet" href="ui.css" />
+</head>
+<body>
+  <header class="pu-header">
+    <h1>Colony pipeline</h1>
+    <p>The DXF-in-hand half of the pipeline, run locally. DWG &rarr; DXF still happens by
+      hand in AutoCAD (<code>docs/cad-layer-standard.md</code>) &mdash; this starts after
+      <code>DXFOUT</code>.</p>
+  </header>
+
+  <main class="pu-main">
+    <section class="pu-card">
+      <h2>1. Upload the working DXF</h2>
+      <p class="pu-hint">Exported from AutoCAD after <code>CV-MERGE</code> /
+        <code>CV-HIDETEXT</code>, per <code>tools/cad-lisp/README.md</code>.</p>
+      <input id="dxf-upload" type="file" accept=".dxf" />
+      <p id="current-file" class="pu-current" hidden>Working file:
+        <code id="current-file-name"></code></p>
+    </section>
+
+    <section class="pu-card">
+      <h2>2. Pre-normalisation</h2>
+      <p class="pu-hint">Optional, run any of these in any order, any number of times.
+        Each one runs on the current working file above and, if it produces a new draft
+        DXF, that draft becomes the new working file.</p>
+      <div class="pu-stage-grid">
+        <button class="pu-stage-btn" data-stage="check-layers">Check layers</button>
+        <button class="pu-stage-btn" data-stage="close-polygons">Close polygons</button>
+        <button class="pu-stage-btn" data-stage="derive-site">Derive site</button>
+        <button class="pu-stage-btn" data-stage="fill-labels">Fill missing labels</button>
+        <button class="pu-stage-btn" data-stage="fix-dashes">Fix label dashes</button>
+      </div>
+      <pre id="stage-output" class="pu-output"></pre>
+    </section>
+
+    <section class="pu-card">
+      <h2>3. History</h2>
+      <p class="pu-hint">Every file produced this session. Click one to make it the
+        working file again &mdash; useful for reimporting an earlier draft or re-running a
+        stage on a fixed-up file.</p>
+      <ul id="history-list" class="pu-history"></ul>
+    </section>
+
+    <section class="pu-card">
+      <h2>4. Export</h2>
+      <p class="pu-hint">Runs the real pipeline entry
+        (<code>pipeline.export.run.orchestrate_export</code>) on the working file above.</p>
+      <label class="pu-field">Colony id
+        <input id="colony-id" type="text" placeholder="shree-vatika-2" autocomplete="off" />
+      </label>
+      <label class="pu-checkbox">
+        <input id="allow-id-change" type="checkbox" /> Allow id change
+      </label>
+      <button id="export-btn" type="button">Run export</button>
+      <pre id="export-output" class="pu-output"></pre>
+      <p id="export-success" class="pu-success" hidden></p>
+    </section>
+  </main>
+
+  <script src="ui.js"></script>
+</body>
+</html>
