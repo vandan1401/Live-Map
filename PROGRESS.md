@@ -383,6 +383,48 @@
 
 ## Log
 
+### 2026-08-29/30 — Per-colony click-to-focus zoom, COL-ZOOM-REF (Tier 1, docs/plans/20.md, D-203)
+
+**Done:** Fixed the click-a-plot zoom being wildly inconsistent across colonies — root
+cause was `SELECT_ZOOM` being one fixed constant while every colony's SVG is normalised to
+the same viewBox width regardless of its real footprint (D-110). Added an optional
+`COL-ZOOM-REF` DXF layer the owner draws per colony (rectangle or a scaled 9:16 block
+insert); the pipeline measures it into `colony.json`'s `select_zoom`; `apps/map` fits the
+viewport to it on selection (`view.ts::computeSelectZoom`, `useFlyToSelectedPlot.ts`,
+split out of `useColonyCanvas.ts` for invariant 7), falling back to the old fixed constant
+for any colony without one. Also fixed a real bug found mid-session: every
+`tools/cad-lisp` output-writer silently defaulted its draft DXF's units to metric
+regardless of the source drawing. Onboarded Bharatkshetra as a real colony end to end
+(DXF cleanup, meters→feet scale fix, colony config, successful export with a real
+`COL-ZOOM-REF`), applied the same code to the sibling `Colony Viewer - Portfolio` repo,
+and manually deployed it to Cloudflare.
+
+**Next:** Owner still needs to click a plot in the live app and visually confirm the zoom
+framing matches intent (only the *upload* was confirmed working, not the on-click zoom
+itself) — plan 20 stays open until that happens. Separately: decide on GitHub remote +
+Cloudflare Git integration for the portfolio (currently deploys only via manual `wrangler
+deploy`), and the pending Supabase India-region migration for the portfolio's database.
+
+**Surprises:** Two, both only surfaced by direct DXF inspection, not guessable from code:
+(1) `BOUNDARY` tracing successfully across a set of entities proves nothing about whether
+they form one closed ring — two "not closed" clusters in Bharatkshetra's DXF turned out to
+be pure redundant duplicates of already-correct, already-labeled rings that existed
+elsewhere in the file all along (confirmed by exact IoU/area match), not incomplete
+geometry needing joining as first assumed. (2) The pipeline does zero unit conversion —
+`area_sqft` is literally the raw polygon area, always treated as feet regardless of the
+drawing's actual `$INSUNITS` — a real, undocumented-until-hit trap for any DXF drawn in
+meters (Bharatkshetra was), silently producing areas ~10.8x too small until the whole
+drawing was rescaled in AutoCAD.
+
+**Verified:** `tools/pipeline` pytest 129 passed/1 skipped (was 116/1), ruff/mypy clean on
+every touched file, `test_contract.py` 4/4. `apps/map` typecheck/lint/build clean;
+`pnpm exec vitest run --no-file-parallelism` 187/192 (5 failures confirmed pre-existing
+and unrelated — see `## Deferred`'s anon-privilege-grant entry and the documented
+`subscribePlots.test.ts` flake). Bharatkshetra's real DXF exported cleanly end to end
+(70 plots, sane area range, `select_zoom` present and matching the drawn rectangle
+exactly) and uploaded successfully through the portfolio's live app. Not verified: the
+actual on-screen zoom framing after clicking a plot (needs a human eye, see Next).
+
 ### 2026-08-25 — Selection/label fixes, registered-plot recolour, log-out button, 5 new accounts (Tier 3, apps/map/src/{components/map,features/colony-picker,styles}, App.tsx)
 
 **Done:** Selecting a plot no longer hides every other plot's number (`drawLabels.ts`,
