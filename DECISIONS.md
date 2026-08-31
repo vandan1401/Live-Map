@@ -41,6 +41,7 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-028 | A plot renders as an opaque `--colony-plot-base` fill plus a near-opaque status tint, not a translucent tint over the shared ground texture; `is_corner` is threaded into the renderer as a one-time fetch, not a realtime field | accepted |
 | D-029 | CSV bulk-import format simplified to plot + owner name, matched by displayed label, lenient (skip-and-report) on unmatched/duplicate rows — replaces docs/plans/10.md's strict 10-column, reject-on-any-error contract | accepted |
 | D-030 | Multi-tenant isolation via a denormalized `org_id` on `colonies`/`plots`/`plot_history` plus an independent org-ownership re-check inside every security-definer RPC, not RLS alone | accepted |
+| D-031 | Public colony link: `get_public_colony`'s token is the entire auth boundary (no `org_id` check, by design); hash-fragment routing (`#/public/<uuid>`), not a path segment, so no deploy-config change is needed | accepted |
 
 ## tools/pipeline
 

@@ -17,6 +17,7 @@ function colonyRow(overrides: Partial<ColonyRow>): ColonyRow {
     generated: null,
     svg: "<svg></svg>",
     created_at: new Date("2020-01-01").toISOString(),
+    public_token: null,
     ...overrides,
   };
 }

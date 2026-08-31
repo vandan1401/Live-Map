@@ -4,11 +4,13 @@ import { ColonyMap } from "./components/ColonyMap";
 import { ColonyPicker } from "./features/colony-picker/ColonyPicker";
 import { ColonyUploadScreen } from "./features/colony-upload/ColonyUploadScreen";
 import { LoginScreen } from "./features/auth/LoginScreen";
+import { PublicColonyView } from "./features/public-colony/PublicColonyView";
 import { InstallInstructions } from "./features/pwa-install/InstallInstructions";
 import { hasSeenInstallInstructions } from "./pwa/installInstructionsSeen";
 import { getDisplayName, signOut } from "./lib/auth/session";
 import { getBrowserDbClient } from "./lib/db/browserClient";
 import { loadVerifiedColonies } from "./lib/colony/listColonies";
+import { parsePublicToken } from "./lib/colony/publicLinkUrl";
 import { isSnapshotExpired, loadColonyList, saveColonyList } from "./pwa/offlineCache";
 import { formatFreshnessLabel } from "./lib/sync/freshness";
 import type { ColonyRow } from "./lib/db/types";
@@ -154,6 +156,11 @@ function App() {
       </div>
     );
   }
+
+  // docs/plans/22.md phase 2: a public link never needs a session — checked before every
+  // authenticated-path branch below (see lib/colony/publicLinkUrl.ts for the URL scheme).
+  const publicToken = parsePublicToken(window.location.hash);
+  if (publicToken) return <PublicColonyView client={client} token={publicToken} />;
 
   // undefined = still checking for an existing session — render nothing rather than
   // flash the login screen for a page about to restore a valid one.

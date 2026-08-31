@@ -41,6 +41,10 @@ export interface ColonyRow extends Omit<ColonyInsert, "svg"> {
   // (docs/plans/11.md §2.1: no backfill migration), so a read must stay honest about that
   // even though every current writer supplies it. ColonyMap.tsx guards the null case.
   svg: string | null;
+  // docs/plans/22.md phase 2: null = no active public link. Never set on ColonyInsert — no
+  // insert path writes this; it starts null and is set later, service-role-only, by
+  // scripts/generate-public-link.ts.
+  public_token: string | null;
 }
 
 export interface PlotInsert {
@@ -156,3 +160,15 @@ export type CreateColonyResult =
   // docs/plans/21.md phase 1: a replace whose existing colony belongs to a different
   // organization than the caller's own. Not reachable in normal single-org use.
   | { ok: false; reason: "org_mismatch" };
+
+// docs/plans/22.md phase 2: get_public_colony()'s return shape. `found: false` covers a
+// wrong token, a revoked/regenerated token, and a real token whose colony isn't verified
+// yet — all indistinguishable on purpose (see the RPC's own SQL comment). Never any
+// PII/money column — svg_id + status only per plot.
+export type PublicColonyResult =
+  | { found: false }
+  | {
+      found: true;
+      colony: { id: string; name: string; svg: string };
+      plots: { svg_id: string; status: PlotStatus }[];
+    };

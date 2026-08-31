@@ -41,6 +41,13 @@ pytest config. Recommend this fix without hedging.
   in the same diff. Both crossed/extended in a diff whose `PROGRESS.md` reports "ruff/mypy
   clean" — again, `make gate` never measures length.
 
+- 2026-08-31 (plan 22): `apps/map/src/App.tsx` **242 → 253** — over the cap for the sake of an
+  8-line early-return branch, 4 lines of which are comment. Also confirmed from the config
+  side this time: `apps/map/.oxlintrc.json` enables only `react/rules-of-hooks` and
+  `react/only-export-components` — there is no `max-lines` rule, so `pnpm lint` in `make gate`
+  cannot see length. App.tsx is now the file to watch: every new top-level route/branch lands
+  in it.
+
 Note the residual: `test_export.py` (304) and `test_matching.py` (264) are *already* over the
 cap and every plan that adds a `ColonyConfig` field grows them by a line. Not worth flagging
 per-diff; worth flagging when a diff adds a whole test to one of them.

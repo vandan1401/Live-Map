@@ -1,5 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ColonyInsert, ColonyManifestPlot, ColonyRow, CreateColonyResult } from "./types.ts";
+import type {
+  ColonyInsert,
+  ColonyManifestPlot,
+  ColonyRow,
+  CreateColonyResult,
+  PublicColonyResult,
+} from "./types.ts";
 
 export async function insertColony(
   client: SupabaseClient,
@@ -76,4 +82,15 @@ export async function callCreateColonyFromManifest(
   if (result.reason === "colony_exists") return { ok: false, reason: "colony_exists" };
   if (result.reason === "org_mismatch") return { ok: false, reason: "org_mismatch" };
   return { ok: false, reason: "would_orphan_history", missingSvgIds: result.missing_svg_ids };
+}
+
+// docs/plans/22.md phase 2: the only place `.rpc("get_public_colony", ...)` appears.
+// Works for a caller with no session at all — that is the entire point of this RPC.
+export async function fetchPublicColony(
+  client: SupabaseClient,
+  token: string,
+): Promise<PublicColonyResult> {
+  const { data, error } = await client.rpc("get_public_colony", { p_token: token });
+  if (error) throw new Error(`fetchPublicColony failed: ${error.message}`);
+  return data as PublicColonyResult;
 }

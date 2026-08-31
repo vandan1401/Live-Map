@@ -40,6 +40,14 @@ work even with the service-role key. The only workable teardown is
 `serviceRoleClient()` + `update colonies set verified = false` (service_role does hold
 `update` on `colonies`, M8 line 149).
 
+**Recurred 2026-08-31, plan 22 (4th time)** — this time not an `insertColony(`: the new
+`get_public_colony` case appended to `lib/auth/rls-cross-org.test.ts` does
+`admin.from("colonies").update({ verified: true, public_token: token }).eq("id", colonyIdA)`
+on a colony `createScratchPlot` deliberately created `verified: false`, and that file's
+`afterAll` only deletes scratch users. So **grep `update(` with `verified: true`, not just
+inserts.** Same diff's new `publicColony.test.ts` did get the teardown right but swallowed its
+error (`createColonyFromManifest.test.ts:70` throws on cleanup failure — copy that).
+
 **How to apply:** grep every new `insertColony(` in a `*.test.ts` for `verified: true` — the
 default must be `false`. The fix that fits this schema is not `delete` (not granted) — it is
 either leaving the scratch row `verified: false` and flipping it true only for the assertion,

@@ -9,6 +9,7 @@
 @import "./styles/plot-selection.css";
 @import "./styles/plot-table.css";
 @import "./styles/colony-upload.css";
+@import "./styles/public-colony.css";
 
 html,
 body,

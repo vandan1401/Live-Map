@@ -70,6 +70,17 @@ Occurrences:
    over unconditional code hides a user-visible change to existing colonies — check the
    comment's stated condition against the branch predicate actually written.**
 
+8. 2026-08-31 (plan 22, public colony link) — a *security* rationale stretched to cover a case
+   it does not apply to. `PublicColonyView.tsx:52-56`: "Wrong token, revoked/regenerated
+   token, an unverified colony, **and a real fetch error** are all shown the same way on
+   purpose … a distinguishable message would let a caller confirm a guessed uuid belongs to a
+   real colony." The plan's pinned ambiguity constraint is about `get_public_colony`'s
+   *response shape* (found true/false); a thrown network/PostgREST error reveals nothing about
+   the token, so folding it in is not required by the constraint — it just tells an offline
+   visitor their live link is revoked. **When a comment cites a pinned constraint to justify
+   merging several conditions, check each condition against what the constraint actually
+   pins.** See [[review-error-vs-empty-conflation]].
+
 **How to apply:** for CSS especially, do the specificity/cascade arithmetic yourself rather
 than accepting a comment's claim about which rule wins — `!important` scoped to one selector
 says nothing about selectors it does not match. Related:

@@ -1,0 +1,46 @@
+/* Public per-colony read-only link (docs/plans/22.md phase 2). Reuses colony-theme.css's
+ * tokens, no new colours introduced — same posture as colony-upload.css. */
+
+.public-colony-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--colony-ground);
+  padding: 1.5rem;
+}
+
+.public-colony-message {
+  font-size: 1rem;
+  text-align: center;
+  color: var(--colony-site-boundary);
+}
+
+.public-colony-page {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--colony-ground);
+}
+
+.public-colony-header {
+  padding: 1rem 1.5rem 0.5rem;
+}
+
+.public-colony-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.public-colony-hint {
+  font-size: 0.8rem;
+  color: var(--colony-site-boundary);
+  margin: 0.25rem 0 0;
+}
+
+.public-colony-preview {
+  flex: 1;
+  min-height: 0;
+}

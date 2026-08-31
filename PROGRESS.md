@@ -2,6 +2,64 @@
 
 ## Current
 
+- **Multi-tenant SaaS conversion, phase 2 of 3: the public per-colony read-only link
+  (2026-08-31, Tier 1, docs/plans/22.md, D-031).** Built on phase 1's data model
+  (docs/plans/21.md, below): a nullable `colonies.public_token uuid unique`
+  (`20260831010000_m17_public_colony_link.sql`) and a new `security definer` RPC,
+  `get_public_colony(p_token uuid)`, the one function in the app that works for a caller
+  with **no session and no org membership at all** — the token itself is the entire
+  authorization boundary, deliberately never checking `org_id` (D-031, the one documented
+  exception to phase 1's "every RPC re-checks org ownership" rule). Returns an explicit,
+  hand-written column list — colony `id`/`name`/`svg` and each plot's `svg_id`/`status`
+  only, never `select *` — so no PII/money column (`owner_name`, `owner_phone`,
+  `broker_name`, `rate_paise`, `booking_amount_paise`, `booking_date`, `registry_date`,
+  `notes`, `updated_by`) can leak by accident later. `found: false` covers a wrong token, a
+  revoked token, and an unverified colony indistinguishably (D-108 checked independently
+  inside the RPC) — a distinguishable response would let a caller confirm a guessed uuid
+  names a real colony without ever seeing its data.
+  Routing is a hash fragment, `#/public/<uuid>` (`parsePublicToken`,
+  `apps/map/src/lib/colony/publicLinkUrl.ts`) — this app has no router and
+  `wrangler.toml` has no SPA fallback, so a path segment would 404 on direct load; a hash is
+  never sent to the server. `App.tsx` checks it before the `session` gate, so a public
+  visitor never signs in. `PublicColonyView.tsx` (new) renders loading / invalid-or-revoked
+  / the colony via `renderColonyPreview` (gained an optional third `statuses` param,
+  defaulting to today's all-`"available"` behaviour so the upload-confirmation call site is
+  unchanged — invariant 2/D-025). `scripts/generate-public-link.ts` is this phase's entire
+  admin surface (a CLI script printing the shareable hash, mirroring `create-user.ts`);
+  revocation is hand-run SQL (`update colonies set public_token = null ...`), not a second
+  script, matching phase 1's own precedent for a genuinely rare admin action.
+  **`/review` (2026-08-31) found 1 issue, fixed same session:** a thrown fetch (offline/
+  flaky network — a real state, since the service worker serves this page from cache) was
+  rendered with the same "This link is invalid or has been revoked" message as a real
+  `found: false`, telling an offline visitor their owner's live link was dead. Split into a
+  distinct "Could not load this colony, check your connection" branch — the found:false
+  ambiguity constraint governs the RPC's *response shape*, not transport failures, so
+  nothing required them to share a message. Also tightened `PUBLIC_HASH_PATTERN` from "36
+  hex/dash characters" to the real uuid grouping (`8-4-4-4-12`) — the loose pattern let a
+  same-length-but-wrong-shaped string reach `get_public_colony` and throw `22P02` instead of
+  resolving to `found: false`; a regression test added.
+  **Verified:** `mingw32-make gate` from repo root — contract 4/4; `apps/map` typecheck/
+  lint/build clean; `pnpm exec vitest run --no-file-parallelism` 206/210 (4 failures, the
+  same documented pre-existing "anon-privilege-grant environment drift" as phase 1, not this
+  diff); `tools/pipeline` untouched, byte-identical to baseline (129/1 skipped, golden
+  passed). `pnpm generate-public-link` exercised for real against the local Docker stack: no
+  arg, an unknown colony id (fails loudly), and a real scratch colony (token round-tripped
+  through a live `get_public_colony` call, then reverted to `null`). The new live-integration
+  tests (`publicColony.test.ts`) prove, against a real scratch colony and a genuinely
+  unauthenticated client (`createStatelessAnonClient()`, no sign-in call): right token →
+  full expected shape with **zero** PII/money keys present anywhere in the parsed JSON;
+  wrong token, unverified colony, and a revoked token → all `found: false`.
+  **Not run, tracked separately:** applying this migration to production — same posture
+  phase 1's `20260831000000_m16_organizations.sql` is already tracked under.
+
+- **Next:** phase 3 (the admin-portal tool for creating orgs/adding people, a separate small
+  tool per plan 21's clarification, not a screen in `apps/map`'s shipped bundle) is next —
+  its own `/plan`. Both phase 1's and phase 2's migrations are still only applied locally;
+  the owner's go-ahead is needed before either goes to production (paired with the
+  session-invalidation step phase 1's entry below already documents). Separately, still
+  open: the anon-privilege-grant environment drift (Deferred) and the owner's live
+  click-to-focus-zoom check from docs/plans/20.md.
+
 - **Multi-tenant data model, phase 1 of 3: `organizations`, org-scoped RLS, existing data
   → org #1 (2026-08-31, Tier 1, docs/plans/21.md).** Owner asked to resume the 2026-08-27
   multi-tenant SaaS exploration: a public per-colony link, a private per-org login, and an
@@ -513,6 +571,32 @@
   feature-labels yet, so this is latent, not live).
 
 ## Log
+
+### 2026-08-31 — Multi-tenant SaaS conversion, phase 2 of 3: public colony link (Tier 1, docs/plans/22.md, D-031)
+
+**Done:** Built the public, unauthenticated, per-colony read-only link on top of phase 1's
+org model: `colonies.public_token`, a `get_public_colony(p_token)` RPC whose only auth
+boundary is the token itself (never `org_id` — the one deliberate exception to phase 1's
+rule, D-031), hash-fragment routing (`#/public/<uuid>`, no deploy-config change needed),
+`PublicColonyView.tsx`, and `scripts/generate-public-link.ts` as the entire admin surface
+for this phase (a portal UI is phase 3's job). `/review` found and fixed 1 issue: a thrown
+fetch (offline visitor) was shown the same message as a genuinely revoked link — split into
+a distinct error state, plus a tightened token regex with a regression test.
+
+**Next:** phase 3 (admin-portal tool for creating orgs/adding people) — its own `/plan`.
+Both phase 1's and phase 2's migrations are still local-only; production application needs
+the owner's go-ahead (see `## Current`).
+
+**Surprises:** none in the mechanism — the one real finding (`/review`'s error-vs-revoked
+conflation) was exactly the kind of gap this repo's `/review` step exists to catch, not an
+unexpected one.
+
+**Verified:** `mingw32-make gate` — contract 4/4; `apps/map` typecheck/lint/build clean;
+`pnpm exec vitest run --no-file-parallelism` 206/210 (4 pre-existing failures, same
+documented anon-privilege-grant drift as phase 1, not this diff); `tools/pipeline`
+byte-identical to baseline. `generate-public-link.ts` and the full `get_public_colony` flow
+(right token, wrong token, unverified colony, revoked token, genuinely unauthenticated
+client) exercised for real against the local Docker stack.
 
 ### 2026-08-31 — Multi-tenant data model, phase 1 of 3 (Tier 1, docs/plans/21.md)
 

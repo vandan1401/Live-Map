@@ -116,6 +116,17 @@ Occurrences so far:
     plan says "update every call site", a default parameter is a deviation, not an
     equivalent — grep the call sites the plan enumerated and confirm each was edited.**
 
+12. 2026-08-31 (plan 22, public colony link) — the *twelfth* shape: **a new read path re-types
+    an existing nullable column as non-null and drops the guard the old path has**.
+    `colonies.svg` is `string | null` (`lib/db/types.ts`, "ColonyMap.tsx guards the null case"
+    — and it does, `ColonyMap.tsx:98 if (!colonySvg)`). The new `get_public_colony` RPC selects
+    `svg` with no `is not null` filter, `PublicColonyResult` declares `svg: string`, and
+    `PublicColonyView.tsx` passes it straight into `renderColonyPreview` → `parseColonyModel`.
+    No error boundary anywhere in this app, so the visitor gets a blank/broken page instead of
+    the deliberate "invalid link" message. **Check: for every new type that restates a DB
+    column, diff its nullability against `types.ts`, and find where the *existing* path guards
+    that column.**
+
 **How to apply:** the fix is a nullable initial value plus an explicit "not yet" render
 ("Not synced yet"), or deriving initial state from the real signal at effect start rather
 than a hopeful literal. Related: [[review-vacuous-acceptance-tests]].

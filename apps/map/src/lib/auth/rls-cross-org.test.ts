@@ -9,12 +9,14 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { bulkImportInitialPlotData } from "../colony/bulkImportInitialPlotData.ts";
 import { createColonyFromManifest } from "../colony/createColonyFromManifest.ts";
+import { loadPublicColony } from "../colony/publicColony.ts";
 import {
   createScratchOrg,
   createScratchPlot,
   createScratchUser,
   createStatelessAnonClient,
   deleteScratchUser,
+  serviceRoleClient,
   type ScratchUser,
 } from "./testHelpers.ts";
 
@@ -42,6 +44,16 @@ describe("RLS — cross-org isolation (docs/plans/21.md phase 1)", () => {
   }, 15_000);
   afterAll(async () => {
     await Promise.all([deleteScratchUser(userA), deleteScratchUser(userB)]);
+    // docs/plans/22.md phase 2's own test below flips colonyIdA to verified: true and sets
+    // a real public_token — undo both, same posture as createColonyFromManifest.test.ts's
+    // own cleanup, or this scratch colony leaks into the real ColonyPicker's list forever
+    // (colonies has no DELETE grant for any role) with a live public link still attached.
+    const admin = serviceRoleClient();
+    const { error } = await admin
+      .from("colonies")
+      .update({ verified: false, public_token: null })
+      .eq("id", colonyIdA);
+    if (error) throw new Error(`cleanup failed to unverify scratch colony: ${error.message}`);
   });
 
   it("anon select on organizations returns zero rows", async () => {
@@ -117,5 +129,25 @@ describe("RLS — cross-org isolation (docs/plans/21.md phase 1)", () => {
       true,
     );
     expect(result).toEqual({ ok: false, reason: "org_mismatch" });
+  });
+
+  it("get_public_colony (docs/plans/22.md phase 2) deliberately does not check org — a valid token reads regardless of org membership", async () => {
+    const admin = serviceRoleClient();
+    const token = crypto.randomUUID();
+    const { error } = await admin
+      .from("colonies")
+      .update({ verified: true, public_token: token })
+      .eq("id", colonyIdA);
+    if (error) throw new Error(`test setup: could not set public_token: ${error.message}`);
+
+    // A genuinely unauthenticated client — not userB, not any signed-in account from any
+    // org. Proves this RPC's authorization boundary is the token alone, not org
+    // membership, unlike every other RPC in this suite.
+    const anon = createStatelessAnonClient();
+    const { data: session } = await anon.auth.getSession();
+    expect(session.session).toBeNull();
+
+    const result = await loadPublicColony(anon, token);
+    expect(result.found).toBe(true);
   });
 });

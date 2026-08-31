@@ -2,7 +2,7 @@
 - [Review diff blind spots](review-diff-blind-spots.md) — 5x: `diff-head` hides untracked files and sweeps in unplanned work; (5) unplanned `ui/` turned the gate red. Run `git status --short` + the root's lint.
 - [Docs vs enforcement drift](review-docs-vs-enforcement-drift.md) — 11x: docs claim a guarantee the runtime lacks; (11) a new `make ui` guard.sh never blocks, and a stale "eight layers".
 - [Contract widening consumers](review-contract-widening-consumers.md) — 3x: widening `svg_id` broke sort/uniqueness; (3) raw operator text into SVG = malformed XML, empty map. Grep consumers that *assume*.
-- [Line-cap breaches](review-line-cap-breaches.md) — 4x: `filesize.sh` is PostToolUse (advisory) and `make gate` never checks length; `wc -l` every touched file vs `git show HEAD:<f>`.
+- [Line-cap breaches](review-line-cap-breaches.md) — 5x: `filesize.sh` is advisory, oxlint has no `max-lines`; (5) `App.tsx` 242→253. `wc -l` every touched file vs `git show HEAD:<f>`.
 - [Vacuous acceptance tests](review-vacuous-acceptance-tests.md) — 11x: tests passing for the wrong reason; (11) a migration backfill hitting an append-only trigger only on prod data.
 - [Migrations run on an empty DB](review-migration-empty-db-blind-spot.md) — `db reset` replays migrations before any seed, so triggers/nullability/constraints over existing rows are untestable locally.
 - [Non-TypeScript call sites](review-non-ts-call-sites.md) — "tsc caught every call site" misses the Makefile, package.json scripts and hooks; `make db-reseed` broke on a new required CLI arg.
@@ -10,8 +10,9 @@
 - [Attribution fallbacks](review-attribution-fallbacks.md) — 7x: `??` placeholders, bogus `confidence`, `import` rows, sticky `owner_name`, a self-writable `user_metadata` JWT claim. Ask who can write it.
 - [Fixture geometry unchecked](review-fixture-geometry-unchecked.md) — 3x: nothing checks overlap, viewBox drift, or derived `facing`/`is_corner`; recompute them from `colony.svg` yourself.
 - [Fixture plot-count drift](review-fixture-plot-count-drift.md) — the fixture's plot count is a literal in ~8 spec/README files; grep the old count on any fixture change.
-- [Comments assert what code doesn't do](review-comment-asserts-unimplemented.md) — 7x: intent comments the code doesn't deliver, and (7) a conditional-sounding rationale over unconditional code.
-- [Optimistic defaults](review-optimistic-defaults.md) — 11x: initial state, missing `catch`/`finally`, frozen age, stuck error flag, sticky confirm; (11) a default param silencing "update every call site".
+- [Comments assert what code doesn't do](review-comment-asserts-unimplemented.md) — 8x: intent comments the code doesn't deliver; (8) a pinned security constraint stretched over a case it never pinned.
+- [Error rendered as empty/invalid data](review-error-vs-empty-conflation.md) — 4x: a `catch` renders "no colonies"/"link revoked"; read what every catch's string asserts. Worth a CLAUDE.md line.
+- [Optimistic defaults](review-optimistic-defaults.md) — 12x: initial state, missing `catch`, frozen age, stuck error flag; (12) a new type re-declaring a nullable column non-null, guard dropped.
 - [Unstyled new components](review-unstyled-new-components.md) — 2x: grep new `className`s against `src/styles/*.css`; SVG rendered outside `ColonyMap` loses its defs/ground/`data-status`.
 - [DXF reader silent tolerance](review-dxf-reader-silent-tolerance.md) — a plan sentence saying "assumes axis-aligned" with no `raise` behind it; probe the reader with the bad drawing.
-- [Scratch rows leak into UI](review-scratch-rows-leak-into-ui.md) — 3x: tests mint permanent `verified: true` colonies; `delete` is impossible, teardown must `update … verified = false`.
+- [Scratch rows leak into UI](review-scratch-rows-leak-into-ui.md) — 4x: tests mint permanent `verified: true` colonies (also via `update(`); teardown must `update … verified = false`.

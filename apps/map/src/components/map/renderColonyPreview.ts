@@ -12,8 +12,19 @@ import grassPhotoUrl from "../../assets/textures/grass-satellite.jpg";
 // preview drawn by different code would be a gate on an artefact the map never produces.
 //
 // No Leaflet, no gestures, no sync. It draws once at fit scale and returns a teardown.
+//
+// docs/plans/22.md phase 2 added the optional `statuses` param below, reused by the public
+// colony link view — the same still, non-interactive render, fed real statuses instead of
+// the synthesized all-"available" ones. Additive and optional on purpose: the
+// upload-confirmation call site (ColonyUploadScreen.tsx) passes only (container, svg), so
+// its rendered output is unchanged (invariant 2/D-025 — this function is the one place
+// that renders what that upload gate's human confirmation judges).
 
-export function renderColonyPreview(container: HTMLElement, svg: string): () => void {
+export function renderColonyPreview(
+  container: HTMLElement,
+  svg: string,
+  statuses?: Record<string, string>,
+): () => void {
   const model = parseColonyModel(svg);
   const theme = resolveColonyTheme();
 
@@ -43,14 +54,16 @@ export function renderColonyPreview(container: HTMLElement, svg: string): () => 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const viewport = { width, height };
-    // Every plot renders in its available colour: the manifest being verified has no
-    // statuses yet, and showing them all as "unknown" would make the human confirm a map
-    // that looks nothing like the one they will get.
-    const statuses: Record<string, string> = {};
-    for (const plot of model.plots) statuses[plot.id] = "available";
+    // Every plot renders in its available colour when no real statuses were supplied: the
+    // manifest being verified has no statuses yet, and showing them all as "unknown" would
+    // make the human confirm a map that looks nothing like the one they will get.
+    const resolvedStatuses: Record<string, string> = statuses ?? {};
+    if (!statuses) {
+      for (const plot of model.plots) resolvedStatuses[plot.id] = "available";
+    }
 
     drawColony(ctx, model, fitView(model, viewport), viewport, theme, {
-      statuses,
+      statuses: resolvedStatuses,
       selectedId: null,
       activeStatuses: new Set<string>(),
       showPlotLabels: true,
