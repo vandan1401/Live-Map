@@ -43,14 +43,20 @@
   unrelated); the new `PublicColonyView.test.tsx` genuinely exercises the real click
   pipeline end to end (a real canvas click event → real coordinate math → real panel
   render), not a mocked callback — confirmed by reading the test, not assumed.
-  **Not run, tracked separately (see `## Deferred`):** applying this migration to
-  production — must happen *before* this session's code is pushed, not after, or a clicked
-  plot on the live public link renders blank fields with no error. Also not achievable from
-  Claude: an actual live-browser click check once deployed.
+  **Applied to production 2026-09-01** (owner-run, Dashboard SQL Editor, verified
+  `pronargs = 1`), *then* pushed (`e57332e..cb6aa50`) and confirmed deployed live — DB
+  before deploy, same ordering established for M16/M17. See `## Deferred`'s resolved entry
+  for the full trail.
 
-- **Next:** owner applies `20260901000000_m19_public_link_dimensions.sql` to production
-  (before pushing this session's code — see `## Deferred`), then confirms the click-to-see-
-  dimensions UX live on a real public link.
+- **Next:** owner does a live-browser click check on a real public link (not achievable
+  from Claude) to confirm the dimensions panel actually looks right on a phone. Otherwise
+  this closes out the multi-tenant SaaS conversion + public-link work end to end: all four
+  migrations (zoom-ref, organizations, public link, dimensions) are applied to production
+  and their code is deployed; the admin portal still needs its own first live owner pass
+  (`make admin-portal`); Bharatkshetra's actual colony upload into the new "Indravardhan
+  Moonat" org and the portfolio project's decommissioning are still pending (see the
+  admin-portal entry below); the `colonies.id` global-uniqueness gap stays deferred by the
+  owner's own choice, not forgotten.
 
 - **"Copy share link" added to the home-screen colony picker (2026-09-01, Tier 3, no
   migration, no new RPC).** Owner's ask ("generate link and share public link should also
@@ -2158,19 +2164,13 @@ on a real phone. Not verified by anyone: the five visual behaviours in `## Curre
 
 ## Deferred
 
-- **`20260901000000_m19_public_link_dimensions.sql` (docs/plans/25.md — dimensions on click
-  for the public link) has only been applied to the local Docker Supabase, not to the real
-  production Supabase project.** Same posture as every migration in this session before it
-  (M16/M17/M18): needs the owner's explicit go-ahead. Until applied, production's
-  `get_public_colony` keeps returning only `svg_id`/`status` per plot — `PublicColonyResult`
-  (`apps/map/src/lib/db/types.ts`) declares the five new fields as required, non-optional,
-  and `fetchPublicColony` (`lib/db/colonies.ts:111`) returns the RPC's response via an
-  unchecked `as PublicColonyResult` cast with no runtime shape validation — so if this
-  session's code deploys before this migration is applied, a clicked plot on the live
-  public link would render a blank heading and `" ft"`/`" ft"`/`" sq ft"` with no error
-  anywhere (`/review`, 2026-09-01). Apply this migration to production *before* pushing
-  this session's code, not after — same "DB first" ordering already established for
-  M16/M17.
+- ~~**`20260901000000_m19_public_link_dimensions.sql`... has only been applied to the local
+  Docker Supabase, not to the real production Supabase project.**~~ **Resolved 2026-09-01**
+  — applied to production (owner-run, Dashboard SQL Editor, same manual pattern as
+  M16/M17/zoom-ref), verified (`select proname, pronargs from pg_proc where proname =
+  'get_public_colony';` → `pronargs = 1`), *then* this session's code was pushed
+  (`e57332e..cb6aa50`) and confirmed deployed live — the DB-before-deploy ordering this
+  entry existed to enforce held.
 
 - **`colonies.id` is a global `text primary key`, not org-scoped — two different
   organizations can never have a colony sharing the same id (2026-09-01, found by the owner
