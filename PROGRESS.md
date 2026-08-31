@@ -2,6 +2,34 @@
 
 ## Current
 
+- **`docs/plans/20.md` (per-colony click-to-focus zoom) closed out (2026-09-01, Tier 1,
+  D-033) — no code change, a production incident diagnosis.** Owner redrew Bharatkshetra's
+  `COL-ZOOM-REF` to a real 180ft × 320ft rectangle, re-exported (manifest correctly showed
+  `select_zoom: {ref_width_px: 234, ref_height_px: 416}` at Bharatkshetra's 1.3008 px/ft
+  scale), and re-uploaded — but `colonies.select_zoom_ref_width_px`/`_height_px` landed
+  `null` in production with no error anywhere. Three rounds of code review (client param
+  names in `colonies.ts`, the SQL function body, confirming no later migration touched
+  `create_colony_from_manifest`, confirming the frontend commit `72e20f7` is genuinely on
+  `origin/master` and therefore live) found nothing wrong — because nothing was wrong in
+  the code. Root cause: PostgREST's own schema cache was stale, separate from Postgres's
+  live catalog — `select pronargs from pg_proc where proname = 'create_colony_from_
+  manifest';` correctly returned `9` the whole time, which proved the migration ran but
+  nothing about what the REST/RPC layer the browser actually calls was still serving.
+  PostgREST silently called the function using only the parameter names it remembered from
+  before the migration; the two omitted ones took their SQL `default null`. Fixed via the
+  Dashboard's "Reload schema cache" action (a bare `NOTIFY pgrst, 'reload schema';` had
+  already been run once for this same migration on 2026-08-31 per the existing verification
+  trail, and evidently wasn't sufficient or didn't stick) — recorded as **D-033**: after any
+  migration changing a function's parameter list, reload PostgREST's cache and verify with a
+  live RPC call, never `pg_proc` alone. Re-upload after the reload landed correctly (234/416
+  confirmed in the DB), and the owner then confirmed the on-click zoom framing live on
+  Bharatkshetra — the one acceptance criterion `docs/plans/20.md` had left open since
+  2026-08-29. Plan 20 is now marked complete.
+  **Next:** none for this specific item. Worth a look later: whether M16/M17/M19's own
+  "applied to production" verification trails (which used the same `pg_proc`-only pattern)
+  are actually fine — none of them added silently-defaulted parameters the way this one did,
+  so they're not known to be affected, just not re-audited under D-033.
+
 - **Public colony link: plot dimensions on click (2026-09-01, Tier 1, docs/plans/25.md).**
   Owner's ask: "in the public link it should atleast show the size of plot the dimension of
   all the sides when clicked it is not showing currently." `get_public_colony`
@@ -805,6 +833,39 @@
   feature-labels yet, so this is latent, not live).
 
 ## Log
+
+### 2026-09-01 — Closed docs/plans/20.md: PostgREST schema-cache incident, Bharatkshetra zoom-ref live-verified (D-033)
+
+**Done:** Diagnosed a production incident where a correctly-exported, correctly-uploaded
+`select_zoom` for Bharatkshetra (180×320ft, redrawn in AutoCAD per the owner's request)
+landed `null` in `colonies.select_zoom_ref_width_px`/`_height_px` with no error anywhere,
+despite the client code, the SQL function, and its deployment to production all checking
+out clean on review. Root cause: PostgREST's schema cache, not Postgres's own catalog, was
+serving a stale parameter list for `create_colony_from_manifest` — `pg_proc` correctly
+showed `pronargs = 9` the whole time, which is exactly why this took several rounds of
+elimination (wrong Supabase project? wrong git branch? stale browser bundle? — all ruled
+out one at a time) before landing on the actual cause. Fixed by reloading PostgREST's
+schema cache via the Dashboard, then re-uploading. Recorded as **D-033**. Owner then
+confirmed the on-click zoom framing live on Bharatkshetra, closing `docs/plans/20.md`'s
+last open acceptance criterion.
+**Next:** none for this item. `## Deferred` flagged as worth a later look: M16/M17/M19's
+own "applied to production" checks used the same `pg_proc`-only verification pattern this
+incident showed to be insufficient — not known to be broken (none added silently-defaulted
+parameters), just not re-audited under D-033.
+**Surprises:** `pg_proc` being correct throughout was the actual trap — every code-level
+signal available said the fix was already deployed and correct, and it was; the gap was
+entirely in a layer (PostgREST's cache) that a catalog query cannot see. This is the second
+time this exact class of bug has hit this project (the first, in the sibling portfolio
+repo, is referenced in this file's earlier session log) — worth remembering that a `NOTIFY
+pgrst, 'reload schema'` already run once for a migration is not proof it stayed applied
+after a later migration's own schema change.
+**Verified:** manifest showed `select_zoom: {ref_width_px: 234, ref_height_px: 416}` (180×
+320ft at Bharatkshetra's 1.3008 px/ft scale, confirmed by direct arithmetic); DB row
+confirmed `234`/`416` after the schema-cache reload and re-upload; owner confirmed the
+on-click zoom live in production. No code changed this session; `mingw32-make gate` run
+anyway per convention — hit the same documented pre-existing baseline (5 failures: 4
+anon-grant + the `subscribePlots` flake, `## Deferred`'s existing entries, 226/231),
+nothing new.
 
 ### 2026-09-01 — Public colony link: plot dimensions on click (Tier 1, docs/plans/25.md)
 
