@@ -58,6 +58,7 @@ def run_qa(
     _check_number_width(manifest, config)
     _check_svg_has_no_styling_attributes(svg)
     _check_id_stability(manifest, out_dir, allow_id_change)
+    _check_zoom_ref_within_site(manifest)
 
 
 def _check_matches_contract_schema(manifest: dict[str, Any]) -> None:
@@ -121,6 +122,21 @@ def _check_svg_has_no_styling_attributes(svg: str) -> None:
         raise ExportError(
             f"emitted SVG has a styling attribute ({match.group(0)}...) -- "
             "contract/SPEC.md permits class, id, and data-* only"
+        )
+
+
+def _check_zoom_ref_within_site(manifest: dict[str, Any]) -> None:
+    select_zoom = manifest["colony"].get("select_zoom")
+    if select_zoom is None:
+        return
+    viewbox = manifest["colony"]["viewbox"]
+    site_width_px, site_height_px = viewbox[2], viewbox[3]
+    ref_width_px, ref_height_px = select_zoom["ref_width_px"], select_zoom["ref_height_px"]
+    if ref_width_px > site_width_px or ref_height_px > site_height_px:
+        raise ExportError(
+            f"COL-ZOOM-REF ({ref_width_px}x{ref_height_px} px) is larger than the site "
+            f"({site_width_px}x{site_height_px} px) -- check for a units mismatch or a "
+            "misplaced reference rectangle"
         )
 
 

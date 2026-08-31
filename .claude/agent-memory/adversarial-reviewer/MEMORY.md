@@ -1,9 +1,9 @@
 - [Autonomous skill loop](project-autonomous-loop.md) — approval gates removed on purpose; flag the fallout, not the decision.
-- [Review diff blind spots](review-diff-blind-spots.md) — 4x: `diff-head` hides untracked files and sweeps in unplanned work (`tools/cad-lisp` twice running). Run `git status --short` first.
-- [Docs vs enforcement drift](review-docs-vs-enforcement-drift.md) — 10x: docs claim a guarantee the runtime lacks; (10) a normative table left contradicting prose added below it.
+- [Review diff blind spots](review-diff-blind-spots.md) — 5x: `diff-head` hides untracked files and sweeps in unplanned work; (5) unplanned `ui/` turned the gate red. Run `git status --short` + the root's lint.
+- [Docs vs enforcement drift](review-docs-vs-enforcement-drift.md) — 11x: docs claim a guarantee the runtime lacks; (11) a new `make ui` guard.sh never blocks, and a stale "eight layers".
 - [Contract widening consumers](review-contract-widening-consumers.md) — 3x: widening `svg_id` broke sort/uniqueness; (3) raw operator text into SVG = malformed XML, empty map. Grep consumers that *assume*.
-- [Line-cap breaches](review-line-cap-breaches.md) — 3x: `filesize.sh` is PostToolUse (advisory) and `make gate` never checks length; `wc -l` every touched file vs `git show HEAD:<f>`.
-- [Vacuous acceptance tests](review-vacuous-acceptance-tests.md) — 9x: tests passing for the wrong reason; a docstring precondition absent from the body; "golden passed" when golden is `@skip`.
+- [Line-cap breaches](review-line-cap-breaches.md) — 4x: `filesize.sh` is PostToolUse (advisory) and `make gate` never checks length; `wc -l` every touched file vs `git show HEAD:<f>`.
+- [Vacuous acceptance tests](review-vacuous-acceptance-tests.md) — 10x: tests passing for the wrong reason; (10) a new extracted hook with zero tests, only its pure helper covered.
 - [Constants invented outside the plan](review-unpinned-constants.md) — a pinned tolerance grew a second, unpinned bound that silently widened the accept window.
 - [Attribution fallbacks](review-attribution-fallbacks.md) — 7x: `??` placeholders, bogus `confidence`, `import` rows, sticky `owner_name`, a self-writable `user_metadata` JWT claim. Ask who can write it.
 - [Fixture geometry unchecked](review-fixture-geometry-unchecked.md) — 3x: nothing checks overlap, viewBox drift, or derived `facing`/`is_corner`; recompute them from `colony.svg` yourself.
@@ -11,4 +11,5 @@
 - [Comments assert what code doesn't do](review-comment-asserts-unimplemented.md) — 7x: intent comments the code doesn't deliver, and (7) a conditional-sounding rationale over unconditional code.
 - [Optimistic defaults](review-optimistic-defaults.md) — 11x: initial state, missing `catch`/`finally`, frozen age, stuck error flag, sticky confirm; (11) a default param silencing "update every call site".
 - [Unstyled new components](review-unstyled-new-components.md) — 2x: grep new `className`s against `src/styles/*.css`; SVG rendered outside `ColonyMap` loses its defs/ground/`data-status`.
+- [DXF reader silent tolerance](review-dxf-reader-silent-tolerance.md) — a plan sentence saying "assumes axis-aligned" with no `raise` behind it; probe the reader with the bad drawing.
 - [Scratch rows leak into UI](review-scratch-rows-leak-into-ui.md) — 3x: tests mint permanent `verified: true` colonies; `delete` is impossible, teardown must `update … verified = false`.

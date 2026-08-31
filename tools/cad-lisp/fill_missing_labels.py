@@ -102,6 +102,8 @@ def _label_point(entity) -> Point:
 
 def _write_output(src, placements: list[tuple[Point, str, float]], out_path: Path) -> None:
     doc = ezdxf.new(dxfversion=src.dxfversion)
+    doc.header["$INSUNITS"] = src.header.get("$INSUNITS", doc.header["$INSUNITS"])
+    doc.header["$MEASUREMENT"] = src.header.get("$MEASUREMENT", doc.header["$MEASUREMENT"])
     msp = doc.modelspace()
     name, color = DRAFT_LAYER
     if name not in doc.layers:

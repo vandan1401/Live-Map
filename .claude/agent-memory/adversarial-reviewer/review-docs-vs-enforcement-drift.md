@@ -111,6 +111,18 @@ Three checks that have each caught a real defect:
     **When a diff relaxes a rule, grep the same doc (and `contract/SPEC.md`) for the *old*
     wording — summary tables and class tables are where the stale absolute survives.**
 
+11. 2026-08-29 (plan 20) — **two at once, both the classic shapes.** (a) A new
+    `make ui` target in both Makefiles carries the comment "I run this, not Claude — same
+    reason as serve", but `guard.sh:22` only greps `python3? -m http\.server|make serve`,
+    and CLAUDE.md's "Never run:" list was not extended. A Makefile comment grants nothing.
+    (b) `docs/cad-layer-standard.md` gained a ninth `COL-*` layer row while line 200 still
+    reads "Create the **eight** layers above" and the numbered per-colony procedure
+    (196-221) gained no step for it — the checklist the owner actually follows now
+    contradicts the table above it, same as (10). `tools/cad-lisp/cv-tools.lsp`'s
+    `CV-LAYERS` list is a third restatement and was also missed.
+    **On any new layer/target/permission: grep the doc for the *count word* ("eight",
+    "seven"), the numbered procedure, `cv-tools.lsp`'s `CV-LAYERS`, and `guard.sh`.**
+
 **How to apply:** on any review that touches `CLAUDE.md`, `.claude/settings.json`, or a
 skill file, open `.claude/hooks/guard.sh` and `_json.sh` and check the greps in the same
 pass. This has now recurred ten times — worth a CLAUDE.md line or a guard.sh self-test.

@@ -48,6 +48,41 @@ export function fitView(model: ColonyModel, viewport: Viewport): ViewState {
   return { scale: fitScale(model, viewport), cx: model.width / 2, cy: model.height / 2 };
 }
 
+// The per-colony equivalent of SELECT_ZOOM (docs/plans/20.md) — computes the Leaflet zoom
+// that makes the owner-drawn COL-ZOOM-REF rectangle (ref_width_px x ref_height_px, already
+// in SVG viewBox units) exactly fit the viewport, same min(width-ratio, height-ratio) shape
+// as fitScale() above. Leaflet zoom Z means screen-px-per-SVG-unit = 2^Z (view.ts's own
+// header comment), so converting the fitted scale back to a zoom is a plain log2.
+export function selectZoomFor(viewport: Viewport, refWidthPx: number, refHeightPx: number): number {
+  // Same degenerate-viewport guard as fitScale() above (a 0-sized container mid-layout,
+  // or a hidden tab) — log2(0) is -Infinity, which would send the map to its minZoom
+  // floor instead of a sane default. Zoom 0 is the analogous "do nothing extreme" answer.
+  if (viewport.width <= 0 || viewport.height <= 0) return 0;
+  const scale = Math.min(viewport.width / refWidthPx, viewport.height / refHeightPx);
+  return Math.log2(scale);
+}
+
+// The full fly-to-plot zoom decision, pure and unit-testable without a live Leaflet map:
+// use selectZoomFor when this colony has a COL-ZOOM-REF reference, else fall back to the
+// fixed SELECT_ZOOM constant — then clamp to [minZoom, maxZoom] unconditionally. The clamp
+// is not optional: map.project/unproject apply whatever zoom they're given unclamped, while
+// map.setView clamps when it actually renders — the SAME clamped value must go into all
+// three calls (useFlyToSelectedPlot.ts) or the pan-offset math and the rendered zoom
+// disagree, and SELECT_VERTICAL_ANCHOR positioning silently drifts (docs/plans/20.md).
+export function computeSelectZoom(
+  viewport: Viewport,
+  refWidthPx: number | null,
+  refHeightPx: number | null,
+  minZoom: number,
+  maxZoom: number,
+): number {
+  const rawZoom =
+    refWidthPx != null && refHeightPx != null
+      ? selectZoomFor(viewport, refWidthPx, refHeightPx)
+      : SELECT_ZOOM;
+  return Math.min(Math.max(rawZoom, minZoom), maxZoom);
+}
+
 export function screenToWorld(view: ViewState, viewport: Viewport, px: number, py: number): [number, number] {
   return [
     (px - viewport.width / 2) / view.scale + view.cx,

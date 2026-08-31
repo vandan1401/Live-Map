@@ -22,6 +22,9 @@ from pipeline.extract.types import ColonyConfig, DxfIngestResult, Label, Ring
 _RING_LAYERS = ("COL-SITE", "COL-PLOT", "COL-GARDEN", "COL-AMENITY", "COL-WATER")
 _LABEL_LAYERS = ("COL-PLOT-NO", "COL-FEATURE-NO")
 _NORTH_LAYER = "COL-NORTH"
+_ZOOM_REF_LAYER = "COL-ZOOM-REF"
+_ZOOM_REF_ROTATION_TOLERANCE_DEG = 0.5  # a COL-ZOOM-REF block insert must be axis-aligned;
+# ring_extent_px measures an unrotated bounding box, same assumption as a plain LWPOLYLINE
 _NORTH_DISAGREEMENT_DEG = 1.0  # docs/cad-layer-standard.md: two north sources must agree within this
 
 
@@ -69,6 +72,7 @@ def ingest_dxf(dxf_path: Path, config: ColonyConfig) -> DxfIngestResult:
     labels: list[Label] = []
     site_count = 0
     north_lines: list[DXFGraphic] = []
+    zoom_ref_rings: list[Ring] = []
 
     for entity in doc.modelspace():
         layer = entity.dxf.layer
@@ -86,17 +90,28 @@ def ingest_dxf(dxf_path: Path, config: ColonyConfig) -> DxfIngestResult:
                     "not a LINE"
                 )
             north_lines.append(entity)
+        elif layer == _ZOOM_REF_LAYER:
+            zoom_ref_rings.append(_read_zoom_ref(entity))
         # else: not a standard layer (title block, dimensions, ...) - ignored silently.
 
     if site_count != 1:
         raise DxfConformanceError(f"COL-SITE has {site_count} entities, expected exactly 1")
     if len(north_lines) > 1:
         raise DxfConformanceError(f"COL-NORTH has {len(north_lines)} entities, expected 0 or 1")
+    if len(zoom_ref_rings) > 1:
+        raise DxfConformanceError(
+            f"COL-ZOOM-REF has {len(zoom_ref_rings)} entities, expected 0 or 1"
+        )
 
     north_deg = _resolve_north_deg(north_lines[0] if north_lines else None, config)
+    zoom_ref = zoom_ref_rings[0] if zoom_ref_rings else None
 
     return DxfIngestResult(
-        rings=tuple(rings), labels=tuple(labels), north_deg=north_deg, config=config
+        rings=tuple(rings),
+        labels=tuple(labels),
+        north_deg=north_deg,
+        zoom_ref=zoom_ref,
+        config=config,
     )
 
 
@@ -112,6 +127,50 @@ def _read_ring(entity: DXFGraphic, layer: str) -> Ring:
         (float(p[0]), float(p[1])) for p in entity.get_points("xy")  # type: ignore[attr-defined]
     )
     return Ring(layer=layer, handle=entity.dxf.handle, points=points)
+
+
+def _read_zoom_ref(entity: DXFGraphic) -> Ring:
+    """COL-ZOOM-REF accepts either a plain closed LWPOLYLINE (drawn fresh) or a block
+    INSERT (a reusable 9:16-style reference block, scaled and placed per colony) --
+    docs/cad-layer-standard.md's owner workflow is "define the block once, insert + scale
+    it per colony," not redraw a rectangle from scratch every time.
+
+    A block's own entities report the block DEFINITION's layer (often "0"), not the
+    INSERT's -- ezdxf's virtual_entities() does not re-resolve BYBLOCK layer inheritance,
+    so the caller must already have decided this entity belongs on COL-ZOOM-REF before
+    calling this (it dispatches on the INSERT's own layer, checked by ingest_dxf's loop),
+    and the returned Ring's geometry is what matters, not virtual_entities()'s own layer
+    attribute."""
+    if entity.dxftype() == "LWPOLYLINE":
+        return _read_ring(entity, _ZOOM_REF_LAYER)
+
+    if entity.dxftype() == "INSERT":
+        rotation = entity.dxf.get("rotation", 0.0) % 360
+        if min(rotation, 360 - rotation) > _ZOOM_REF_ROTATION_TOLERANCE_DEG:
+            raise DxfConformanceError(
+                f"{_ZOOM_REF_LAYER} block insert {entity.dxf.handle} has a rotation of "
+                f"{rotation:.1f} deg -- ring_extent_px measures an axis-aligned bounding "
+                "box, so a rotated insert would be silently mismeasured rather than "
+                "erroring; place it unrotated"
+            )
+        closed_polylines = [
+            e for e in entity.virtual_entities()  # type: ignore[attr-defined]
+            if e.dxftype() == "LWPOLYLINE" and e.closed
+        ]
+        if len(closed_polylines) != 1:
+            raise DxfConformanceError(
+                f"{_ZOOM_REF_LAYER} block insert {entity.dxf.handle} contains "
+                f"{len(closed_polylines)} closed LWPOLYLINE(s), expected exactly 1"
+            )
+        points = tuple(
+            (float(p[0]), float(p[1])) for p in closed_polylines[0].get_points("xy")
+        )
+        return Ring(layer=_ZOOM_REF_LAYER, handle=entity.dxf.handle, points=points)
+
+    raise DxfConformanceError(
+        f"{_ZOOM_REF_LAYER} entity {entity.dxf.handle} is a {entity.dxftype()}, "
+        "not a closed LWPOLYLINE or a block INSERT"
+    )
 
 
 def _read_label(entity: DXFGraphic, layer: str) -> Label:

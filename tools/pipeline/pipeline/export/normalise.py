@@ -42,3 +42,13 @@ def compute_transform(site: Ring) -> Transform:
 def apply_transform(t: Transform, point: Point) -> Point:
     x, y = point
     return ((x - t.min_x) * t.scale, (t.max_y - y) * t.scale)
+
+
+def ring_extent_px(t: Transform, ring: Ring) -> tuple[float, float]:
+    """Width/height of ring's bounding box, in SVG viewBox px -- translation-invariant,
+    unlike apply_transform (which maps one point). Assumes ring is axis-aligned to the
+    DXF's own X/Y axes, the same assumption the rest of this pipeline makes everywhere
+    (no rotation is ever applied, only translate + Y-flip + uniform scale)."""
+    xs = [p[0] for p in ring.points]
+    ys = [p[1] for p in ring.points]
+    return (max(xs) - min(xs)) * t.scale, (max(ys) - min(ys)) * t.scale

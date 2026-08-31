@@ -36,6 +36,11 @@ pytest config. Recommend this fix without hedging.
   invariant 7. Smallest fix there: `fillDecor`/`fillGarden`/`amenityFillFor` (~50 lines) into
   a sibling `drawDecor.ts`, exactly the split `drawLabels.ts`/`drawDimensions.ts` already are.
 
+- 2026-08-29 (plan 20): `test_dxf.py` **238 → 315** (the sibling-module fix from plan 15 has
+  now been fully undone by five new `COL-ZOOM-REF` cases), and `test_export.py` **318 → 379**
+  in the same diff. Both crossed/extended in a diff whose `PROGRESS.md` reports "ruff/mypy
+  clean" — again, `make gate` never measures length.
+
 Note the residual: `test_export.py` (304) and `test_matching.py` (264) are *already* over the
 cap and every plan that adds a `ColonyConfig` field grows them by a line. Not worth flagging
 per-diff; worth flagging when a diff adds a whole test to one of them.

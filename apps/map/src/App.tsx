@@ -232,6 +232,8 @@ function App() {
       actor={actor}
       colonyId={selectedColonyId}
       colonySvg={selectedColony.svg}
+      selectZoomRefWidthPx={selectedColony.select_zoom_ref_width_px ?? null}
+      selectZoomRefHeightPx={selectedColony.select_zoom_ref_height_px ?? null}
       onBack={() => setSelectedColonyId(null)}
     />
   );

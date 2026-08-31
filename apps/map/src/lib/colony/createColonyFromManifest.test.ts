@@ -90,6 +90,34 @@ describe("createColonyFromManifest — live integration", () => {
     expect(plots[0].updated_by).toBe("import");
   }, 15_000);
 
+  it("round-trips select_zoom_ref_width_px/height_px when the manifest has select_zoom (docs/plans/20.md)", async () => {
+    const colonyId = newColonyId();
+    const withZoomRef = manifest(colonyId, [plot("plot-A-01")]);
+    withZoomRef.colony.select_zoom = { ref_width_px: 340, ref_height_px: 238 };
+
+    const result = await createColonyFromManifest(user.client, withZoomRef, SVG, false);
+    expect(result).toEqual({ ok: true, colonyId });
+
+    const colony = await fetchColonyById(user.client, colonyId);
+    expect(colony?.select_zoom_ref_width_px).toBe(340);
+    expect(colony?.select_zoom_ref_height_px).toBe(238);
+  }, 15_000);
+
+  it("leaves select_zoom_ref_width_px/height_px null when the manifest has no select_zoom", async () => {
+    const colonyId = newColonyId();
+    const result = await createColonyFromManifest(
+      user.client,
+      manifest(colonyId, [plot("plot-A-01")]),
+      SVG,
+      false,
+    );
+    expect(result).toEqual({ ok: true, colonyId });
+
+    const colony = await fetchColonyById(user.client, colonyId);
+    expect(colony?.select_zoom_ref_width_px).toBeNull();
+    expect(colony?.select_zoom_ref_height_px).toBeNull();
+  }, 15_000);
+
   it("refuses to re-create an existing colony id without replace", async () => {
     const colonyId = newColonyId();
     await createColonyFromManifest(user.client, manifest(colonyId, [plot("plot-A-01")]), SVG, false);

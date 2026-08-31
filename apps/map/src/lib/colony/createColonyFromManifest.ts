@@ -31,5 +31,7 @@ export async function createColonyFromManifest(
       is_corner: plot.is_corner,
     })),
     replace,
+    zoomRefWidthPx: manifest.colony.select_zoom?.ref_width_px,
+    zoomRefHeightPx: manifest.colony.select_zoom?.ref_height_px,
   });
 }

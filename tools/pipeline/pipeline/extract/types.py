@@ -68,4 +68,5 @@ class DxfIngestResult:
     rings: tuple[Ring, ...]
     labels: tuple[Label, ...]
     north_deg: float
+    zoom_ref: Ring | None
     config: ColonyConfig

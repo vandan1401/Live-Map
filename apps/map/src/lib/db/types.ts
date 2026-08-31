@@ -22,6 +22,11 @@ export interface ColonyInsert {
   // Runtime SVG markup (D-025, docs/plans/11.md) — every writer supplies it; nullable only
   // at the column level (a schema migration can't backfill a file that lives on disk).
   svg: string;
+  // The owner-drawn COL-ZOOM-REF rectangle's extent, in SVG viewBox px (docs/plans/20.md).
+  // Legitimately null forever for a colony whose DXF has no such rectangle — not a
+  // migration-can't-backfill artifact like svg's nullability above.
+  select_zoom_ref_width_px?: number | null;
+  select_zoom_ref_height_px?: number | null;
 }
 
 export interface ColonyRow extends Omit<ColonyInsert, "svg"> {
@@ -123,6 +128,10 @@ export interface ColonyManifest {
     verified: boolean;
     generated: string;
     source: { file: string };
+    // Optional (docs/plans/20.md) — present only when the source DXF had a COL-ZOOM-REF
+    // rectangle. Unlike viewbox/scale/north_deg/etc. (deliberately never read by this app,
+    // see the comment above ColonyManifestPlot), this one the app does consume.
+    select_zoom?: { ref_width_px: number; ref_height_px: number };
   };
   plots: ColonyManifestPlot[];
 }

@@ -9,22 +9,10 @@ import { createColonyCanvasLayer, type ColonyCanvasLayer } from "./colonyCanvasL
 import { pickPlotAt } from "./plotPicker.ts";
 import { StatusTransitions } from "./statusTransitions.ts";
 import { usePlotDimensions, type PlotDimensions } from "./usePlotDimensions.ts";
-import {
-  colonyLatLngBounds,
-  leafletViewState,
-  screenToWorld,
-  SELECT_ZOOM,
-  ZOOM_DETAIL_MARGIN,
-} from "./view.ts";
+import { useFlyToSelectedPlot } from "./useFlyToSelectedPlot.ts";
+import { colonyLatLngBounds, leafletViewState, screenToWorld, ZOOM_DETAIL_MARGIN } from "./view.ts";
 import grassPhotoUrl from "../../assets/textures/grass-satellite.jpg";
 import { fetchCornerPlotIds } from "../../lib/db/plots.ts";
-
-// Selected plot lands at this fraction of the viewport's height, not 0.5 (owner ask,
-// 2026-08-22): the bottom toolbar/legend sheet covers the lower part of the screen, so
-// centring a plot at 50% put it half-hidden. 0.35 was chosen over the more literal "65%
-// from the bottom" phrasing because a screen fraction has to be measured from one edge,
-// and every other on-screen fraction in this codebase (viewport/label math) is top-down.
-const SELECT_VERTICAL_ANCHOR = 0.35;
 
 // Leaflet init, the canvas layer, attachSync's subscription, picking and the transition
 // clock — the canvas equivalent of useColonyMapMount.ts + useSelectedPlotOverlay.ts, which
@@ -36,6 +24,10 @@ interface Args {
   client: SupabaseClient;
   colonyId: string;
   colonySvg: string | null;
+  // docs/plans/20.md — null means this colony has no owner-drawn COL-ZOOM-REF rectangle,
+  // so the fly-to-plot effect falls back to the fixed SELECT_ZOOM constant.
+  selectZoomRefWidthPx: number | null;
+  selectZoomRefHeightPx: number | null;
   selectedId: string | null;
   activeStatuses: ReadonlySet<string>;
   onSelect: (svgId: string | null) => void;
@@ -60,7 +52,17 @@ function loadGrass(): Promise<HTMLImageElement | null> {
 }
 
 export function useColonyCanvas(args: Args): CanvasMapHandle {
-  const { containerRef, client, colonyId, colonySvg, selectedId, activeStatuses, onSelect } = args;
+  const {
+    containerRef,
+    client,
+    colonyId,
+    colonySvg,
+    selectZoomRefWidthPx,
+    selectZoomRefHeightPx,
+    selectedId,
+    activeStatuses,
+    onSelect,
+  } = args;
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<ColonyCanvasLayer | null>(null);
   const modelRef = useRef<ColonyModel | null>(null);
@@ -247,33 +249,7 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
     pushState.current();
   }, [selectedId, activeStatuses]);
 
-  // Flying to a plot is a SEPARATE effect keyed only on the selection. Folding it in above
-  // meant tapping a legend chip while a plot was selected re-centred and re-zoomed the map
-  // under the user's finger (/review, 2026-08-22).
-  useEffect(() => {
-    const map = mapRef.current;
-    const model = modelRef.current;
-    if (!map || !model || !selectedId) return;
-    const plot = model.plots.find((p) => p.id === selectedId);
-    if (!plot) return;
-    const cx = (plot.bbox.minX + plot.bbox.maxX) / 2;
-    const cy = (plot.bbox.minY + plot.bbox.maxY) / 2;
-    const target: L.LatLngExpression = [-cy, cx];
-
-    // setView always puts its target at the exact centre (50% height) of the container.
-    // To land it at SELECT_VERTICAL_ANCHOR instead, project the target at the destination
-    // zoom, subtract where we actually want it to sit on screen, and unproject back to the
-    // latlng that belongs at the centre — standard Leaflet "pan to an offset point" maths;
-    // there is no setView option for this.
-    const size = map.getSize();
-    const desiredScreenPoint = L.point(size.x / 2, size.y * SELECT_VERTICAL_ANCHOR);
-    const targetPoint = map.project(target, SELECT_ZOOM);
-    const centerPoint = targetPoint.subtract(desiredScreenPoint).add(size.divideBy(2));
-    const center = map.unproject(centerPoint, SELECT_ZOOM);
-
-    map.setView(center, SELECT_ZOOM, { animate: true });
-  }, [selectedId]);
-
+  useFlyToSelectedPlot(mapRef, modelRef, selectedId, selectZoomRefWidthPx, selectZoomRefHeightPx);
 
   usePlotDimensions(client, colonyId, selectedId, dimensionsRef, useCallback(() => pushState.current(), []));
 

@@ -21,10 +21,26 @@ not name them one of these.
 | `COL-WATER` | closed `LWPOLYLINE` | 0+ | Tank, sump, OHT |
 | `COL-FEATURE-NO` | `TEXT` or `MTEXT` | 1 per feature, plus 0+ road/pathway annotations | Inside a garden/amenity/water ring: that feature's label. Inside no ring: a free-floating road/pathway annotation ("9.0 M W ROAD") |
 | `COL-NORTH` | one `LINE` | 0 or 1 | Tail → head points north. Sets `north_deg` |
+| `COL-ZOOM-REF` | closed `LWPOLYLINE`, or an `INSERT` of a block containing exactly one closed `LWPOLYLINE` | 0 or 1 | Reference rectangle: the real-world area that should fill the screen when a plot in this colony is selected in the app. The owner's own framing judgement, not derived from plot size or site size — draw it axis-aligned to this drawing's X/Y axes, the same assumption every other measurement in this pipeline makes |
 
 If `COL-NORTH` is absent, `north_deg` must be stated in the colony config instead. If both
 are present they must agree within 1°, or ingest fails — two sources that disagree about
 north silently rotate every plot's `facing`, and `facing` carries a real price premium.
+
+If `COL-ZOOM-REF` is absent, the colony simply has no `select_zoom` in its manifest and the
+app falls back to its own fixed default zoom for that colony — nothing fails, nothing is
+required. Drawing this rectangle is optional, per-colony, and can be added or changed at any
+time by re-exporting.
+
+**Recommended workflow**: define a reference rectangle once as an AutoCAD block (a 9:16
+portrait rectangle, matching a phone screen, is a sensible default — e.g. `RECTANG` a 9x16
+or 90x160 unit box, then `BLOCK` it), then for each colony `INSERT` a copy on
+`COL-ZOOM-REF` and scale it to whatever real-world size should fill the screen on selection
+for that colony. The reader resolves the block's placed, scaled geometry into real drawing
+coordinates automatically (uniform or non-uniform scale both work) — you never need to
+redraw the rectangle from scratch per colony, only place and scale one copy of the block.
+A plain closed `LWPOLYLINE` drawn directly on the layer works exactly the same way if you'd
+rather not use a block.
 
 ### Do not draw roads
 
@@ -181,7 +197,8 @@ The billable unit of work. Roughly 20–40 minutes for a clean DWG.
    drawing. Rev G with a garden turned into four plots renders a map that quietly
    contradicts the registry — the single worst failure in this project (D-116).
 2. Save a copy to work in. `AUDIT` → fix, then `PURGE`.
-3. Create the eight layers above.
+3. Create the eight required layers above (`COL-ZOOM-REF` is optional — create it too now
+   if you already know you'll want it, or add it later with a re-export).
 4. Move plot outlines onto `COL-PLOT`.
 5. **Join exploded outlines**: `PEDIT` → `Multiple` → select → `Join` → `Close`. This is the
    step that replaces the largest and least testable chunk of the old pipeline design. A plot

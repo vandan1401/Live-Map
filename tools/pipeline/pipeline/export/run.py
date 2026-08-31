@@ -70,7 +70,14 @@ def orchestrate_export(
 
     transform = compute_transform(site)
     manifest = build_manifest(
-        config, transform, match_result.plots, features, result.north_deg, facings, corners
+        config,
+        transform,
+        match_result.plots,
+        features,
+        result.north_deg,
+        facings,
+        corners,
+        result.zoom_ref,
     )
     svg = build_svg(
         transform, site, road, match_result.plots, features, trees, colony_id, feature_labels

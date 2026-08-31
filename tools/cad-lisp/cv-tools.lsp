@@ -226,7 +226,7 @@
 (defun c:CV-LAYERS ( / layers)
   (setq layers '(("COL-SITE" . 1) ("COL-PLOT" . 3) ("COL-PLOT-NO" . 2)
                  ("COL-GARDEN" . 140) ("COL-AMENITY" . 30) ("COL-WATER" . 150)
-                 ("COL-FEATURE-NO" . 6) ("COL-NORTH" . 5)
+                 ("COL-FEATURE-NO" . 6) ("COL-NORTH" . 5) ("COL-ZOOM-REF" . 9)
                  ("CV-MERGED" . 7) ("CV-PLOT-DRAFT" . 4) ("CV-FLAGS" . 1)))
   (foreach l layers (cv:ensure-layer (car l) (cdr l)))
   (cv:log (strcat "CV-LAYERS: ensured " (itoa (length layers)) " layers"))

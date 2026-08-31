@@ -76,6 +76,7 @@ viewBox width is always 1000; height follows the aspect ratio.
     "name": "Shree Vatika Phase 2",
     "viewbox": [0, 0, 1000, 720],
     "scale": { "px_per_ft": 2.6667 },
+    "select_zoom": { "ref_width_px": 340, "ref_height_px": 238 },
     "north_deg": 0,
     "generated": "2026-08-11",
     "verified": false,
@@ -98,6 +99,10 @@ viewBox width is always 1000; height follows the aspect ratio.
   ]
 }
 ```
+
+**`select_zoom` is optional** — absent when the source DXF has no `COL-ZOOM-REF` rectangle
+(docs/cad-layer-standard.md). `apps/map` then falls back to a fixed default zoom for that
+colony instead of computing one from `ref_width_px`/`ref_height_px`.
 
 **Roads and trees never appear here.** Both are derived — roads by subtraction, trees from a
 per-colony seed — and storing a derived value creates a second source of truth that can

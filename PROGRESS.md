@@ -2,6 +2,163 @@
 
 ## Current
 
+- **Per-colony, owner-drawn click-to-focus zoom (2026-08-29, Tier 1, docs/plans/20.md).**
+  Owner-reported bug: clicking a plot flew to a visibly different zoom level in different
+  colonies. Root cause: `pipeline/export/normalise.py` normalises every colony's SVG to a
+  fixed viewBox width regardless of its real physical footprint (D-110), so `SELECT_ZOOM`
+  (a single fixed Leaflet zoom, `view.ts`) produced ~28.1 real-world screen-px/ft on Shree
+  Vatika 2 vs ~4.8 on Jai Dev Residency — confirmed by reading both colonies' live manifests.
+  Owner explicitly rejected an automatic fix (site-wide `px_per_ft` conflates site size with
+  desired framing) in favour of a new optional `COL-ZOOM-REF` DXF layer: a reference
+  rectangle, hand-placed per colony, that the pipeline measures and the app fits the viewport
+  to on selection — mirrors the existing `COL-NORTH`/`COL-SITE` "geometry in AutoCAD, pipeline
+  only measures" pattern (D-118). Mid-build, owner refined the authoring workflow: the
+  rectangle is meant to be a reusable 9:16 block, `INSERT`ed and scaled per colony rather than
+  redrawn each time — `dxf.py`'s reader resolves either a plain closed `LWPOLYLINE` or a block
+  `INSERT` via `ezdxf`'s `virtual_entities()` (confirmed by direct test to correctly apply the
+  insert's position/scale).
+  **Full thread, both halves:** `docs/cad-layer-standard.md` documents the new layer;
+  `pipeline/extract/{types,dxf}.py` reads it (0 or 1, rectangle or scaled block insert);
+  `pipeline/export/normalise.py::ring_extent_px` converts it to SVG-viewBox px;
+  `pipeline/export/manifest.py` emits optional `colony.select_zoom.{ref_width_px,
+  ref_height_px}`; `pipeline/export/qa.py` rejects a reference wider/taller than the site;
+  `contract/colony.schema.json` + `SPEC.md` gain the optional field. App side: a new migration
+  adds `colonies.select_zoom_ref_{width,height}_px` (nullable, no backfill, permanently —
+  legitimately absent for a colony with no rectangle) and threads two new parameters through
+  `create_colony_from_manifest` (had to `drop function` first since adding parameters changes
+  the signature); `ColonyInsert`/`ColonyRow`/`ColonyManifest` types, `createColonyFromManifest.
+  ts`, `colonies.ts` all updated to carry the value from manifest to DB and back;
+  `view.ts::selectZoomFor` computes the fit-zoom (same `min(width-ratio, height-ratio))` shape
+  as the existing `fitScale`); the fly-to-plot effect was extracted from `useColonyCanvas.ts`
+  into a new `useFlyToSelectedPlot.ts` (same reason `usePlotDimensions.ts` was split out
+  earlier — invariant 7's 250-line cap) and now computes a per-colony zoom, clamped to
+  `[minZoom, maxZoom]` **before** use in `project`/`unproject`/`setView` (those three calls
+  must agree on the same zoom or `SELECT_VERTICAL_ANCHOR` positioning silently drifts — a real
+  correctness risk `SELECT_ZOOM`'s old fixed-and-safely-under-maxZoom value never had to
+  worry about). A colony with no `COL-ZOOM-REF` rectangle is unchanged: no `select_zoom` key
+  in its manifest, falls through to the exact old `SELECT_ZOOM` constant.
+  **Also fixed, found while inspecting a colony's DXF earlier in the same session:** every
+  output-writer in `tools/cad-lisp/` (`close_polygons.py` via `output.py`, `derive_site.py`,
+  `export_blocks.py`, `fill_missing_labels.py`, `trace_site.py`) created its output DXF via
+  `ezdxf.new(dxfversion=src.dxfversion)`, which copies the DXF version but not the source
+  drawing's units (`$INSUNITS`/`$MEASUREMENT`) — every draft file these scripts produced
+  silently defaulted to metric regardless of the source drawing's real units. All five now
+  copy both header values from the source doc. Verified by reopening a real owner-supplied DXF
+  (Bibrod) through `close_polygons.py` before/after: `$INSUNITS` went from `6` (wrong) to `2`
+  (feet, matching the source) with no other change in behaviour.
+  **`/review` (2026-08-29) found 8 issues, 5 fixed same session (3 pre-existing/unrelated to
+  this diff, left alone):** (1) **real correctness gap** — a rotated `COL-ZOOM-REF` block
+  insert would have been silently mismeasured (`ring_extent_px` reads an axis-aligned bounding
+  box) instead of erroring; `_read_zoom_ref` now checks the insert's own rotation and rejects
+  anything beyond a 0.5° tolerance, naming the entity. (2) `test_dxf.py` (238→315 lines) and
+  `test_export.py` (already 318, pre-existing) both breached invariant 7's 250-line cap after
+  this session's additions — the zoom-ref-specific tests were split into two new, focused,
+  self-contained files (`test_dxf_zoom_ref.py`, `test_export_zoom_ref.py`), returning both
+  original files to their pre-session sizes. (3) `selectZoomFor` had no zero-viewport guard
+  (`fitScale` right above it does) — `log2(0)` is `-Infinity`; added the same guard, returns
+  `0`. (4) the fly-to effect's zoom decision (fallback + clamp) was new logic with no unit
+  test, since a live-map-dependent `useEffect` can't be tested directly — extracted into a
+  pure `computeSelectZoom()` (`view.ts`) that is. (5) `docs/cad-layer-standard.md`'s
+  procedure step 3 still said "the eight layers" after this session added a ninth
+  (optional) row to the table — reworded. **Left alone, pre-existing and unrelated to this
+  diff:** `tools/pipeline/ui/server.py`'s `subprocess.run` ruff finding, `guard.sh`'s `make ui`
+  pattern, and `pyproject.toml`'s `flask` dependency — all part of the paused, uncommitted
+  local-pipeline-UI work from 2026-08-27 (see its own `## Current` entry), not touched this
+  session.
+  **Verified:** `tools/pipeline` — `pytest` 129 passed/1 skipped (was 116/1 before this
+  session; +13 new tests net across `test_dxf.py`, `test_dxf_zoom_ref.py`,
+  `test_export_zoom_ref.py`), `ruff`/`mypy` clean on every touched file (the one remaining
+  ruff finding is the pre-existing, untouched `ui/server.py` above), `test_contract.py` (4/4)
+  confirms the schema change round-trips. `apps/map` — `typecheck`/`lint`/`build` clean;
+  `pnpm exec vitest run --no-file-parallelism` 187/192 passed across 32 files (two new
+  `createColonyFromManifest` round-trip tests for the new columns pass, six new
+  `selectZoomFor`/`computeSelectZoom` tests pass; the only failures are confirmed
+  pre-existing and unrelated — see `## Deferred`'s anon-privilege-grant entry and the
+  documented `subscribePlots.test.ts` realtime flake). Live browser check **not done** — no
+  colony has a real `COL-ZOOM-REF` rectangle yet to click-test against; see Next.
+  **Also found and fixed, unrelated to the diff:** `apps/map/.env`'s `VITE_SUPABASE_URL` had
+  drifted to a stale LAN IP (`192.168.0.177`, machine is now on `172.20.10.4`) — same
+  recurring drift noted in nearly every session's Log — reset to `127.0.0.1`.
+  **Not verified live:** the owner should draw a real `COL-ZOOM-REF` rectangle (or the 9:16
+  block) on a working DXF, re-export, re-upload, and confirm the click-to-focus zoom now
+  matches what they intended, and that an un-migrated colony (Shree Vatika 2, Jai Dev
+  Residency — neither re-uploaded) still looks exactly as it did before.
+
+- **Next:** `/review` this diff (in progress). Once approved: owner re-exports/re-uploads one
+  real colony with a `COL-ZOOM-REF` rectangle and confirms live in `pnpm dev`. Separately, two
+  items now in `## Deferred` are worth a dedicated look when there's time: the anon-privilege-
+  grant environment drift (affects every `security definer` function's anon-rejection test,
+  repo-wide, not just this diff) and finishing the `useColonyCanvas.ts` line-count split.
+  Unrelated and still open from prior sessions: the Bibrod/Bharatkshetra raw-survey colonies
+  (still need real AutoCAD normalisation work before they can reach `make ingest`), and the
+  paused local pipeline UI (`tools/pipeline/ui/`, uncommitted since 2026-08-27).
+
+- **Multi-tenant SaaS conversion explored (2026-08-27, docs only — no code written, provisional).**
+  Owner wants to sell this app to multiple family/business groups (e.g. "Nimantran", "MG"),
+  each getting their own login link and seeing only their own colonies — plus, for some
+  groups, a separate public read-only link for outsiders that shows plot status only
+  (booked/registered/available), never buyer name/phone/`_paise` fields.
+  **Feasibility confirmed, standard multi-tenant pattern:** an `organizations` table, colonies
+  and users scoped by `org_id`, Supabase Auth + RLS keyed to the *authenticated user's org*
+  — not the URL. The link itself is just a bookmark; isolation is enforced by RLS refusing
+  cross-org reads even if someone tries another group's link with their own (working)
+  credentials. Public links need a second, distinct mechanism: an unauthenticated role scoped
+  by a random unguessable token, reading a restricted Postgres *view* that never exposes PII
+  columns — enforced in the database, not filtered at the app layer.
+  **Hosting/pricing direction (provisional):** owner charges a one-time setup fee (₹20k) per
+  group and does not want recurring per-client billing eating into margin as groups scale
+  (worry: ₹500/month ≈ ₹6k/year compounding over 6-7 years). Actual workload is small (≤20
+  groups, 1-15 colonies each, 5-10 concurrent viewers) — this is a "avoid recurring bill"
+  business-model choice, not a Supabase capacity problem. Decided direction: stay on managed
+  Supabase (**Pro tier, ~₹2,000/month — not the free tier**, which auto-pauses after ~1 week
+  idle and would break a live client-facing app) through ramp-up, then migrate to
+  self-hosting the same open-source Supabase stack (Postgres + Auth + PostgREST + RLS — no
+  app code changes, same migrations) on an Oracle Cloud "Always Free" ARM VM (~$0/month)
+  once past ~5-6 groups or once cumulative Pro-tier spend exceeds the migration effort,
+  whichever comes first. Mitigate Oracle's free-tier-is-a-policy-not-a-contract risk with
+  automated off-VM `pg_dump` backups; a cheap paid VPS (Hetzner) is the fallback if Oracle
+  ever reclaims the instance.
+  **Not yet designed:** the actual `organizations`/users data model, RLS policy shapes, the
+  admin panel (who creates an org/user/link), and the public-link token mechanism. Owner
+  paused mid-conversation to ask further questions before this gets sketched.
+  **Verified:** documentation only, no code written.
+
+- **Next:** sketch the data model + auth flow (orgs, roles, RLS policies keyed to `org_id`,
+  admin-panel scope, public read-only token-link mechanism) once the owner's remaining
+  questions are answered — this is the queued next step for that thread.
+
+- **Local pipeline UI started, paused mid-session at owner's request (2026-08-27) — code
+  written, NOT verified, NOT committed. Resume here next session.** Second thread from the
+  same 2026-08-27 session: owner wants a local web page wrapping the whole DXF-in-hand
+  workflow (the standalone `tools/cad-lisp/*.py` pre-normalisation scripts, then
+  `make export`) so they can run it without Claude/tokens. Scoped with the owner first
+  (local web page, not a desktop GUI; wraps pre-normalisation scripts too, not export-only).
+  **What exists on disk, uncommitted:** `tools/pipeline/ui/server.py` (Flask app, `127.0.0.1`-
+  only per D-011 — a route per pre-normalisation script via subprocess into
+  `tools/cad-lisp/`, `check_layers`/`close_polygons`/`derive_site`/`fill_missing_labels`/
+  `fix_plot_label_dashes` all wired; export calls `orchestrate_export` directly, not
+  shelled out; every DXF path is checked to resolve inside `tools/pipeline/ui/uploads/`
+  before touching a subprocess); `tools/pipeline/ui/static/{index.html,ui.js,ui.css}` (plain
+  JS, no build step, same philosophy as `verify/`, D-114); success links straight into
+  `verify/index.html?colony=<id>` (verify.js already reads that query param, unmodified).
+  `tools/pipeline/pyproject.toml` gained `flask>=3.0`; both `Makefile`s gained a `ui` target
+  (`make ui`, delegates to `tools/pipeline`) marked **owner-run, not Claude** — same
+  "long-running servers are mine" rule as `serve` (`.claude/hooks/guard.sh`'s regex doesn't
+  literally match a bare `python server.py`, but the stated policy is broader than the
+  regex, so Claude has not started this server even once, briefly or otherwise);
+  `.gitignore` gained `tools/pipeline/ui/uploads/` (scratch, like `out/`).
+  **What's NOT done:** `make -C tools/pipeline verify` has not been re-run since the `flask`
+  dependency and new `ui/` code were added (ruff/mypy/pytest all unconfirmed against this
+  diff); `NAVIGATION.md`'s "Where do I change X?" table and the `tools/pipeline` narrative
+  section have no entry for `ui/` yet (an in-progress edit to add one was interrupted by the
+  owner's pause and not reapplied); the page itself has never been opened in a browser —
+  Claude cannot start the server to check (see above), so this needs a live owner pass
+  before it's trustworthy; no `git add`, nothing committed.
+  **Next:** re-run `make -C tools/pipeline verify` first (confirms the new dependency and
+  `ui/` code don't break the existing gate), then add the missing `NAVIGATION.md` entry,
+  then the owner runs `make ui` themselves and walks the real flow once against a real
+  working DXF before this is called done.
+
 - **Selection/label UI fixes, registered-plot recolour, a log-out button, and 5 new
   production login accounts (2026-08-25, Tier 3, `apps/map/src/components/map/*`,
   `apps/map/src/features/colony-picker/*`, `apps/map/src/App.tsx`,
@@ -1384,6 +1541,35 @@ on a real phone. Not verified by anyone: the five visual behaviours in `## Curre
   theme one, if wanted later.
 
 ## Deferred
+
+- **Local Supabase stack's default privilege grants now give `anon` direct EXECUTE on every
+  `security definer` function that uses the `revoke ... from public; grant ... to
+  authenticated;` pattern, breaking the `42501`-expecting anon-rejection tests (2026-08-29,
+  discovered while building docs/plans/20.md, not caused by it).** Confirmed environment-wide,
+  not specific to any one migration: `\df+` on `bulk_set_initial_plot_data` — a function this
+  session never touched, migrated back on 2026-08-16 — already shows `anon=X/postgres` in its
+  ACL today, and `src/lib/auth/rls.test.ts` (also untouched) fails the same way on
+  `apply_plot_transition` and `plot_history`'s RLS checks (`expected 'P0001'/undefined to be
+  '42501'`). The function still refuses the call (raises `not authenticated` from inside the
+  body, or RLS blocks the row), so nothing is actually insecure — but the tests were written to
+  prove the *grant itself* is absent, and that assumption no longer holds against this
+  environment's current default-privilege behaviour (a supabase-cli/Postgres local image
+  version drift is the likely cause, not confirmed). `createColonyFromManifest.test.ts`'s own
+  anon-rejection test now fails the same way, for the same pre-existing reason — this session's
+  two new tests for `select_zoom_ref_width_px`/`height_px` round-tripping pass cleanly and are
+  unaffected. **Not fixed** — would need investigating whether this repo's migrations should
+  start explicitly revoking from `anon` too (not just `public`), across every function that
+  uses this pattern (`apply_plot_transition`, `bulk_set_initial_plot_data`,
+  `create_colony_from_manifest`), which is a security-relevant, cross-cutting change bigger
+  than any one session's task and needs the owner's sign-off before touching grants repo-wide.
+- **`apps/map/src/components/map/useColonyCanvas.ts` was already 281 lines (31 over invariant
+  7's 250-line cap) before this session touched it (2026-08-29) — confirmed via `git show
+  HEAD:...`.** This session's own change (docs/plans/20.md) extracted the fly-to-plot effect
+  into a new `useFlyToSelectedPlot.ts` (mirroring the exact precedent `usePlotDimensions.ts`
+  already set, for the identical reason), which reduced it to 257 — still 7 over. Getting it
+  fully under 250 would mean also extracting the mount effect (~130 lines, unrelated to this
+  plan's actual task and riskier to split blind under time pressure) — left for its own,
+  dedicated pass rather than done speculatively inside this diff.
 
 - **Feature-label font size, once un-hidden, may read too small at typical zoom
   (docs/plans/19.md addendum, 2026-08-24).** `apps/map` now reads a feature-label's real DWG

@@ -104,6 +104,17 @@ test's docstring names a precondition (matched a ring, populated table, existing
 that precondition appears in the test *body*; and never accept "golden passed" here without
 `pytest -q -k golden` output showing what actually ran.**
 
+**10th recurrence, 2026-08-29 (plan 20).** The *new hook itself* had no test at all — only
+the pure function it calls. `view.test.ts` gained three `selectZoomFor` ratio tests, but
+`ls apps/map/src/components/map/*.test.ts` shows no `useFlyToSelectedPlot.test.ts`, and
+`grep -rl "setView\|SELECT_ZOOM" apps/map/src/**/*.test.*` returns nothing — so §3's
+pinned-as-"not optional" clamp (one zoom shared by `project`/`unproject`/`setView`) and both
+branches of the null/computed fallback were shipped unexercised. `ColonyMap.test.tsx` passes
+`null`/`null` in all three cases, so even the integration path never enters the new branch.
+**Rule: when a diff extracts an effect into a new hook file, grep for a test naming that
+hook, not just the pure helper it delegates to — pure-function coverage reads as coverage
+and is not.**
+
 **How to apply:** the local Supabase Docker stack is usually up
 (`docker exec supabase_db_colony-map psql -U postgres -d postgres -c "..."`). Postgres's
 `CONTEXT:` line names the exact failing SQL statement — one command settles it. For a

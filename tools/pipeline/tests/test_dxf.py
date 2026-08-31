@@ -26,6 +26,7 @@ _STANDARD_LAYERS = (
     "COL-WATER",
     "COL-FEATURE-NO",
     "COL-NORTH",
+    "COL-ZOOM-REF",
 )
 
 _CONFIG = ColonyConfig(

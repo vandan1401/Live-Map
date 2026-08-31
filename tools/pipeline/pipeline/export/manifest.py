@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from pipeline.export import feature_svg_id
-from pipeline.export.normalise import VIEWBOX_WIDTH_PX, Transform, apply_transform
+from pipeline.export.normalise import VIEWBOX_WIDTH_PX, Transform, apply_transform, ring_extent_px
 from pipeline.extract.types import ColonyConfig, Ring
 from pipeline.geom import area_sqft, centroid, simplify
 from pipeline.matching.assign import MatchedPlot
@@ -37,6 +37,7 @@ def build_manifest(
     north_deg: float,
     facings: Mapping[str, str],
     corners: Mapping[str, bool],
+    zoom_ref: Ring | None = None,
 ) -> dict[str, Any]:
     plots_out = []
     for plot in sorted(plots, key=lambda p: p.svg_id):
@@ -71,17 +72,25 @@ def build_manifest(
             }
         )
 
+    colony_out: dict[str, Any] = {
+        "id": config.id,
+        "name": config.name,
+        "viewbox": [0, 0, VIEWBOX_WIDTH_PX, round(t.height_px, 2)],
+        "scale": {"px_per_ft": round(t.scale, 4)},
+        "north_deg": north_deg,
+        "generated": datetime.now(tz=UTC).date().isoformat(),
+        "verified": False,  # D-108: no pipeline code path may ever write True
+        "source": dict(config.source),
+    }
+    if zoom_ref is not None:
+        width_px, height_px = ring_extent_px(t, zoom_ref)
+        colony_out["select_zoom"] = {
+            "ref_width_px": round(width_px, 2),
+            "ref_height_px": round(height_px, 2),
+        }
+
     return {
-        "colony": {
-            "id": config.id,
-            "name": config.name,
-            "viewbox": [0, 0, VIEWBOX_WIDTH_PX, round(t.height_px, 2)],
-            "scale": {"px_per_ft": round(t.scale, 4)},
-            "north_deg": north_deg,
-            "generated": datetime.now(tz=UTC).date().isoformat(),
-            "verified": False,  # D-108: no pipeline code path may ever write True
-            "source": dict(config.source),
-        },
+        "colony": colony_out,
         "plots": plots_out,
         "features": features_out,
     }

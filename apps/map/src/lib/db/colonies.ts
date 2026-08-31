@@ -51,6 +51,8 @@ export async function callCreateColonyFromManifest(
     svg: string;
     plots: ColonyManifestPlot[];
     replace: boolean;
+    zoomRefWidthPx?: number;
+    zoomRefHeightPx?: number;
   },
 ): Promise<CreateColonyResult> {
   const { data, error } = await client.rpc("create_colony_from_manifest", {
@@ -61,6 +63,8 @@ export async function callCreateColonyFromManifest(
     p_svg: args.svg,
     p_plots: args.plots,
     p_replace: args.replace,
+    p_zoom_ref_width_px: args.zoomRefWidthPx ?? null,
+    p_zoom_ref_height_px: args.zoomRefHeightPx ?? null,
   });
   if (error) throw new Error(`callCreateColonyFromManifest failed: ${error.message}`);
   const result = data as

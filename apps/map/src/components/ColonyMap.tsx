@@ -26,12 +26,25 @@ interface Props {
   // message instead of feeding an empty string to DOMParser (which would white-screen
   // the app the way the sixth bug in docs/plans/10.md did for an unrelated reason).
   colonySvg: string | null;
+  // The owner-drawn COL-ZOOM-REF rectangle's extent (docs/plans/20.md), from the same
+  // already-loaded colony row as colonySvg — no separate fetch. null means the colony has
+  // no such rectangle; useColonyCanvas then falls back to its fixed default zoom.
+  selectZoomRefWidthPx: number | null;
+  selectZoomRefHeightPx: number | null;
   // Returns to the colony picker (owner feedback, 2026-08-15 iPhone session: opening a
   // colony was previously one-way). App.tsx owns selectedColonyId and clears it here.
   onBack: () => void;
 }
 
-export function ColonyMap({ client, actor, colonyId, colonySvg, onBack }: Props) {
+export function ColonyMap({
+  client,
+  actor,
+  colonyId,
+  colonySvg,
+  selectZoomRefWidthPx,
+  selectZoomRefHeightPx,
+  onBack,
+}: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Sync/freshness state (M5, spec/05) — attachSync (lib/sync/) owns the subscription,
@@ -56,6 +69,8 @@ export function ColonyMap({ client, actor, colonyId, colonySvg, onBack }: Props)
     client,
     colonyId,
     colonySvg,
+    selectZoomRefWidthPx,
+    selectZoomRefHeightPx,
     selectedId,
     activeStatuses,
     onSelect: useCallback((svgId: string | null) => setSelectedId(svgId), []),

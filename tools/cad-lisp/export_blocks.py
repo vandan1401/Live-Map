@@ -59,6 +59,8 @@ def _parse_args() -> argparse.Namespace:
 
 def _write_preview(src: Drawing, entities: list, out_path: Path) -> None:
     doc = ezdxf.new(dxfversion=src.dxfversion)
+    doc.header["$INSUNITS"] = src.header.get("$INSUNITS", doc.header["$INSUNITS"])
+    doc.header["$MEASUREMENT"] = src.header.get("$MEASUREMENT", doc.header["$MEASUREMENT"])
     msp = doc.modelspace()
     skipped = 0
     for entity in entities:

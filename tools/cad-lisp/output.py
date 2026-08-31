@@ -50,6 +50,8 @@ def write_output(
     source_as_block: bool,
 ) -> None:
     doc = ezdxf.new(dxfversion=src.dxfversion)
+    doc.header["$INSUNITS"] = src.header.get("$INSUNITS", doc.header["$INSUNITS"])
+    doc.header["$MEASUREMENT"] = src.header.get("$MEASUREMENT", doc.header["$MEASUREMENT"])
     msp = doc.modelspace()
     layer_defs = (PLOT_DRAFT_LAYER, FLAGS_LAYER, MULTI_LAYER, MISSING_LAYER, UNCLOSED_LAYER, LABELS_LAYER)
     for name, color in layer_defs:

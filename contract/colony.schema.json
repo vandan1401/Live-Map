@@ -21,6 +21,14 @@
           "type": "object", "required": ["px_per_ft"],
           "properties": { "px_per_ft": { "type": "number", "exclusiveMinimum": 0 } }
         },
+        "select_zoom": {
+          "type": "object", "required": ["ref_width_px", "ref_height_px"],
+          "properties": {
+            "ref_width_px": { "type": "number", "exclusiveMinimum": 0 },
+            "ref_height_px": { "type": "number", "exclusiveMinimum": 0 }
+          },
+          "description": "Optional. Present only when the source DXF has a COL-ZOOM-REF rectangle. apps/map uses this to compute the click-to-focus zoom instead of a fixed default."
+        },
         "north_deg": { "type": "number", "minimum": 0, "exclusiveMaximum": 360 },
         "generated": { "type": "string", "format": "date" },
         "verified": {

@@ -1,0 +1,17 @@
+{
+  "id": "bharatkshetra",
+  "name": "Bharatkshetra",
+  "units": "ft",
+  "expected_plots": 70,
+  "blocks": ["E", "L"],
+  "default_block": null,
+  "number_width": 2,
+  "number_range": [1, 60],
+  "north_deg": null,
+  "source": {
+    "file": "bharatkshetra-working-web.dxf",
+    "revision": "working",
+    "plan_date": "2026-08-29",
+    "method": "dxf"
+  }
+}

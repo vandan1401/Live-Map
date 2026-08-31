@@ -54,6 +54,8 @@ describe("ColonyMap", () => {
         actor="test-actor"
         colonyId="shree-vatika-2"
         colonySvg={fixtureSvg}
+        selectZoomRefWidthPx={null}
+        selectZoomRefHeightPx={null}
         onBack={vi.fn()}
       />,
     );
@@ -67,6 +69,8 @@ describe("ColonyMap", () => {
         actor="test-actor"
         colonyId="shree-vatika-2"
         colonySvg={fixtureSvg}
+        selectZoomRefWidthPx={null}
+        selectZoomRefHeightPx={null}
         onBack={vi.fn()}
       />,
     );
@@ -81,6 +85,8 @@ describe("ColonyMap", () => {
         actor="test-actor"
         colonyId="shree-vatika-2"
         colonySvg={fixtureSvg}
+        selectZoomRefWidthPx={null}
+        selectZoomRefHeightPx={null}
         onBack={onBack}
       />,
     );

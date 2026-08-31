@@ -35,7 +35,8 @@ drag the `.lsp` file from Explorer onto the open drawing window.
 
 Run in roughly this order per colony:
 
-1. **`CV-LAYERS`** — creates the eight `COL-*` layers plus the three `CV-*`
+1. **`CV-LAYERS`** — creates the nine `COL-*` layers (including the optional
+   `COL-ZOOM-REF`, docs/plans/20.md) plus the three `CV-*`
    scratch layers, if they don't already exist. Safe to run any time.
 2. **`CV-MERGE`** — select the messy plot-outline geometry (window, crossing,
    or pick). Moves it onto `CV-MERGED` and runs AutoCAD's own `OVERKILL`
