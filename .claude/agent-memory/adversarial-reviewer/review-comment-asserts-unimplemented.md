@@ -81,6 +81,14 @@ Occurrences:
    merging several conditions, check each condition against what the constraint actually
    pins.** See [[review-error-vs-empty-conflation]].
 
+**9th recurrence, 2026-08-31 (plan 23, admin portal).** `admin-portal/server.ts`'s header
+comment: "Every mutating route does require `Content-Type: application/json`, a cheap CSRF
+mitigation." The check lives only inside `readJsonBody()`, and the two public-link routes
+(`POST`/`DELETE /api/colonies/:id/public-link`, lines 147/156) take no body and never call it
+— a cross-site simple-form POST reaches `regeneratePublicLink` unchecked. **When a security
+comment says "every route", enumerate the routes: the guard that lives in a body parser only
+covers routes that parse a body.**
+
 **How to apply:** for CSS especially, do the specificity/cascade arithmetic yourself rather
 than accepting a comment's claim about which rule wins — `!important` scoped to one selector
 says nothing about selectors it does not match. Related:

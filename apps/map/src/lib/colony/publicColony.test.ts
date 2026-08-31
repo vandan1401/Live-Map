@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from "vitest";
-import { loadPublicColony } from "./publicColony.ts";
+import { loadPublicColony, regeneratePublicLink, revokePublicLink } from "./publicColony.ts";
 import {
   createScratchOrg,
   createStatelessAnonClient,
@@ -62,21 +62,27 @@ async function scratchPublicColony(options: { verified: boolean }) {
   return { colonyId, svgId, token: (data as { public_token: string }).public_token };
 }
 
-describe("get_public_colony — live integration", () => {
-  afterAll(async () => {
-    if (createdColonyIds.length === 0) return;
-    const admin = serviceRoleClient();
-    // colonies/plots carry no DELETE grant for any client role by design (invariant 4) —
-    // service_role has it via BYPASSRLS, but matching this repo's existing convention
-    // (createColonyFromManifest.test.ts) of leaving scratch rows unverified rather than
-    // deleting them is enough: they simply never appear in any real list again.
-    const { error } = await admin
-      .from("colonies")
-      .update({ verified: false, public_token: null })
-      .in("id", createdColonyIds);
-    if (error) throw new Error(`cleanup failed to unverify scratch colonies: ${error.message}`);
-  });
+// File-scoped, not inside a single describe() — /review (2026-08-31) found the
+// regeneratePublicLink/revokePublicLink describe block below also pushes to
+// createdColonyIds, but a describe-scoped afterAll only runs once ITS OWN suite finishes;
+// with this hook nested inside the first describe, it ran (and cleared its job) before the
+// second describe's scratch colonies existed, leaving them permanently verified: true with
+// a live, resolving public_token.
+afterAll(async () => {
+  if (createdColonyIds.length === 0) return;
+  const admin = serviceRoleClient();
+  // colonies/plots carry no DELETE grant for any client role by design (invariant 4) —
+  // service_role has it via BYPASSRLS, but matching this repo's existing convention
+  // (createColonyFromManifest.test.ts) of leaving scratch rows unverified rather than
+  // deleting them is enough: they simply never appear in any real list again.
+  const { error } = await admin
+    .from("colonies")
+    .update({ verified: false, public_token: null })
+    .in("id", createdColonyIds);
+  if (error) throw new Error(`cleanup failed to unverify scratch colonies: ${error.message}`);
+});
 
+describe("get_public_colony — live integration", () => {
   it("returns colony + plot statuses for a real token, with no PII/money column anywhere", async () => {
     const { colonyId, svgId, token } = await scratchPublicColony({ verified: true });
     const anon = createStatelessAnonClient();
@@ -143,5 +149,52 @@ describe("get_public_colony — live integration", () => {
 
     const result = await loadPublicColony(anon, token);
     expect(result.found).toBe(true);
+  }, 15_000);
+});
+
+// docs/plans/23.md phase 3: regeneratePublicLink/revokePublicLink promoted out of
+// scripts/generate-public-link.ts — the admin portal's server.ts and the script are now
+// both callers of the same implementation.
+describe("regeneratePublicLink / revokePublicLink", () => {
+  it("regenerates a token that resolves through get_public_colony, then revoke stops it", async () => {
+    const { colonyId } = await scratchPublicColony({ verified: true });
+    const admin = serviceRoleClient();
+    const anon = createStatelessAnonClient();
+
+    const result = await regeneratePublicLink(admin, colonyId);
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error("unreachable");
+
+    expect((await loadPublicColony(anon, result.token)).found).toBe(true);
+
+    await revokePublicLink(admin, colonyId);
+    expect(await loadPublicColony(anon, result.token)).toEqual({ found: false });
+  }, 15_000);
+
+  it("returns colony_not_found for an unknown colony id, rather than throwing", async () => {
+    const admin = serviceRoleClient();
+    const result = await regeneratePublicLink(admin, "no-such-colony-id");
+    expect(result).toEqual({ ok: false, reason: "colony_not_found" });
+  });
+
+  it("regenerating overwrites the previous token, invalidating it", async () => {
+    const { colonyId } = await scratchPublicColony({ verified: true });
+    const admin = serviceRoleClient();
+    const anon = createStatelessAnonClient();
+
+    const first = await regeneratePublicLink(admin, colonyId);
+    const second = await regeneratePublicLink(admin, colonyId);
+    if (!first.ok || !second.ok) throw new Error("unreachable");
+    expect(first.token).not.toBe(second.token);
+
+    expect(await loadPublicColony(anon, first.token)).toEqual({ found: false });
+    expect((await loadPublicColony(anon, second.token)).found).toBe(true);
+  }, 15_000);
+
+  it("revoking an already-unlinked colony is a no-op, not an error", async () => {
+    const { colonyId } = await scratchPublicColony({ verified: true });
+    const admin = serviceRoleClient();
+    await expect(revokePublicLink(admin, colonyId)).resolves.toBeUndefined();
+    await expect(revokePublicLink(admin, colonyId)).resolves.toBeUndefined();
   }, 15_000);
 });

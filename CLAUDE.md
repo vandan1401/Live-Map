@@ -19,8 +19,9 @@ One repo, two halves, one contract between them.
 - `pnpm dev` (apps/map) may be run, including in the background, to serve the app for
   manual checks — Claude has no browser or device to test with, so a human still has to
   open the URL and look.
-- Never run: `make serve` (I run that — see `.claude/hooks/guard.sh`), `wrangler pages
-  deploy`, anything deleting a file under `tools/pipeline/out/`
+- Never run: `make serve`, `make ui`, `make admin-portal` (I run those — long-running
+  servers, see `.claude/hooks/guard.sh`), `wrangler pages deploy`, anything deleting a file
+  under `tools/pipeline/out/`
 - `supabase db reset` may be run by Claude (user's explicit instruction, 2026-08-12) —
   confirmed no remote project is linked (`supabase projects list` has no access token,
   no `.supabase` link folder), so it only ever touches the local Docker Postgres this

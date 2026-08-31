@@ -13,6 +13,13 @@ export type Facing =
   | "west"
   | "north-west";
 
+// docs/plans/23.md phase 3: the admin portal's own read/create surface for organizations.
+export interface OrganizationRow {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
 export interface ColonyInsert {
   id: string;
   // docs/plans/21.md phase 1: which organization owns this row. Service-role-path-only —

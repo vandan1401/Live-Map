@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Colony Viewer — Admin Portal</title>
+  <link rel="stylesheet" href="portal.css" />
+</head>
+<body>
+  <h1>Admin portal</h1>
+  <p class="hint">Local, owner-run tool — create organizations, add people, manage a colony's public link.</p>
+
+  <section>
+    <h2>Organizations</h2>
+    <form id="create-org-form">
+      <input type="text" id="new-org-name" placeholder="Organization name" required />
+      <button type="submit">Create organization</button>
+    </form>
+    <table id="org-table">
+      <thead><tr><th>Name</th><th>Id</th><th>Created</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Selected organization</h2>
+    <p>Selected: <span id="selected-org-name">none</span></p>
+
+    <h3>Users</h3>
+    <form id="create-user-form">
+      <input type="text" id="new-username" placeholder="username" required />
+      <input type="password" id="new-password" placeholder="password" required />
+      <input type="text" id="new-display-name" placeholder="Display Name" required />
+      <button type="submit">Create user</button>
+    </form>
+    <table id="user-table">
+      <thead><tr><th>Display name</th><th>Email</th><th>Reassign to</th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <h3>Colonies</h3>
+    <table id="colony-table">
+      <thead><tr><th>Name</th><th>Verified</th><th>Public link</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <p id="status-line"></p>
+
+  <script src="portal.js"></script>
+</body>
+</html>

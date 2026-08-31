@@ -123,6 +123,14 @@ Three checks that have each caught a real defect:
     **On any new layer/target/permission: grep the doc for the *count word* ("eight",
     "seven"), the numbered procedure, `cv-tools.lsp`'s `CV-LAYERS`, and `guard.sh`.**
 
+12. **2026-08-31 (plan 23).** Task I required the new `admin-portal` guard to cover a direct
+    invocation "so routing around the Makefile target does not bypass the guard." The rule
+    `(pnpm|npm run) admin-portal|tsx .*admin-portal/server\.ts` only matches the *adjacent*
+    form; `pnpm -C apps/map admin-portal` and `pnpm --dir=apps/map admin-portal` both exit 0
+    (probed). That is the natural form from the repo root, where no `admin-portal` script
+    exists. **Probe a new guard rule with the flag-carrying variant, not just the textbook
+    one.**
+
 **How to apply:** on any review that touches `CLAUDE.md`, `.claude/settings.json`, or a
 skill file, open `.claude/hooks/guard.sh` and `_json.sh` and check the greps in the same
 pass. This has now recurred ten times — worth a CLAUDE.md line or a guard.sh self-test.

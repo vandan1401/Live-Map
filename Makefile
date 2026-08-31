@@ -1,7 +1,7 @@
 # Root dispatcher. Targets are the interface — found by name, never by searching.
 # Real implementations land in M1; these are the names the skills and CLAUDE.md rely on.
 
-.PHONY: verify verify-map verify-pipe gate contract inspect ingest export serve ui db-start db-up db-restart db-reseed
+.PHONY: verify verify-map verify-pipe gate contract inspect ingest export serve ui admin-portal db-start db-up db-restart db-reseed
 
 verify: verify-map verify-pipe
 
@@ -84,3 +84,6 @@ serve:     ## I run this, not Claude — see .claude/hooks/guard.sh. Open http:/
 
 ui:        ## I run this, not Claude — same reason as serve. The pipeline UI (DXF -> export). Open http://127.0.0.1:5001/
 	$(MAKE) -C tools/pipeline ui
+
+admin-portal:  ## I run this, not Claude — same reason as serve/ui. docs/plans/23.md phase 3. Open http://127.0.0.1:5002/
+	cd apps/map && pnpm admin-portal

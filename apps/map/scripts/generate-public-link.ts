@@ -5,9 +5,8 @@
 // second script: `update colonies set public_token = null where id = '<id>';`.
 // Run via `pnpm generate-public-link <colony_id>`.
 
-import { randomUUID } from "node:crypto";
 import { createDbClient } from "../src/lib/db/client.ts";
-import { fetchColonyById } from "../src/lib/db/colonies.ts";
+import { regeneratePublicLink } from "../src/lib/colony/publicColony.ts";
 
 declare const process: NodeJS.Process & { loadEnvFile?: (path?: string) => void };
 try {
@@ -42,18 +41,12 @@ async function main() {
 
   const client = createDbClient(url, serviceRoleKey);
 
-  const existing = await fetchColonyById(client, colonyId);
-  if (!existing) {
+  const result = await regeneratePublicLink(client, colonyId);
+  if (!result.ok) {
     fail(`no colony with id "${colonyId}".`);
     return;
   }
-
-  const token = randomUUID();
-  const { error } = await client.from("colonies").update({ public_token: token }).eq("id", colonyId);
-  if (error) {
-    fail(`could not update colony: ${error.message}`);
-    return;
-  }
+  const { token } = result;
 
   console.log(`public link generated for colony "${colonyId}":`);
   console.log(`  token: ${token}`);

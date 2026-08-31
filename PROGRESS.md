@@ -2,6 +2,84 @@
 
 ## Current
 
+- **Multi-tenant SaaS conversion, phase 3 of 3: the admin portal (2026-08-31, Tier 1,
+  docs/plans/23.md, D-032).** Last of the three planned phases. Built a small local Node
+  tool — `apps/map/admin-portal/` (`server.ts` + `actions.ts` + a plain HTML/JS/CSS static
+  frontend, `node:http`, no new dependency) — covering the four actions docs/plans/21.md's
+  Non-goals named for this phase: create an organization, create a user, reassign a user's
+  org, generate/revoke a colony's public link. **Zero new migrations** — every table this
+  phase touches already existed from phases 1/2.
+  Reused rather than duplicated: `regeneratePublicLink`/`revokePublicLink` were promoted out
+  of `scripts/generate-public-link.ts`'s own inline logic into `lib/colony/publicColony.ts`,
+  so the script and the portal are now two callers of one implementation — the script's own
+  CLI behavior is unchanged. New `lib/db/organizations.ts` (`fetchOrganizations`/
+  `insertOrganization`) and `lib/db/colonies.ts`'s new `fetchColoniesByOrg` follow the
+  existing "`.from()` only in `lib/db`" rule; user-management (`createOrgUser`/
+  `reassignUserOrg`/`listOrgUsers`) calls `client.auth.admin.*` directly inside the portal's
+  own `actions.ts`, matching `create-user.ts`'s own precedent for that API surface.
+  **Same posture as `tools/pipeline/ui/` (D-032):** local-only, `127.0.0.1`-bound, no login
+  layer (the service-role key is already the real gate), never started by Claude — the
+  guard hook blocks `make admin-portal`, every `pnpm`/`npm run admin-portal` form (including
+  `-C`/`--dir=` routing), and a direct `tsx admin-portal/server.ts` invocation; `CLAUDE.md`'s
+  "Never run" list now also names `make ui` (a gap left over from 2026-08-30's session that
+  added the guard rule but never updated this prose list — closed here since this plan was
+  already touching the same list). Every mutating route requires
+  `Content-Type: application/json`, a cheap real CSRF mitigation given this tool creates
+  accounts and reassigns org membership.
+  **`/review` (2026-08-31) found 5 issues, all fixed same session:** (1) **real gap** — the
+  CSRF content-type check lived only inside the JSON-body-parsing helper, which the two
+  body-less public-link routes never called, leaving them unprotected despite the file's own
+  header comment claiming otherwise; fixed by hoisting the check to run for every non-GET
+  request before any route dispatches. (2) **real bug** — the new
+  `regeneratePublicLink`/`revokePublicLink` tests' scratch colonies were pushed into the same
+  `createdColonyIds` array as an existing describe block's `afterAll` cleanup, but that
+  `afterAll` was scoped *inside* the first `describe`, so it ran (and emptied its job) before
+  the second describe's colonies existed — they leaked, staying `verified: true` with a live
+  public link permanently; fixed by hoisting the `afterAll` to file scope. (3) **plan/reality
+  drift** — see Surprises below; docs/plans/23.md corrected in place rather than left
+  silently wrong. (4) **real gap** — the guard-hook regex for blocking direct
+  `pnpm admin-portal` invocation didn't cover `pnpm -C apps/map admin-portal` or
+  `pnpm --dir=apps/map admin-portal`, both natural ways to route around a `cd`; fixed, then
+  the fix's own first draft over-matched (blocked innocuous commands like
+  `pnpm exec vitest run admin-portal/actions.test.ts` because "admin-portal" appeared
+  anywhere later in the string) — caught by actually running the corrected regex against
+  real commands before trusting it, not by reading it. (5) org names were interpolated into
+  `innerHTML` in the static frontend (an org name containing `<`/`>`/`"` would mangle the
+  table row and the reassign dropdown); fixed with `textContent`/`createElement`, matching
+  every other row-builder in the same file.
+  **Verified:** `mingw32-make gate` from repo root — contract 4/4; `apps/map` typecheck/
+  lint/build clean; `dist/` grepped clean of any `admin-portal` reference (confirms the tool
+  never reaches the shipped bundle); `pnpm exec vitest run --no-file-parallelism` 216/220 (4
+  pre-existing failures, the same documented anon-privilege-grant drift, not this diff — the
+  full-parallel `make gate` run additionally hit the documented `subscribePlots.test.ts`
+  live-DB flake, confirmed unrelated by the isolated rerun coming back clean of it);
+  `tools/pipeline` byte-identical to baseline (129/1 skipped, golden passed).
+  `generate-public-link.ts` re-run for real against the local Docker stack after its refactor
+  (fails loud on an unknown id, succeeds on a real one, reverted after) — its behavior is
+  unchanged. The guard-hook rule was tested directly against every known invocation form
+  (`make admin-portal`, `pnpm admin-portal`, `pnpm -C .../--dir=... admin-portal`,
+  `npm run admin-portal`, direct `tsx .../server.ts`) — all blocked (exit 2) — and against
+  unrelated commands (`make ingest ...`, `pnpm exec vitest run admin-portal/actions.test.ts`)
+  — both pass through (exit 0).
+  **Not run, and not achievable from Claude by design:** the server itself has never been
+  started or exercised via real HTTP requests — the guard rule this plan itself requires
+  blocks every way to start it, the same "Claude has no way to do this" gap
+  `tools/pipeline/ui/` already has open (PROGRESS.md 2026-08-30). Every route's underlying
+  action function has its own live-integration test (task K), but the HTTP routing layer
+  (`server.ts`) itself is only typechecked/linted, never run. **Not run, tracked
+  separately:** applying anything to the production Supabase project — this tool becomes
+  usable against production only with the owner's go-ahead, same posture as phases 1/2.
+
+- **Next:** owner runs `make admin-portal` and walks the real flow once (create an org →
+  create a user in it → reassign them to a second org → generate a colony's public link →
+  revoke it) via a browser at `http://127.0.0.1:5002/` before this is trustworthy — same
+  "needs a live owner pass" status `tools/pipeline/ui/` still carries. This closes out the
+  three-phase multi-tenant SaaS conversion (docs/plans/21.md/22.md/23.md) at the code level;
+  all three migrations are still local-only — the owner's go-ahead is needed before any of
+  them go to production, paired with the session-invalidation step phase 1's entry below
+  documents. Separately, still open: the anon-privilege-grant environment drift (Deferred)
+  and the owner's live click-to-focus-zoom check from docs/plans/20.md.
+
 - **Multi-tenant SaaS conversion, phase 2 of 3: the public per-colony read-only link
   (2026-08-31, Tier 1, docs/plans/22.md, D-031).** Built on phase 1's data model
   (docs/plans/21.md, below): a nullable `colonies.public_token uuid unique`
@@ -571,6 +649,37 @@
   feature-labels yet, so this is latent, not live).
 
 ## Log
+
+### 2026-08-31 — Multi-tenant SaaS conversion, phase 3 of 3: admin portal (Tier 1, docs/plans/23.md, D-032)
+
+**Done:** Built the admin portal — a local-only Node `http` server + plain HTML/JS/CSS
+frontend covering org creation, user creation, user org-reassignment, and colony
+public-link generate/revoke. Zero new migrations. Promoted `regeneratePublicLink`/
+`revokePublicLink` out of `generate-public-link.ts` into `lib/colony/publicColony.ts` so
+the script and portal share one implementation. Guard-hook-blocked from Claude the same way
+`make ui`/`make serve` already are. `/review` found and fixed 5 issues: a CSRF check gap on
+two body-less routes, a test-cleanup scoping bug that leaked scratch colonies, a
+guard-regex bypass (`pnpm -C .../--dir=...`) whose first fix over-matched innocuous
+commands, and an `innerHTML` injection risk in the static frontend.
+
+**Next:** owner runs `make admin-portal` and walks the real flow once — this closes out the
+three-phase SaaS conversion at the code level; all three migrations are still local-only.
+
+**Surprises:** The plan assumed, by analogy to phase 1's raw-SQL `||` backfill bug, that
+Supabase's Admin API would blindly overwrite `app_metadata` on `updateUserById` the way a
+naive SQL `update` would. Measured directly against local Supabase (twice — once during
+build, again independently during `/review`): it doesn't. GoTrue's Admin API already merges
+`app_metadata` server-side. The plan's "fails red against a naive overwrite" acceptance
+criterion was tested once, found unmeetable, and corrected in the plan file rather than left
+silently wrong — the fetch-then-merge implementation was kept anyway as defense in depth.
+
+**Verified:** `mingw32-make gate` — contract 4/4; `apps/map` typecheck/lint/build clean;
+`dist/` grepped clean of `admin-portal`; `pnpm exec vitest run --no-file-parallelism`
+216/220 (4 pre-existing failures, same documented drift); `tools/pipeline` byte-identical
+to baseline. `generate-public-link.ts` re-run for real post-refactor. Guard-hook rule
+tested against every known invocation form (blocked) and unrelated commands (passed
+through). Not run, not achievable from Claude by design: starting the server itself and
+exercising it via real HTTP requests — see `## Current`.
 
 ### 2026-08-31 — Multi-tenant SaaS conversion, phase 2 of 3: public colony link (Tier 1, docs/plans/22.md, D-031)
 

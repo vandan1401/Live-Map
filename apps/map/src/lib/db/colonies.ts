@@ -42,6 +42,22 @@ export async function fetchVerifiedColonies(client: SupabaseClient): Promise<Col
   return (data as ColonyRow[] | null) ?? [];
 }
 
+// docs/plans/23.md phase 3: the admin portal's colony list for one organization — includes
+// unverified colonies too (unlike fetchVerifiedColonies above), since the portal's operator
+// is an admin managing the org, not a viewer of the live map.
+export async function fetchColoniesByOrg(
+  client: SupabaseClient,
+  orgId: string,
+): Promise<ColonyRow[]> {
+  const { data, error } = await client
+    .from("colonies")
+    .select("*")
+    .eq("org_id", orgId)
+    .order("name");
+  if (error) throw new Error(`fetchColoniesByOrg failed: ${error.message}`);
+  return (data as ColonyRow[] | null) ?? [];
+}
+
 // The only place create_colony_from_manifest() is called (docs/plans/11.md, D-025) — the
 // only place `.rpc("create_colony_from_manifest", ...)` may appear (NAVIGATION.md's
 // "supabase.from/.rpc only in lib/db/" rule). Domain shaping (manifest -> args) happens

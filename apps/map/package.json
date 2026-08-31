@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "import:seed": "tsx scripts/import-seed.ts",
     "create-user": "tsx scripts/create-user.ts",
-    "generate-public-link": "tsx scripts/generate-public-link.ts"
+    "generate-public-link": "tsx scripts/generate-public-link.ts",
+    "admin-portal": "tsx admin-portal/server.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

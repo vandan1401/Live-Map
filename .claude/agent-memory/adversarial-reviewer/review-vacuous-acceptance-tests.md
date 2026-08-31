@@ -129,6 +129,16 @@ that `update`s or `delete`s an existing table, list that table's triggers
 accepting a green gate — and treat "the local gate passed" as saying nothing at all about
 the pre-existing-data path.** Related: [[review-migration-empty-db-blind-spot]].
 
+**12th recurrence, 2026-08-31 (plan 23, admin portal).** Plan 23 made one test
+"acceptance-critical": `reassignUserOrg` must be "written to fail red against a naive
+`{ app_metadata: { org_id } }` overwrite." I probed GoTrue directly
+(`PUT /auth/v1/admin/users/<id>` with only `org_id`) — **GoTrue merges `app_metadata`
+server-side; `display_name` survives a bare overwrite.** So the test passes under either
+implementation and can never go red; the deviation was recorded only in a source comment in
+`admin-portal/actions.ts`, while `docs/plans/23.md` §3/§5 still assert the old assumption.
+**When a plan names one test as the correctness proof, run the naive implementation's path
+against the real service before accepting the test as discriminating.**
+
 **How to apply:** the local Supabase Docker stack is usually up
 (`docker exec supabase_db_colony-map psql -U postgres -d postgres -c "..."`). Postgres's
 `CONTEXT:` line names the exact failing SQL statement — one command settles it. For a

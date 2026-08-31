@@ -48,6 +48,17 @@ on a colony `createScratchPlot` deliberately created `verified: false`, and that
 inserts.** Same diff's new `publicColony.test.ts` did get the teardown right but swallowed its
 error (`createColonyFromManifest.test.ts:70` throws on cleanup failure — copy that).
 
+**5th recurrence, 2026-08-31 (plan 23, admin portal).** A *correct* teardown existed and
+still did not cover the new tests: `publicColony.test.ts`'s `afterAll` (unverify +
+`public_token: null`) is registered **inside** `describe("get_public_colony — live
+integration")` at line 66, and the diff appended a second top-level
+`describe("regeneratePublicLink / revokePublicLink")` at line 152 that pushes to the same
+`createdColonyIds`. Vitest runs a suite's `afterAll` when *that suite* ends, so the three new
+`scratchPublicColony({ verified: true })` colonies are created after cleanup already ran — one
+keeps a live `public_token`. **Check the *scope* of the teardown hook, not just its
+existence: a new top-level `describe` in a file whose `afterAll` sits inside the old one gets
+no cleanup at all.** Fix is one move: hoist the `afterAll` to file scope.
+
 **How to apply:** grep every new `insertColony(` in a `*.test.ts` for `verified: true` — the
 default must be `false`. The fix that fits this schema is not `delete` (not granted) — it is
 either leaving the scratch row `verified: false` and flipping it true only for the assertion,

@@ -21,6 +21,8 @@ echo "$CMD" | grep -qE '(npm|pnpm|yarn|bun) run dev' && block "I run the dev ser
 echo "$CMD" | grep -qE 'next dev|vite( |$)|nodemon'   && block "I run the dev server in a separate terminal."
 echo "$CMD" | grep -qE 'python3? -m http\.server|make serve' && block "I serve the verify page in a separate terminal."
 echo "$CMD" | grep -qE '(^|[; &|])make ui([ ;&|]|$)' && block "the local pipeline UI is a long-running server too — I run it in a separate terminal, same as make serve."
+echo "$CMD" | grep -qE '(^|[; &|])make admin-portal([ ;&|]|$)' && block "the admin portal is a long-running server too — I run it in a separate terminal, same as make serve/ui."
+echo "$CMD" | grep -qE '(^|[; &|])(pnpm|npm)( -C +[^ ;&|]+| --dir=[^ ;&|]+)? +(run +)?admin-portal([ ;&|]|$)|tsx .*admin-portal/server\.ts' && block "the admin portal is a long-running server — I run it in a separate terminal, same as make serve/ui. See docs/plans/23.md."
 
 # Irreversible.
 echo "$CMD" | grep -qE 'rm +-[a-zA-Z]*[rf]'      && block "recursive/forced delete. Do it yourself if you mean it."
