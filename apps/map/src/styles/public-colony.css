@@ -44,3 +44,54 @@
   flex: 1;
   min-height: 0;
 }
+
+/* docs/plans/25.md: dimensions-on-click panel. Field layout/wording mirrors
+ * plot-detail-sheet.css's .plot-detail-fields exactly — the same fact, the same look,
+ * whether you're signed in or a public visitor. */
+.public-colony-plot-panel {
+  position: fixed;
+  left: 1rem;
+  right: 1rem;
+  bottom: 1rem;
+  max-width: 22rem;
+  margin: 0 auto;
+  background: #ffffff;
+  border-radius: 0.75rem;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.18);
+  padding: 1rem 1.25rem;
+}
+
+.public-colony-plot-panel-close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.75rem;
+  font-size: 1.1rem;
+  line-height: 1;
+  color: var(--colony-site-boundary);
+  background: none;
+  border: none;
+  padding: 0.25rem;
+}
+
+.public-colony-plot-panel-heading {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+
+.public-colony-plot-panel-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0.5rem 1rem;
+  margin: 0;
+}
+
+.public-colony-plot-panel-fields dt {
+  font-size: 0.7rem;
+  color: var(--colony-site-boundary);
+}
+
+.public-colony-plot-panel-fields dd {
+  margin: 0;
+  font-size: 0.9rem;
+}

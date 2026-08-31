@@ -1,4 +1,5 @@
 import type { ColonyModel, PlotShape } from "./colonyModel.ts";
+import { screenToWorld, type ViewState, type Viewport } from "./view.ts";
 
 // Which plot is under this point? Replaces DOM hit-testing, which disappears with the SVG
 // (docs/plans/18.md). Measured at 0.028 ms/click across 675 plots — four orders of
@@ -32,4 +33,19 @@ export function pickPlotAt(model: ColonyModel, x: number, y: number): PlotShape 
     if (pointInRing(plot.points, x, y)) return plot;
   }
   return null;
+}
+
+// docs/plans/25.md: the pure glue renderColonyPreview.ts's click listener needs — a
+// canvas-relative pixel coordinate in, the PlotShape under it (or null) out. Composed of
+// screenToWorld (view.ts) then pickPlotAt above, nothing else — kept here rather than
+// inlined in the DOM-facing renderer so it stays directly unit-testable without a canvas.
+export function resolveClickedPlot(
+  model: ColonyModel,
+  view: ViewState,
+  viewport: Viewport,
+  px: number,
+  py: number,
+): PlotShape | null {
+  const [x, y] = screenToWorld(view, viewport, px, py);
+  return pickPlotAt(model, x, y);
 }

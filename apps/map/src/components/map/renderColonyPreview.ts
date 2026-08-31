@@ -1,8 +1,9 @@
-import { parseColonyModel } from "./colonyModel.ts";
+import { parseColonyModel, type PlotShape } from "./colonyModel.ts";
 import { resolveColonyTheme } from "./colonyTheme.ts";
 import { buildGrassPattern, buildRoadEdgePattern, buildRoadPattern } from "./canvasPatterns.ts";
 import { drawColony } from "./drawColony.ts";
-import { fitView } from "./view.ts";
+import { fitView, type ViewState, type Viewport } from "./view.ts";
+import { resolveClickedPlot } from "./plotPicker.ts";
 import grassPhotoUrl from "../../assets/textures/grass-satellite.jpg";
 
 // A still, non-interactive render of a colony, used by the upload screen's confirmation
@@ -19,11 +20,18 @@ import grassPhotoUrl from "../../assets/textures/grass-satellite.jpg";
 // upload-confirmation call site (ColonyUploadScreen.tsx) passes only (container, svg), so
 // its rendered output is unchanged (invariant 2/D-025 — this function is the one place
 // that renders what that upload gate's human confirmation judges).
+//
+// docs/plans/25.md added the optional `onPlotClick` param the same way: omitted entirely by
+// the upload-confirmation call site, so no listener is attached there at all — not just a
+// no-op handler. When provided (PublicColonyView.tsx), it fires with the clicked PlotShape
+// on a hit, and with `null` on a miss (tapped empty space) so the caller can dismiss
+// whatever it was showing — a single callback covering both, rather than two.
 
 export function renderColonyPreview(
   container: HTMLElement,
   svg: string,
   statuses?: Record<string, string>,
+  onPlotClick?: (plot: PlotShape | null) => void,
 ): () => void {
   const model = parseColonyModel(svg);
   const theme = resolveColonyTheme();
@@ -33,6 +41,10 @@ export function renderColonyPreview(
   container.appendChild(canvas);
 
   let cancelled = false;
+  // Updated by every paint() so a click listener added once (below) always converts
+  // against the latest layout, not whatever the container measured at mount.
+  let latestView: ViewState | null = null;
+  let latestViewport: Viewport | null = null;
 
   const paint = (grassImage: HTMLImageElement | null) => {
     if (cancelled || !container.isConnected) return;
@@ -47,13 +59,18 @@ export function renderColonyPreview(
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
 
+    const viewport = { width, height };
+    const view = fitView(model, viewport);
+    latestView = view;
+    latestViewport = viewport;
+
     const ctx = canvas.getContext("2d");
     // jsdom has no canvas backend; the upload tests assert on parse/validation messages,
-    // not pixels, so a missing context is skipped rather than thrown.
+    // not pixels, so a missing context is skipped rather than thrown. view/viewport above
+    // are computed before this check on purpose — task D's click listener still needs them
+    // under jsdom, where ctx is always null (PublicColonyView.test.tsx, docs/plans/25.md).
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-    const viewport = { width, height };
     // Every plot renders in its available colour when no real statuses were supplied: the
     // manifest being verified has no statuses yet, and showing them all as "unknown" would
     // make the human confirm a map that looks nothing like the one they will get.
@@ -62,7 +79,7 @@ export function renderColonyPreview(
       for (const plot of model.plots) resolvedStatuses[plot.id] = "available";
     }
 
-    drawColony(ctx, model, fitView(model, viewport), viewport, theme, {
+    drawColony(ctx, model, view, viewport, theme, {
       statuses: resolvedStatuses,
       selectedId: null,
       activeStatuses: new Set<string>(),
@@ -85,6 +102,19 @@ export function renderColonyPreview(
   img.src = grassPhotoUrl;
   // Paint immediately too, so the preview is never blank while the texture decodes.
   paint(null);
+
+  // docs/plans/25.md: attached once, not per-paint — omitted entirely when onPlotClick is
+  // not supplied, so the upload-confirmation call site (two args) gets no listener at all,
+  // not just one that never fires.
+  if (onPlotClick) {
+    canvas.addEventListener("click", (event) => {
+      if (!latestView || !latestViewport) return;
+      const rect = canvas.getBoundingClientRect();
+      const px = event.clientX - rect.left;
+      const py = event.clientY - rect.top;
+      onPlotClick(resolveClickedPlot(model, latestView, latestViewport, px, py));
+    });
+  }
 
   return () => {
     cancelled = true;

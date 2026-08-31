@@ -2,6 +2,56 @@
 
 ## Current
 
+- **Public colony link: plot dimensions on click (2026-09-01, Tier 1, docs/plans/25.md).**
+  Owner's ask: "in the public link it should atleast show the size of plot the dimension of
+  all the sides when clicked it is not showing currently." `get_public_colony`
+  (`20260901000000_m19_public_link_dimensions.sql`) now returns `block`/`number`/
+  `area_sqft`/`length_ft`/`breadth_ft` per plot alongside the existing `svg_id`/`status` —
+  still an explicit, hand-written column list, still zero PII/money fields. New pure
+  `resolveClickedPlot(model, view, viewport, px, py)` (`components/map/plotPicker.ts`,
+  `screenToWorld` + `pickPlotAt` composed) backs a new optional `onPlotClick` parameter on
+  `renderColonyPreview` — omitted entirely (not just a no-op) at the upload-confirmation
+  call site, so that invariant-2/D-025 gate is provably unaffected.
+  `PublicColonyView.tsx` shows a dismissible panel on click with the same
+  `formatPlotLabel`/Length/Breadth/Area wording `PlotDetailContent.tsx` already uses for a
+  signed-in family member — no owner name, no status action, nothing else from the
+  authenticated flow. No selection highlight on the canvas itself (still a "paint once"
+  render, not a live re-render loop).
+  **`/review` found 5 issues, all fixed same session:** (1) **real gap** — no `## Deferred`
+  entry tracked that production still needs this migration, and `fetchPublicColony`'s
+  unchecked `as PublicColonyResult` cast means deploying this code before applying it would
+  silently render a blank heading and `" ft"`/`" ft"`/`" sq ft"` on a live public link, no
+  error anywhere; added, with an explicit "DB first" ordering note. (2) **real test gap** —
+  every plot in the shared fixture is an axis-aligned rectangle, so nothing ever exercised
+  `pickPlotAt`'s bbox-passes/ring-fails path; the test comment claiming otherwise was
+  factually wrong. Added a synthetic L-shaped model test proving a bbox-inside/ring-outside
+  point resolves to `null`. (3) **real test-methodology gap** — the original
+  `resolveClickedPlot` test derived its expected screen pixels via `worldToScreen`,
+  `screenToWorld`'s own exact algebraic inverse, so a consistent bug in both would have
+  passed either way; replaced with literal pinned pixel values against a 1:1 viewport/model
+  pair, verifiable by eye against `drawColony.ts`'s own transform. (4) a code comment cited
+  a test file (`renderColonyPreview.test.ts`) that doesn't exist — corrected to the file
+  that actually covers it (`PublicColonyView.test.tsx`). (5) the new migration's
+  `create or replace function` silently dropped two load-bearing rationale comments from
+  M17's body (why `verified`/`svg is not null` are checked independently; why no `org_id`
+  check exists on this one RPC) — `create or replace` makes the new file the definition a
+  later editor reads, so both were carried forward into M19's own body.
+  **Verified:** `mingw32-make gate`-equivalent (contract 4/4; `apps/map` typecheck/lint/
+  build clean; `tools/pipeline` byte-identical, 129/1 skipped); `pnpm exec vitest run
+  --no-file-parallelism` 226/231 (4 pre-existing failures, same documented drift, not this
+  diff — full-parallel run additionally hit the documented `subscribePlots` flake,
+  unrelated); the new `PublicColonyView.test.tsx` genuinely exercises the real click
+  pipeline end to end (a real canvas click event → real coordinate math → real panel
+  render), not a mocked callback — confirmed by reading the test, not assumed.
+  **Not run, tracked separately (see `## Deferred`):** applying this migration to
+  production — must happen *before* this session's code is pushed, not after, or a clicked
+  plot on the live public link renders blank fields with no error. Also not achievable from
+  Claude: an actual live-browser click check once deployed.
+
+- **Next:** owner applies `20260901000000_m19_public_link_dimensions.sql` to production
+  (before pushing this session's code — see `## Deferred`), then confirms the click-to-see-
+  dimensions UX live on a real public link.
+
 - **"Copy share link" added to the home-screen colony picker (2026-09-01, Tier 3, no
   migration, no new RPC).** Owner's ask ("generate link and share public link should also
   be available on the user/colony owner's portal") turned out, on clarification, to be
@@ -749,6 +799,32 @@
   feature-labels yet, so this is latent, not live).
 
 ## Log
+
+### 2026-09-01 — Public colony link: plot dimensions on click (Tier 1, docs/plans/25.md)
+
+**Done:** `get_public_colony` now returns block/number/area_sqft/length_ft/breadth_ft per
+plot (still an explicit column list, still zero PII/money). New pure `resolveClickedPlot`
+backs an optional `onPlotClick` on `renderColonyPreview` (omitted, not no-op, at the
+upload-confirmation call site). `PublicColonyView.tsx` shows a dismissible dimensions panel
+on click, reusing `PlotDetailContent.tsx`'s exact wording. `/review` found and fixed 5
+issues: a missing production-tracking Deferred entry (with a real silent-failure risk if
+deployed before the DB), a test that never exercised the bbox-vs-ring path, a test that
+composed a function with its own algebraic inverse (proving nothing), a stale test-file
+citation, and two load-bearing rationale comments the `create or replace` silently dropped
+from M17's body.
+
+**Next:** owner applies the new migration to production *before* pushing this session's
+code (deploying first would silently blank the dimension fields on the live public link),
+then does a live browser check of the click UX.
+
+**Surprises:** none in the mechanism — every fixture plot being an axis-aligned rectangle
+(finding #2) was a genuine test-coverage gap, not something the plan could have predicted
+without already knowing the fixture's own geometry.
+
+**Verified:** typecheck/lint/build clean; `pnpm exec vitest run --no-file-parallelism`
+226/231 (4 pre-existing failures + the documented `subscribePlots` flake, neither this
+diff); `tools/pipeline` byte-identical (129/1 skipped); the new component test exercises a
+real canvas click through real coordinate math, not a mocked callback.
 
 ### 2026-08-31 — Production Supabase caught up: zoom-ref + org isolation + public link (owner-run, no code change)
 
@@ -2081,6 +2157,47 @@ on a real phone. Not verified by anyone: the five visual behaviours in `## Curre
   theme one, if wanted later.
 
 ## Deferred
+
+- **`20260901000000_m19_public_link_dimensions.sql` (docs/plans/25.md — dimensions on click
+  for the public link) has only been applied to the local Docker Supabase, not to the real
+  production Supabase project.** Same posture as every migration in this session before it
+  (M16/M17/M18): needs the owner's explicit go-ahead. Until applied, production's
+  `get_public_colony` keeps returning only `svg_id`/`status` per plot — `PublicColonyResult`
+  (`apps/map/src/lib/db/types.ts`) declares the five new fields as required, non-optional,
+  and `fetchPublicColony` (`lib/db/colonies.ts:111`) returns the RPC's response via an
+  unchecked `as PublicColonyResult` cast with no runtime shape validation — so if this
+  session's code deploys before this migration is applied, a clicked plot on the live
+  public link would render a blank heading and `" ft"`/`" ft"`/`" sq ft"` with no error
+  anywhere (`/review`, 2026-09-01). Apply this migration to production *before* pushing
+  this session's code, not after — same "DB first" ordering already established for
+  M16/M17.
+
+- **`colonies.id` is a global `text primary key`, not org-scoped — two different
+  organizations can never have a colony sharing the same id (2026-09-01, found by the owner
+  hitting it directly: uploading `jai-dev-residency` into the new "Indravardhan Moonat" org
+  failed with `colony_exists`, even though that id already belongs to a different org
+  entirely).** Root cause: `20260812120000_m2_schema.sql`'s `colonies.id text primary key`
+  predates multi-tenancy (D-030) and was never revisited when `org_id` was added —
+  `create_colony_from_manifest`'s fresh-insert existence check
+  (`select exists(select 1 from colonies where id = p_colony_id)`) has no `org_id` in it at
+  all. `plots.colony_id text references colonies(id)` inherits the same global-uniqueness
+  assumption.
+  **Two fix shapes, discussed with the owner but not chosen yet:** (A) a new surrogate
+  `uuid` primary key on `colonies`, demoting `id` to a plain `unique(org_id, id)` column —
+  relationally cleanest, but touches every RPC/TypeScript call site that currently treats
+  the text `id` as *the* colony identifier, plus arguably `contract/colony.schema.json` on
+  the pipeline side. (B, **recommended**) a composite primary key `(org_id, id)` on
+  `colonies`, with `plots`/`plot_history`'s FKs becoming composite too (they already carry
+  `org_id` from phase 1, so no new column needed) — same identifier shape everywhere
+  (URLs, types, RPC args unchanged), smaller diff, but any **service-role** lookup that
+  queries `colonies` by bare `id` (bypassing RLS, which is what keeps a normal authenticated
+  query unambiguous today) becomes ambiguous once two orgs can share an id —
+  `scripts/generate-public-link.ts <colony_id>` is the concrete example that would need a
+  disambiguating argument.
+  **Owner's explicit call: plan this later, not now** — do not start on it without being
+  asked again. Immediate workaround if testing the org flow before this is fixed: give a
+  test upload a distinct id (e.g. `jai-dev-residency-2`) rather than reusing an id that
+  exists in another org.
 
 - ~~**The `20260829000000_select_zoom_ref.sql` migration has only been applied to the local
   Docker Supabase... not to the real production Supabase project...**~~ **Resolved

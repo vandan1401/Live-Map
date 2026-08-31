@@ -89,6 +89,17 @@ mitigation." The check lives only inside `readJsonBody()`, and the two public-li
 comment says "every route", enumerate the routes: the guard that lives in a body parser only
 covers routes that parse a body.**
 
+**10th recurrence, 2026-09-01 (plan 25, dimensions on public link) — two in one diff, both
+citing evidence that does not exist.** (a) `colonyModel.test.ts`'s `resolveClickedPlot`
+header: "every fixture plot here has a real, not-necessarily-rectangular ring" — all 26
+`class="plot"` paths in `fixtures/shree-vatika-2/colony.svg` are axis-aligned
+`M… H… V… H… Z` rectangles (checked with a regex over the file), so the comment is what
+excuses the missing bbox-vs-ring case. (b) `renderColonyPreview.ts`'s new comment cites
+"(renderColonyPreview.test.ts…)" as the proof its `view`/`viewport` hoist is exercised under
+jsdom — **no such file exists** in `apps/map/src/components/map/`. **When a comment names a
+fixture property or a test file as its justification, verify the fixture (parse it, don't
+eyeball it) and `ls` the file.**
+
 **How to apply:** for CSS especially, do the specificity/cascade arithmetic yourself rather
 than accepting a comment's claim about which rule wins — `!important` scoped to one selector
 says nothing about selectors it does not match. Related:

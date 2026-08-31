@@ -139,6 +139,17 @@ implementation and can never go red; the deviation was recorded only in a source
 **When a plan names one test as the correctness proof, run the naive implementation's path
 against the real service before accepting the test as discriminating.**
 
+**13th recurrence, 2026-09-01 (plan 25).** A round-trip through the function's own inverse.
+`colonyModel.test.ts::resolveClickedPlot` starts from a plot centroid, maps it with
+`worldToScreen`, then asserts `resolveClickedPlot` (which calls `screenToWorld`) picks that
+plot. The two are exact algebraic inverses, so any consistent error in both (a y-flip, a
+swapped centre) still passes — the test's own comment claims it "proves the coordinate
+conversion itself". **Rule: a test that composes f with f⁻¹ proves only self-consistency;
+to bind the pick to what is painted, assert against the transform `drawColony` actually
+issues (`translate(w/2,h/2); scale(k); translate(-cx,-cy)`), or pin literal screen pixels.**
+Same test dropped plan §G's third case (a point inside a plot's bbox but outside its ring),
+which is the only case distinguishing `pointInRing` from `plotPicker.ts`'s bbox pre-filter.
+
 **How to apply:** the local Supabase Docker stack is usually up
 (`docker exec supabase_db_colony-map psql -U postgres -d postgres -c "..."`). Postgres's
 `CONTEXT:` line names the exact failing SQL statement — one command settles it. For a

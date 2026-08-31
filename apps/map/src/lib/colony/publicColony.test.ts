@@ -91,7 +91,19 @@ describe("get_public_colony — live integration", () => {
     expect(result).toEqual({
       found: true,
       colony: { id: colonyId, name: "Public Link Scratch Colony", svg: expect.any(String) },
-      plots: [{ svg_id: svgId, status: "booked" }],
+      // docs/plans/25.md: block/number/area_sqft/length_ft/breadth_ft — pure geometry,
+      // never PII/money (see the forbidden-column loop below, unchanged).
+      plots: [
+        {
+          svg_id: svgId,
+          status: "booked",
+          block: "A",
+          number: "1",
+          area_sqft: 1200,
+          length_ft: 30,
+          breadth_ft: 40,
+        },
+      ],
     });
 
     const serialized = JSON.stringify(result);

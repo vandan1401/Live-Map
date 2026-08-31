@@ -4,9 +4,10 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseColonyModel } from "./colonyModel.ts";
-import { pickPlotAt } from "./plotPicker.ts";
+import { pickPlotAt, resolveClickedPlot } from "./plotPicker.ts";
 import { polygonCentroid } from "../../lib/colony/plotGeometry.ts";
 import { resolveColonyTheme } from "./colonyTheme.ts";
+import { fitView } from "./view.ts";
 
 // Read with plain fs, not a `?raw` import — same reasoning as ColonyMap.test.tsx and
 // scripts/import-seed.ts: the fixture arrives at runtime, never compiled into the app.
@@ -85,6 +86,45 @@ describe("pickPlotAt", () => {
   it("returns null for empty space rather than the nearest plot", () => {
     const model = parseColonyModel(fixtureSvg);
     expect(pickPlotAt(model, -5000, -5000)).toBeNull();
+  });
+
+  it("returns null for a point inside the bbox but outside the actual (concave) ring — not just a bbox check", () => {
+    // /review, docs/plans/25.md: every fixture plot in shree-vatika-2/colony.svg is an
+    // axis-aligned rectangle (M...H...V...H...Z), so nothing above ever exercises the
+    // bbox-passes/ring-fails path pickPlotAt's own bbox pre-check (plotPicker.ts) is
+    // supposed to be just a cheap filter for, not the real test. An L-shape does: its bbox
+    // is the full 60x60 square, but the notch at (45, 45) is not part of the polygon.
+    const lShapeModel = parseColonyModel(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+      <path class="plot" id="plot-L-01" d="M0,0 L60,0 L60,30 L30,30 L30,60 L0,60 Z"/>
+    </svg>`);
+    expect(pickPlotAt(lShapeModel, 15, 15)).not.toBeNull(); // inside the L itself
+    expect(pickPlotAt(lShapeModel, 45, 45)).toBeNull(); // inside the bbox, inside the notch
+  });
+});
+
+// docs/plans/25.md: resolveClickedPlot is screenToWorld (view.ts) + pickPlotAt composed —
+// the pure glue renderColonyPreview.ts's click listener uses. /review flagged the first
+// draft of this test for computing its expected screen coordinates with worldToScreen —
+// screenToWorld's own exact algebraic inverse, so a consistent bug in both (a swapped
+// centre, a flipped axis) would have passed either way. Pinned literal pixel values below
+// instead, chosen against a viewport/model pair set up so the transform is trivially 1:1
+// (fitView's scale = min(100/100, 100/100) = 1, cx = cy = 50, viewport centre = (50, 50) —
+// see drawColony.ts:79-81 for the same translate/scale/translate this mirrors), so a screen
+// pixel's expected world coordinate can be read off by eye, not derived from the code under
+// test.
+describe("resolveClickedPlot", () => {
+  const model = parseColonyModel(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <path class="plot" id="plot-A-01" d="M10,10 L40,10 L40,40 L10,40 Z"/>
+  </svg>`);
+  const viewport = { width: 100, height: 100 };
+  const view = fitView(model, viewport); // scale 1, cx=cy=50 — screen px == world units
+
+  it("resolves a click on a known screen pixel inside the plot", () => {
+    expect(resolveClickedPlot(model, view, viewport, 25, 25)?.id).toBe("plot-A-01");
+  });
+
+  it("returns null for a click on a known screen pixel outside every plot", () => {
+    expect(resolveClickedPlot(model, view, viewport, 90, 90)).toBeNull();
   });
 });
 
