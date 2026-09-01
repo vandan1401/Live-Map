@@ -2,6 +2,23 @@
 
 ## Current
 
+- **Deploy of `697145a` (docs/plans/26.md's zoom-ref + stuck-loading fixes) is mid-
+  troubleshooting with the owner, unresolved at session end (2026-09-01).** Owner reported
+  the public link's zoom still didn't match the .json after the code was pushed. Walked
+  through verification in order: `pg_proc.pronargs` (confirms the function still takes one
+  arg — not useful on its own for a return-shape change) → `pg_get_functiondef` on
+  production, which **confirmed M20 is applied there** (the function body already has
+  `select_zoom_ref_width_px`/`select_zoom_ref_height_px`) → still unconfirmed at session
+  end: (1) whether PostgREST's schema cache was actually reloaded after that (D-033's own
+  lesson — the DB can be right while PostgREST still serves the old shape), (2) whether
+  Cloudflare's Git-integration auto-deploy (D-026 — push-to-`master` auto-builds/deploys,
+  no `wrangler` command needed or run by Claude) actually completed for `697145a`, and (3)
+  whether the specific colony being tested even has a non-null zoom-ref in the first place.
+  **Next action:** owner reloads PostgREST's schema cache, confirms the Cloudflare
+  dashboard shows a completed deployment for `697145a`, and re-tests — report back with
+  which of the three it turns out to be so `docs/plans/26.md` can be closed out for real
+  (its `**Status:**` line is deliberately left open, not "complete", until then).
+
 - **Public colony link: zoom-ref applied, load-time/reload bugs fixed (2026-09-01, Tier 1,
   docs/plans/26.md).** Three owner reports in one session, all against the Leaflet+canvas
   public-link rework above: (1) "the public link does not follow the zoom we decided in
@@ -967,6 +984,27 @@
   feature-labels yet, so this is latent, not live).
 
 ## Log
+
+### 2026-09-01 — Public link: zoom-ref applied, stuck-loading fixed, deploy unresolved (docs/plans/26.md, Tier 1/2)
+
+- Done: `get_public_colony()` now returns the owner-drawn `COL-ZOOM-REF` extent (M20
+  migration) so the public link's fly-to-plot zoom matches the authenticated map; a fetch
+  timeout + in-app "Try again" fixed a "Loading…" that hung forever on a stalled mobile
+  connection; two secondary fixes to the same "feels stuck" complaint (non-blocking grass
+  texture, `ResizeObserver`-driven Leaflet sizing). `mingw32-make gate` clean except the
+  same 5 pre-existing failures (documented baseline drift + the `subscribePlots` flake).
+- Next: owner confirms PostgREST's schema cache was reloaded and Cloudflare's Git-
+  integration auto-deploy of `697145a` actually completed, then re-tests the real zoom
+  framing on a phone — see `## Current`'s top entry for the exact troubleshooting state.
+- Surprises: a diagnostic question mid-session wrongly framed the owner's ask as "the
+  signed-in app's offline cache is broken" — it wasn't; the owner caught this and asked for
+  a diagnosis before a fix, which is what actually found the real, unrelated bug (a missing
+  fetch timeout on the public link specifically). Worth remembering: don't let a multiple-
+  choice clarifying question's own framing become the accepted diagnosis just because the
+  user picked the closest-sounding option — verify against concrete symptoms first.
+- Verified: `mingw32-make gate` (5 pre-existing failures only); `tools/pipeline` verify +
+  golden unchanged (129/1 skipped); production build clean. Not verified: the actual owner-
+  visible fix, blocked on deploy confirmation (see `## Current`).
 
 ### 2026-09-01 — Closed docs/plans/20.md: PostgREST schema-cache incident, Bharatkshetra zoom-ref live-verified (D-033)
 
