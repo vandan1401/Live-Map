@@ -2,6 +2,55 @@
 
 ## Current
 
+- **Public colony link now shares the owner map's own Leaflet+canvas UI (2026-09-01, Tier
+  2/3, no plan file — read-only, no plot-state write, tier-2.md's own bar for skipping
+  `/plan`).** Owner ask, verbatim: "for public link there is no zoom on selecting a plot, no
+  dimension lines around the plots, i want you to exactly copy colony owners ui and just
+  remove who brought is and who changed or remove the popup which shows the details of
+  plots but atleast i need a really nice ui because the public link will make me viral in
+  the city." Asked which of the two the owner wanted once the on-canvas dimension lines
+  existed (a small area-only badge, no card at all, or the existing Length/Breadth/Area
+  card) — owner chose "keep today's card," so `PublicColonyView.tsx` still shows the same
+  panel docs/plans/25.md built, now alongside the lines rather than instead of them.
+  New `usePublicColonyCanvas.ts` (`components/map/`) is the public counterpart to
+  `useColonyCanvas.ts` — same Leaflet mount, `colonyCanvasLayer.ts`, `drawColony.ts`,
+  `useFlyToSelectedPlot.ts` (fly-to-plot on selection, falling back to the fixed
+  `SELECT_ZOOM` since `get_public_colony()` carries no per-colony `COL-ZOOM-REF`), and
+  `resolveClickedPlot`/`pickPlotAt` for picking, reused unchanged. What it deliberately
+  drops: `attachSync` (no live realtime subscription — a public visitor gets one snapshot,
+  same as before) and `fetchCornerPlotIds` (both query the authenticated `plots` table
+  directly, which this app's own layer discipline reserves for `lib/db/`, and a public page
+  must never have a code path that could read a PII/money column — `get_public_colony()`'s
+  whole reason to exist, D-031). Dimensions for the selected plot's on-canvas lines come
+  straight from the already-loaded `get_public_colony()` result, never a second fetch.
+  `renderColonyPreview.ts`'s optional `onPlotClick` param (added by docs/plans/25.md
+  specifically for the old static preview) came back out — dead once this view stopped
+  calling it; its only other caller, `ColonyUploadScreen.tsx`, always omitted it.
+  **This supersedes docs/plans/22.md's "no pan/zoom" Non-goal for pan/zoom specifically** —
+  every other Non-goal it named (search, table view, share summary, live realtime
+  subscription, and nothing from the authenticated `PlotDetailContent`/`PlotDetailSheet`
+  flow — no owner name, no status actions) still holds.
+  **Known, accepted gap, not fixed here:** corner plots render with the generic rounded
+  path instead of their true cut corner on the public link, same as the static preview
+  before this — `get_public_colony()` does not return `is_corner`, and adding it would be
+  its own migration; not asked for, not bundled in.
+  **Verified:** `mingw32-make verify-map` — typecheck/lint clean; `pnpm exec vitest run`
+  227/232 (4 pre-existing anon-grant-code-drift failures + 1 confirmed pre-existing
+  `subscribePlots` flake, both pre-dating this diff, re-confirmed against a live local
+  stack via `db-up`); production build clean. `PublicColonyView.test.tsx` rewritten to a
+  chrome-only smoke test (loading/error/not-found states, chrome renders, no crash without
+  a canvas backend, no panel before selection) — the same split `ColonyMap.test.tsx`
+  already established for this Leaflet+canvas pipeline (it doesn't simulate a real click
+  through Leaflet under jsdom either); the pure picking math (`resolveClickedPlot`) keeps
+  its own direct unit coverage in `colonyModel.test.ts`, unchanged.
+  Manually seeded a scratch colony from the real `fixtures/shree-vatika-2` geometry against
+  the local stack and ran `pnpm dev` to sanity-check the page loads end to end; the actual
+  visual verdict — does the zoom/dimension-line UI look "really nice" on a real device — is
+  **not achievable from Claude** (no browser tool was connected this session) and needs the
+  owner's own pass, same posture every prior visual session in this file has had.
+  **Next:** owner opens the public link on a phone and confirms tap-to-zoom, the dimension
+  lines, and the overall look before calling this done.
+
 - **`docs/plans/20.md` (per-colony click-to-focus zoom) closed out (2026-09-01, Tier 1,
   D-033) — no code change, a production incident diagnosis.** Owner redrew Bharatkshetra's
   `COL-ZOOM-REF` to a real 180ft × 320ft rectangle, re-exported (manifest correctly showed

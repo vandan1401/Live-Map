@@ -24,23 +24,34 @@
   background: var(--colony-ground);
 }
 
+/* Owner ask, 2026-09-01 ("a really nice UI because the public link will make me viral in
+ * the city"): a visitor lands directly on this header with no picker
+ * screen before it, so it is the one piece of chrome that has to read as polished on first
+ * paint. z-index/shadow lift it above .colony-map-container's Leaflet pane below it. */
 .public-colony-header {
-  padding: 1rem 1.5rem 0.5rem;
+  position: relative;
+  z-index: 10;
+  padding: 1rem 1.5rem;
+  background: var(--colony-glass-bg-strong);
+  backdrop-filter: blur(var(--colony-glass-blur));
+  -webkit-backdrop-filter: blur(var(--colony-glass-blur));
+  box-shadow: 0 1px 0 var(--colony-glass-border);
 }
 
 .public-colony-title {
-  font-size: 1.2rem;
+  font-size: 1.35rem;
   font-weight: 700;
+  letter-spacing: -0.01em;
   margin: 0;
 }
 
-.public-colony-hint {
-  font-size: 0.8rem;
-  color: var(--colony-site-boundary);
-  margin: 0.25rem 0 0;
-}
-
-.public-colony-preview {
+/* Owner ask, 2026-09-01: the Leaflet+canvas map area (usePublicColonyCanvas.ts) replaces
+ * the still renderColonyPreview() box this used to hold. `position: relative` is load-bearing —
+ * .colony-map-container (map-texture.css) is `position: absolute; inset: 0`, and without a
+ * positioned ancestor here it would fill the whole viewport instead of just this flex cell,
+ * covering the header above it. */
+.public-colony-map-wrap {
+  position: relative;
   flex: 1;
   min-height: 0;
 }

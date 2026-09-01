@@ -1,5 +1,5 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { PublicColonyView } from "./PublicColonyView.tsx";
 
@@ -24,99 +24,62 @@ function stubClient(plots: unknown[]): SupabaseClient {
   } as unknown as SupabaseClient;
 }
 
-// jsdom has no layout engine — getBoundingClientRect is zero by default, which
-// renderColonyPreview.ts's own Math.max(1, ...) guard turns into a forced 1x1 viewport. A
-// 100x100 square matching this file's own 100x100 viewBox gives fitView() scale=1 and no
-// pan offset, so a click's screen pixels equal SVG-space units directly — no extra
-// coordinate math needed in this test to know where a click lands.
-const SQUARE_RECT = {
-  width: 100,
-  height: 100,
-  left: 0,
-  top: 0,
-  right: 100,
-  bottom: 100,
-  x: 0,
-  y: 0,
-  toJSON: () => ({}),
-} as DOMRect;
+function stubErrorClient(): SupabaseClient {
+  return {
+    rpc: vi.fn().mockResolvedValue({ data: null, error: { message: "network down" } }),
+  } as unknown as SupabaseClient;
+}
 
-beforeEach(() => {
-  vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue(SQUARE_RECT);
-});
+function stubNotFoundClient(): SupabaseClient {
+  return {
+    rpc: vi.fn().mockResolvedValue({ data: { found: false }, error: null }),
+  } as unknown as SupabaseClient;
+}
 
-describe("PublicColonyView — plot dimensions on click", () => {
-  it("shows nothing before any click, then a plot's dimensions when clicked on it", async () => {
+// Owner ask, 2026-09-01 ("exactly copy colony owners ui" — real pan/zoom, fly-to-plot on
+// selection, dimension lines drawn on the canvas itself) moved this view onto
+// usePublicColonyCanvas.ts's Leaflet+canvas renderer. ColonyMap.test.tsx — the
+// authenticated map's own test file, and the only other place in this repo that mounts this
+// Leaflet+canvas pipeline — never simulates a real click through it either; jsdom has no
+// canvas backend and no real layout for getBoundingClientRect, so Leaflet's own pixel-to-
+// latlng math cannot be trusted under it (the same reason docs/plans/25.md task G already
+// flagged the live click UX as "not achievable from Claude, needs a human pass on a real
+// device"). This file follows that same established split: smoke-test the chrome renders
+// and mounts without a canvas backend, and leave the pure picking math (resolveClickedPlot,
+// pickPlotAt) to colonyModel.test.ts's own direct unit tests, which this view's click
+// handler calls unchanged.
+describe("PublicColonyView", () => {
+  it("shows a loading message before the RPC resolves", () => {
+    const client = { rpc: vi.fn(() => new Promise(() => {})) } as unknown as SupabaseClient;
+    render(<PublicColonyView client={client} token="tok" />);
+    expect(screen.getByText("Loading…")).toBeInTheDocument();
+  });
+
+  it("shows a connection-error message when the RPC call itself fails", async () => {
+    render(<PublicColonyView client={stubErrorClient()} token="tok" />);
+    expect(
+      await screen.findByText("Could not load this colony. Check your connection and try again."),
+    ).toBeInTheDocument();
+  });
+
+  it("shows an invalid-link message for an unresolved token, indistinguishable from any other not-found reason", async () => {
+    render(<PublicColonyView client={stubNotFoundClient()} token="tok" />);
+    expect(await screen.findByText("This link is invalid or has been revoked.")).toBeInTheDocument();
+  });
+
+  it("mounts the map chrome without a canvas backend, with no plot panel before any selection", async () => {
+    // jsdom implements no canvas, so getContext returns null and the layer skips drawing —
+    // the same tolerance ColonyMap.test.tsx already establishes for useColonyCanvas.ts, now
+    // exercised for its public counterpart.
     const client = stubClient([
-      {
-        svg_id: "plot-A-01",
-        status: "available",
-        block: "A",
-        number: "01",
-        area_sqft: 1200,
-        length_ft: 30,
-        breadth_ft: 40,
-      },
+      { svg_id: "plot-A-01", status: "available", block: "A", number: "01", area_sqft: 1200, length_ft: 30, breadth_ft: 40 },
     ]);
     render(<PublicColonyView client={client} token="tok" />);
-    await waitFor(() => expect(screen.getByText("Test Colony")).toBeTruthy());
 
+    expect(await screen.findByText("Test Colony")).toBeInTheDocument();
+    expect(screen.getByText("Indicative layout — not to scale")).toBeInTheDocument();
+    expect(screen.getByText("N")).toBeInTheDocument(); // compass
     expect(screen.queryByText("A-01")).toBeNull();
-
-    const canvas = document.querySelector("canvas") as HTMLCanvasElement;
-    fireEvent.click(canvas, { clientX: 25, clientY: 25 }); // inside plot-A-01's ring
-
-    expect(await screen.findByText("A-01")).toBeTruthy();
-    expect(screen.getByText("30 ft")).toBeTruthy();
-    expect(screen.getByText("40 ft")).toBeTruthy();
-    expect(screen.getByText("1200 sq ft")).toBeTruthy();
-    // Never anything from the authenticated plot-detail flow — no owner, no status action.
     expect(screen.queryByText(/Owner/)).toBeNull();
-  });
-
-  it("dismisses the panel when its close button is clicked", async () => {
-    const client = stubClient([
-      {
-        svg_id: "plot-A-01",
-        status: "available",
-        block: "A",
-        number: "01",
-        area_sqft: 1200,
-        length_ft: 30,
-        breadth_ft: 40,
-      },
-    ]);
-    render(<PublicColonyView client={client} token="tok" />);
-    await waitFor(() => expect(screen.getByText("Test Colony")).toBeTruthy());
-
-    const canvas = document.querySelector("canvas") as HTMLCanvasElement;
-    fireEvent.click(canvas, { clientX: 25, clientY: 25 });
-    expect(await screen.findByText("A-01")).toBeTruthy();
-
-    fireEvent.click(screen.getByLabelText("Close"));
-    expect(screen.queryByText("A-01")).toBeNull();
-  });
-
-  it("clears the panel on a click that misses every plot", async () => {
-    const client = stubClient([
-      {
-        svg_id: "plot-A-01",
-        status: "available",
-        block: "A",
-        number: "01",
-        area_sqft: 1200,
-        length_ft: 30,
-        breadth_ft: 40,
-      },
-    ]);
-    render(<PublicColonyView client={client} token="tok" />);
-    await waitFor(() => expect(screen.getByText("Test Colony")).toBeTruthy());
-
-    const canvas = document.querySelector("canvas") as HTMLCanvasElement;
-    fireEvent.click(canvas, { clientX: 25, clientY: 25 });
-    expect(await screen.findByText("A-01")).toBeTruthy();
-
-    fireEvent.click(canvas, { clientX: 90, clientY: 90 }); // outside the plot's ring
-    expect(screen.queryByText("A-01")).toBeNull();
   });
 });

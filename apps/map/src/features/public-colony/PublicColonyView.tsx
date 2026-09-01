@@ -1,8 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadPublicColony } from "../../lib/colony/publicColony.ts";
-import { renderColonyPreview } from "../../components/map/renderColonyPreview.ts";
-import type { PlotShape } from "../../components/map/colonyModel.ts";
+import { usePublicColonyCanvas } from "../../components/map/usePublicColonyCanvas.ts";
 import type { PublicColonyResult } from "../../lib/db/types.ts";
 import { formatPlotLabel } from "../../shared/format.ts";
 
@@ -11,31 +10,30 @@ interface Props {
   token: string;
 }
 
-// The one, narrow slice of a plot's data this view ever shows on click (docs/plans/25.md,
-// pinned constraint) — dimensions only, the same fields/wording PlotDetailContent.tsx
-// already uses for a signed-in family member.
-interface PublicColonySelectedPlot {
-  block: string;
-  number: string;
-  area_sqft: number;
-  length_ft: number;
-  breadth_ft: number;
-}
+type FoundResult = Extract<PublicColonyResult, { found: true }>;
 
 // docs/plans/22.md phase 2: the unauthenticated, per-colony, token-scoped read-only view.
-// No search, no table view, no share summary, no plot-detail sheet, no legend filter, no
-// live realtime subscription (see the plan's Non-goals) — a single still render of plot
-// status only, via the same renderColonyPreview() the upload-confirmation screen uses, fed
-// the real statuses get_public_colony() returned. docs/plans/25.md added exactly one piece
-// of interactivity on top: tapping a plot shows its dimensions (never owner/status/money —
-// nothing from the authenticated PlotDetailContent/PlotDetailSheet flow).
+// Owner ask, 2026-09-01, verbatim: "no zoom on selecting a plot, no dimension lines around
+// the plots... i want you to exactly copy colony owners ui" — moved this from a still,
+// non-interactive render onto usePublicColonyCanvas.ts — the same
+// Leaflet+canvas pipeline the signed-in map uses (real pan/zoom, fly-to-plot on selection,
+// the dashed dimension-line overlay drawColony.ts already draws for a family member). This
+// supersedes docs/plans/22.md's original "no pan/zoom" Non-goal for pan/zoom specifically;
+// every other Non-goal it named still holds — no search, no table view, no share summary,
+// no live realtime subscription, and nothing from the authenticated PlotDetailContent/
+// PlotDetailSheet flow (no owner name, no status actions) reaches this view. Tapping a plot
+// still shows only its dimensions (docs/plans/25.md), same wording, now alongside the
+// on-canvas dimension lines rather than instead of them (owner's explicit choice when asked
+// which of the two to keep).
 export function PublicColonyView({ client, token }: Props) {
   const [result, setResult] = useState<PublicColonyResult | "loading" | "error">("loading");
-  const [selectedPlot, setSelectedPlot] = useState<PublicColonySelectedPlot | null>(null);
-  const previewRef = useRef<HTMLDivElement>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
+    setResult("loading");
+    setSelectedId(null);
     loadPublicColony(client, token)
       .then((loaded) => {
         if (!cancelled) setResult(loaded);
@@ -48,21 +46,24 @@ export function PublicColonyView({ client, token }: Props) {
     };
   }, [client, token]);
 
-  useEffect(() => {
-    if (result === "loading" || result === "error" || !result.found || !previewRef.current) return;
-    const container = previewRef.current;
-    container.innerHTML = "";
-    setSelectedPlot(null);
-    const statuses: Record<string, string> = {};
-    for (const plot of result.plots) statuses[plot.svg_id] = plot.status;
-    const plotsById = new Map(result.plots.map((plot) => [plot.svg_id, plot]));
-    return renderColonyPreview(container, result.colony.svg, statuses, (clicked: PlotShape | null) => {
-      // A miss (tapped empty space, or a plot get_public_colony somehow didn't return —
-      // should never happen, but "dismiss" is the safe default either way) clears the panel.
-      const plot = clicked ? plotsById.get(clicked.id) : undefined;
-      setSelectedPlot(plot ? { ...plot } : null);
-    });
-  }, [result]);
+  const found: FoundResult | null =
+    result !== "loading" && result !== "error" && result.found ? result : null;
+
+  const statuses: Record<string, string> = {};
+  for (const plot of found?.plots ?? []) statuses[plot.svg_id] = plot.status;
+  const selectedPlot = found?.plots.find((plot) => plot.svg_id === selectedId) ?? null;
+  const dimensions = selectedPlot
+    ? { plotId: selectedPlot.svg_id, lengthFt: selectedPlot.length_ft, breadthFt: selectedPlot.breadth_ft }
+    : null;
+
+  usePublicColonyCanvas({
+    containerRef,
+    svg: found?.colony.svg ?? null,
+    statuses,
+    selectedId,
+    dimensions,
+    onSelect: useCallback((svgId: string | null) => setSelectedId(svgId), []),
+  });
 
   if (result === "loading") {
     return (
@@ -88,7 +89,7 @@ export function PublicColonyView({ client, token }: Props) {
   // way on purpose — see get_public_colony()'s own comment (docs/plans/22.md §3): a
   // distinguishable message would let a caller confirm a guessed uuid belongs to a real
   // colony without ever seeing its data.
-  if (!result.found) {
+  if (!found) {
     return (
       <div className="public-colony-overlay">
         <p className="public-colony-message">This link is invalid or has been revoked.</p>
@@ -99,16 +100,22 @@ export function PublicColonyView({ client, token }: Props) {
   return (
     <div className="public-colony-page">
       <header className="public-colony-header">
-        <h1 className="public-colony-title">{result.colony.name}</h1>
-        <p className="public-colony-hint">Indicative layout — not to scale.</p>
+        <h1 className="public-colony-title">{found.colony.name}</h1>
       </header>
-      <div ref={previewRef} className="public-colony-preview" />
+      <div className="public-colony-map-wrap">
+        <div ref={containerRef} className="colony-map-container" />
+        <p className="colony-scale-note">Indicative layout — not to scale</p>
+        <div className="colony-compass" aria-hidden="true">
+          <span className="colony-compass-arrow">▲</span>
+          <span>N</span>
+        </div>
+      </div>
       {selectedPlot && (
         <div className="public-colony-plot-panel">
           <button
             type="button"
             className="public-colony-plot-panel-close"
-            onClick={() => setSelectedPlot(null)}
+            onClick={() => setSelectedId(null)}
             aria-label="Close"
           >
             ×
