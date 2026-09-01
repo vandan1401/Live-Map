@@ -5,8 +5,10 @@
   position: fixed;
   inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 1rem;
   background: var(--colony-ground);
   padding: 1.5rem;
 }
@@ -15,6 +17,20 @@
   font-size: 1rem;
   text-align: center;
   color: var(--colony-site-boundary);
+  margin: 0;
+}
+
+/* Owner ask, 2026-09-01: the error state used to be a dead end — a stalled connection left
+ * a visitor with no way back except knowing to reload the page by hand. Same visual weight
+ * as .login-screen-submit's primary action. */
+.public-colony-retry-button {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: var(--colony-status-booked);
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1.25rem;
 }
 
 .public-colony-page {

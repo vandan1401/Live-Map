@@ -2,6 +2,91 @@
 
 ## Current
 
+- **Public colony link: zoom-ref applied, load-time/reload bugs fixed (2026-09-01, Tier 1,
+  docs/plans/26.md).** Three owner reports in one session, all against the Leaflet+canvas
+  public-link rework above: (1) "the public link does not follow the zoom we decided in
+  .json" — `get_public_colony()` never returned `select_zoom_ref_width_px`/
+  `select_zoom_ref_height_px`, so `usePublicColonyCanvas.ts` always fell back to the fixed
+  `SELECT_ZOOM` constant regardless of the owner-drawn `COL-ZOOM-REF` rectangle. New
+  migration `20260901010000_m20_public_link_zoom_ref.sql` adds both columns to the RPC's
+  `colony` object (same signature/grants, pure geometry, never a PII/money column — same
+  class of fact M19 already established); `PublicColonyResult`/`PublicColonyView.tsx`/
+  `usePublicColonyCanvas.ts` wired through to `useFlyToSelectedPlot`.
+  (2) "it loads only when i am pressing reload button manually" — root cause: Leaflet reads
+  its container's size once at `L.map()` construction and never re-measures on its own; the
+  public page's map area sits inside a flex layout (`.public-colony-map-wrap`, below the
+  header) unlike the authenticated map's `.colony-map-container` (`position: absolute;
+  inset: 0` directly against the full-viewport `#root`, reliably sized instantly). If that
+  flex layout (or a web-font swap resizing the header) hadn't settled by the moment the
+  mount effect ran, `fitBounds()` computed a wrong zoom from a stale/zero size and nothing
+  afterwards corrected it — a manual reload only "fixed" it by chance, landing after layout
+  had already settled. Fixed with a `ResizeObserver` on the container: the initial
+  `fitBounds()` is deferred to its first callback (guaranteed to report the real size, even
+  the very first time), and every later callback calls `invalidateSize()` instead of
+  re-fitting, so an already-panned view survives a resize (mobile chrome show/hide, etc.).
+  jsdom implements no `ResizeObserver` at all — guarded with a `typeof` check, falling back
+  to the old eager fit under test only.
+  (3) "the public link take a bit too long to load" — the canvas layer used to wait for the
+  grass texture photo to finish downloading before drawing anything at all (inherited from
+  `useColonyCanvas.ts`'s own pattern, less noticeable there since the authenticated app has
+  usually already cached the texture from a prior session); a cold, first-ever public-link
+  visit stacked that wait on top of the RPC round trip with nothing on screen the whole
+  time. New `ColonyCanvasLayer.setGrassImage()` (`colonyCanvasLayer.ts`) lets the layer
+  mount and paint immediately with a flat ground colour (same fallback `drawColony.ts`
+  already uses), then swap the texture in once it decodes — same "paint immediately, never
+  blank while the texture decodes" principle `renderColonyPreview.ts` already established
+  for the upload-confirmation preview. Not touched: `useColonyCanvas.ts`'s own same latent
+  behavior — out of scope, not reported against the authenticated app.
+  **Verified:** `mingw32-make verify-map` clean except the same 4 pre-existing anon-grant
+  failures; `publicColony.test.ts`'s live-integration test extended with a real (non-null)
+  zoom-ref on the scratch colony, round-trips unchanged; production build clean; file sizes
+  (228/186/144 lines) stay under the cap.
+  **Not achievable from Claude:** live confirmation that the fly-to zoom framing and the
+  faster/no-longer-stuck first load actually look right on a real device — needs the
+  owner's own pass once deployed, same posture as every prior visual session.
+
+- **Public colony link: "Loading…" that never resolved, fixed with a fetch timeout + retry
+  (2026-09-01, Tier 2, `lib/db/colonies.ts` + `PublicColonyView.tsx`).** First raised as "i
+  want the pwa to store cache in device so that even offline it loads all the maps in an
+  instant" — a diagnostic question wrongly framed this as the signed-in app's already-built
+  M7/M9 offline cache being broken (a real JWT-expiry-vs-session-timebox mismatch was found
+  and is worth a look — see the note at the bottom of this entry — but the owner correctly
+  pushed back: "let's do a diagnosis first before concluding what might be the issue"). Two
+  follow-up rounds narrowed it to the actual, concrete symptom: on a phone browser, the
+  public link's own "Loading…" state "seems like forever and does not go until i manually
+  reload" — nothing to do with offline or the signed-in app at all. Root cause: browser
+  `fetch()` has no built-in timeout, and `fetchPublicColony()`'s one `client.rpc(...)` call
+  had none either — a stalled mobile connection (very common right after a phone's radio
+  wakes from sleep, or hands off between wifi and cellular) left the promise neither
+  resolved nor rejected, forever, with nothing for `PublicColonyView.tsx`'s own `.catch()`
+  to ever see. Fixed with `.abortSignal(AbortSignal.timeout(PUBLIC_COLONY_FETCH_TIMEOUT_MS))`
+  (15s, named constant, `colonies.ts`) — postgrest-js catches an abort and turns it into a
+  normal `{data: null, error}` result, so no other code path needed to change. Also added a
+  "Try again" button to the error state (`public-colony-retry-button`, matching
+  `.login-screen-submit`'s visual weight) — without it, a visitor who hit the timeout still
+  had no way back except knowing to reload the page by hand, which defeats the fix's own
+  point.
+  **Not fixed elsewhere, deliberately, per the owner's own reported scope** ("just the
+  public link" — login and opening a colony feel normal): `loadVerifiedColonies` and every
+  other `client.rpc`/`client.from` call in the app has this same no-timeout gap in
+  principle, but nothing reported against them; noted in `## Deferred` rather than
+  speculatively fixed.
+  **Still open, unconfirmed, separate from the above:** while investigating, found that
+  `client.auth.getSession()` only avoids a network call when the JWT access token has not
+  actually expired — once it has, a refresh is needed, which fails offline, and `App.tsx`
+  then shows `LoginScreen` (itself needing network) rather than the cached colony data.
+  `[auth.sessions] timebox = "24h"` (`config.toml`) caps the *session's* total lifetime, but
+  `jwt_expiry` (unset here, so left at the platform default, likely ~1h) is the number
+  `getSession()` actually checks — a family member offline for more than about an hour
+  could plausibly hit this. Not something the owner has actually reported hitting; flagged
+  for a real diagnosis if it ever is, not built against speculatively.
+  **Verified:** `mingw32-make verify-map` clean except the same 4 pre-existing anon-grant
+  failures (+ 1 confirmed pre-existing `subscribePlots` flake this run); new
+  `PublicColonyView.test.tsx` coverage proves the in-app retry actually re-fetches and
+  recovers, not just that the button renders; production build clean.
+  **Not achievable from Claude:** confirming this actually fixes what the owner saw on
+  their phone — needs a live retest on the real device once deployed.
+
 - **Public colony link now shares the owner map's own Leaflet+canvas UI (2026-09-01, Tier
   2/3, no plan file — read-only, no plot-state write, tier-2.md's own bar for skipping
   `/plan`).** Owner ask, verbatim: "for public link there is no zoom on selecting a plot, no
@@ -2273,6 +2358,22 @@ on a real phone. Not verified by anyone: the five visual behaviours in `## Curre
   theme one, if wanted later.
 
 ## Deferred
+
+- **`20260901010000_m20_public_link_zoom_ref.sql` has only been applied to the local
+  Docker Supabase, not to the real production Supabase project.** Same DB-before-deploy
+  ordering as every prior migration — needs the owner's own Dashboard SQL Editor run,
+  verified live (`select pronargs from pg_proc where proname = 'get_public_colony';` alone
+  is not enough per D-033 — reload PostgREST's schema cache and confirm with a real RPC
+  call), before this session's code is deployed.
+- **Every `client.rpc`/`client.from` call outside `fetchPublicColony` has no client-side
+  timeout either** — the same no-built-in-timeout gap `fetchPublicColony` was just fixed
+  for (`colonies.ts`, `AbortSignal.timeout`), just not reported against any of them yet.
+  Not fixed speculatively; worth a look if a similar "stuck loading, needs a reload" report
+  ever comes in for the signed-in app.
+- **`client.auth.getSession()`'s JWT-expiry-vs-24h-session-timebox mismatch** (found while
+  investigating the public-link timeout above, not itself confirmed as an actual owner-
+  hit bug) — see this file's `## Current` entry for the public-link fetch timeout for the
+  full mechanism. Not built against without a real report.
 
 - ~~**`20260901000000_m19_public_link_dimensions.sql`... has only been applied to the local
   Docker Supabase, not to the real production Supabase project.**~~ **Resolved 2026-09-01**

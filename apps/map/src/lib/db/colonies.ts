@@ -100,13 +100,24 @@ export async function callCreateColonyFromManifest(
   return { ok: false, reason: "would_orphan_history", missingSvgIds: result.missing_svg_ids };
 }
 
+// Owner ask, 2026-09-01: on a phone, a public link visitor sometimes saw "Loading…" that
+// never resolved, fixed only by a manual reload. Root cause: browser fetch() has no
+// built-in timeout — a stalled connection (very common right after a phone's radio wakes
+// from sleep, or switches between wifi/cellular) leaves the promise neither resolved nor
+// rejected, forever, with no error PublicColonyView.tsx's own .catch() ever gets a chance
+// to show. 15s is generous for a real request on a slow mobile connection, short enough
+// that a genuinely stalled one recovers well inside what reads as "stuck", not just "slow".
+const PUBLIC_COLONY_FETCH_TIMEOUT_MS = 15_000;
+
 // docs/plans/22.md phase 2: the only place `.rpc("get_public_colony", ...)` appears.
 // Works for a caller with no session at all — that is the entire point of this RPC.
 export async function fetchPublicColony(
   client: SupabaseClient,
   token: string,
 ): Promise<PublicColonyResult> {
-  const { data, error } = await client.rpc("get_public_colony", { p_token: token });
+  const { data, error } = await client
+    .rpc("get_public_colony", { p_token: token })
+    .abortSignal(AbortSignal.timeout(PUBLIC_COLONY_FETCH_TIMEOUT_MS));
   if (error) throw new Error(`fetchPublicColony failed: ${error.message}`);
   return data as PublicColonyResult;
 }

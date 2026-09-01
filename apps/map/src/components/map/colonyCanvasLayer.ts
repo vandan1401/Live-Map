@@ -22,6 +22,14 @@ export interface ColonyCanvasLayer extends L.Layer {
   setDrawState(state: DrawState): void;
   redraw(): void;
   getCanvas(): HTMLCanvasElement | null;
+  // usePublicColonyCanvas.ts (owner ask, 2026-09-01: the public link "takes a bit too long
+  // to load"): the grass photo is a network fetch, and the layer used to only ever build
+  // its pattern once, from whatever image `createColonyCanvasLayer` was constructed with —
+  // so a caller that wants to paint immediately (grassImage: null, flat ground colour) and
+  // swap in the texture once it arrives needs a way to update the pattern after `onAdd()`.
+  // Owner's authenticated map still constructs with the image already in hand (its own
+  // mount effect awaits loadGrass() before creating the layer at all) — unaffected.
+  setGrassImage(image: CanvasImageSource | null): void;
 }
 
 interface Options {
@@ -105,6 +113,15 @@ const Layer = L.Layer.extend({
 
   setDrawState(this: LayerInternals, state: DrawState) {
     this._state = state;
+    this._schedule();
+  },
+
+  setGrassImage(this: LayerInternals, image: CanvasImageSource | null) {
+    this._grassImage = image;
+    // Rebuilt immediately if the canvas already has a context (the common case — a public
+    // link's first paint already ran with grassImage: null); if onAdd() hasn't run yet,
+    // onAdd() itself builds the pattern from this._grassImage, so there is nothing to redo.
+    if (this._ctx) this._grass = this._grassImage ? buildGrassPattern(this._ctx, this._grassImage) : null;
     this._schedule();
   },
 

@@ -29,6 +29,12 @@ export function PublicColonyView({ client, token }: Props) {
   const [result, setResult] = useState<PublicColonyResult | "loading" | "error">("loading");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  // Bumped by the error state's "Try again" button (owner ask, 2026-09-01: a stalled
+  // mobile connection used to leave this stuck on "Loading…" with no way back except a
+  // full page reload — fetchPublicColony now times out instead of hanging forever
+  // (colonies.ts), and this retry counter is what lets the resulting error state recover
+  // in-app rather than needing that reload).
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,7 +50,7 @@ export function PublicColonyView({ client, token }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [client, token]);
+  }, [client, token, retryCount]);
 
   const found: FoundResult | null =
     result !== "loading" && result !== "error" && result.found ? result : null;
@@ -63,6 +69,8 @@ export function PublicColonyView({ client, token }: Props) {
     selectedId,
     dimensions,
     onSelect: useCallback((svgId: string | null) => setSelectedId(svgId), []),
+    selectZoomRefWidthPx: found?.colony.select_zoom_ref_width_px ?? null,
+    selectZoomRefHeightPx: found?.colony.select_zoom_ref_height_px ?? null,
   });
 
   if (result === "loading") {
@@ -81,6 +89,13 @@ export function PublicColonyView({ client, token }: Props) {
     return (
       <div className="public-colony-overlay">
         <p className="public-colony-message">Could not load this colony. Check your connection and try again.</p>
+        <button
+          type="button"
+          className="public-colony-retry-button"
+          onClick={() => setRetryCount((count) => count + 1)}
+        >
+          Try again
+        </button>
       </div>
     );
   }

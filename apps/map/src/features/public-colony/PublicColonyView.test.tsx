@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { PublicColonyView } from "./PublicColonyView.tsx";
 
@@ -12,27 +12,49 @@ const SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
   <path class="plot" id="plot-A-01" d="M10,10 L40,10 L40,40 L10,40 Z"/>
 </svg>`;
 
+// The real client.rpc(...) returns a PostgrestBuilder — thenable (awaitable) AND chainable
+// (colonies.ts's fetchPublicColony calls .abortSignal(...) on it before awaiting, added
+// 2026-09-01 to fix a stalled mobile connection hanging forever). A stub must support both,
+// not just be a plain Promise — .abortSignal is not a function on a bare Promise.
+function rpcBuilder(settle: Promise<{ data: unknown; error: unknown }>) {
+  return { abortSignal: () => settle, then: settle.then.bind(settle) };
+}
+
 // A stub, not a live Supabase client (docs/plans/25.md task G — get_public_colony's own
 // correctness is already covered live in publicColony.test.ts; this file's job is the
 // component's reaction to a resolved result, kept fast and deterministic).
 function stubClient(plots: unknown[]): SupabaseClient {
   return {
-    rpc: vi.fn().mockResolvedValue({
-      data: { found: true, colony: { id: "test-colony", name: "Test Colony", svg: SVG }, plots },
-      error: null,
-    }),
+    rpc: vi.fn(() =>
+      rpcBuilder(
+        Promise.resolve({
+          data: {
+            found: true,
+            colony: {
+              id: "test-colony",
+              name: "Test Colony",
+              svg: SVG,
+              select_zoom_ref_width_px: null,
+              select_zoom_ref_height_px: null,
+            },
+            plots,
+          },
+          error: null,
+        }),
+      ),
+    ),
   } as unknown as SupabaseClient;
 }
 
 function stubErrorClient(): SupabaseClient {
   return {
-    rpc: vi.fn().mockResolvedValue({ data: null, error: { message: "network down" } }),
+    rpc: vi.fn(() => rpcBuilder(Promise.resolve({ data: null, error: { message: "network down" } }))),
   } as unknown as SupabaseClient;
 }
 
 function stubNotFoundClient(): SupabaseClient {
   return {
-    rpc: vi.fn().mockResolvedValue({ data: { found: false }, error: null }),
+    rpc: vi.fn(() => rpcBuilder(Promise.resolve({ data: { found: false }, error: null }))),
   } as unknown as SupabaseClient;
 }
 
@@ -50,7 +72,9 @@ function stubNotFoundClient(): SupabaseClient {
 // handler calls unchanged.
 describe("PublicColonyView", () => {
   it("shows a loading message before the RPC resolves", () => {
-    const client = { rpc: vi.fn(() => new Promise(() => {})) } as unknown as SupabaseClient;
+    const client = {
+      rpc: vi.fn(() => rpcBuilder(new Promise(() => {}))),
+    } as unknown as SupabaseClient;
     render(<PublicColonyView client={client} token="tok" />);
     expect(screen.getByText("Loading…")).toBeInTheDocument();
   });
@@ -65,6 +89,37 @@ describe("PublicColonyView", () => {
   it("shows an invalid-link message for an unresolved token, indistinguishable from any other not-found reason", async () => {
     render(<PublicColonyView client={stubNotFoundClient()} token="tok" />);
     expect(await screen.findByText("This link is invalid or has been revoked.")).toBeInTheDocument();
+  });
+
+  // Owner ask, 2026-09-01: a stalled mobile connection used to leave a visitor stuck on
+  // "Loading…" forever with no way back except a full page reload (fetch() has no built-in
+  // timeout — colonies.ts's fetchPublicColony now imposes one via abortSignal). This proves
+  // the recovery path this app can actually offer once that timeout fires and turns into
+  // this same error state: an in-app retry, not a reload.
+  it("recovers from an error via the Try again button, without a page reload", async () => {
+    const rpc = vi
+      .fn()
+      .mockImplementationOnce(() => rpcBuilder(Promise.resolve({ data: null, error: { message: "network down" } })))
+      .mockImplementationOnce(() =>
+        rpcBuilder(
+          Promise.resolve({
+            data: {
+              found: true,
+              colony: { id: "c", name: "Test Colony", svg: SVG, select_zoom_ref_width_px: null, select_zoom_ref_height_px: null },
+              plots: [],
+            },
+            error: null,
+          }),
+        ),
+      );
+    const client = { rpc } as unknown as SupabaseClient;
+    render(<PublicColonyView client={client} token="tok" />);
+
+    const retryButton = await screen.findByText("Try again");
+    fireEvent.click(retryButton);
+
+    expect(await screen.findByText("Test Colony")).toBeInTheDocument();
+    expect(rpc).toHaveBeenCalledTimes(2);
   });
 
   it("mounts the map chrome without a canvas backend, with no plot panel before any selection", async () => {

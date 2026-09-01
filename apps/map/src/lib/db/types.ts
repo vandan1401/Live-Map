@@ -175,11 +175,19 @@ export type CreateColonyResult =
 // docs/plans/25.md: block/number/area_sqft/length_ft/breadth_ft added alongside svg_id/
 // status — same field types PlotRow/PlotInsert already use for these columns, not
 // re-derived. Still never any PII/money field — see get_public_colony()'s own comment.
+// docs/plans/26.md: select_zoom_ref_width_px/select_zoom_ref_height_px added to `colony` —
+// same nullable-numeric type ColonyRow already uses for these columns.
 export type PublicColonyResult =
   | { found: false }
   | {
       found: true;
-      colony: { id: string; name: string; svg: string };
+      colony: {
+        id: string;
+        name: string;
+        svg: string;
+        select_zoom_ref_width_px: number | null;
+        select_zoom_ref_height_px: number | null;
+      };
       plots: {
         svg_id: string;
         status: PlotStatus;

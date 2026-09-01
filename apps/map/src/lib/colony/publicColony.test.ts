@@ -27,6 +27,10 @@ async function scratchPublicColony(options: { verified: boolean }) {
     name: "Public Link Scratch Colony",
     verified: options.verified,
     svg: `<svg><path id="${svgId}"/></svg>`,
+    // docs/plans/26.md: a real (non-null) zoom-ref extent, so the "no PII/money column"
+    // test below also proves these two round-trip through get_public_colony() unchanged.
+    select_zoom_ref_width_px: 234,
+    select_zoom_ref_height_px: 416,
   });
   await insertPlots(admin, [
     {
@@ -90,7 +94,14 @@ describe("get_public_colony — live integration", () => {
     const result = await loadPublicColony(anon, token);
     expect(result).toEqual({
       found: true,
-      colony: { id: colonyId, name: "Public Link Scratch Colony", svg: expect.any(String) },
+      colony: {
+        id: colonyId,
+        name: "Public Link Scratch Colony",
+        svg: expect.any(String),
+        // docs/plans/26.md: the owner-drawn COL-ZOOM-REF extent, pure geometry.
+        select_zoom_ref_width_px: 234,
+        select_zoom_ref_height_px: 416,
+      },
       // docs/plans/25.md: block/number/area_sqft/length_ft/breadth_ft — pure geometry,
       // never PII/money (see the forbidden-column loop below, unchanged).
       plots: [

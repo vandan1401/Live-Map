@@ -36,6 +36,12 @@ interface Args {
   selectedId: string | null;
   dimensions: PlotDimensions | null;
   onSelect: (svgId: string | null) => void;
+  // docs/plans/26.md — the owner-drawn COL-ZOOM-REF extent (get_public_colony()'s colony
+  // object), same prop names useColonyCanvas.ts already uses. null/null (a colony with no
+  // such rectangle) falls back to the fixed SELECT_ZOOM constant, same as the authenticated
+  // map (view.ts's computeSelectZoom).
+  selectZoomRefWidthPx: number | null;
+  selectZoomRefHeightPx: number | null;
 }
 
 function loadGrass(): Promise<HTMLImageElement | null> {
@@ -96,34 +102,81 @@ export function usePublicColonyCanvas(args: Args): void {
       attributionControl: false,
     });
     mapRef.current = map;
-    map.fitBounds(bounds);
-    fitZoomRef.current = map.getBoundsZoom(bounds);
 
     let cancelled = false;
 
-    void loadGrass().then((grassImage) => {
-      if (cancelled) return;
-      const layer = createColonyCanvasLayer({
-        model,
-        theme,
-        grassImage,
-        state: {
-          statuses: {},
-          selectedId: null,
-          activeStatuses: new Set<string>(),
-          showPlotLabels: true,
-          grass: null,
-          road: null,
-          roadEdge: null,
-          transitions: new Map(),
-          dimensions: null,
-          cornerPlots: new Set<string>(),
-        },
-      });
-      layer.addTo(map);
-      layerRef.current = layer;
-      pushState.current();
+    // Owner ask, 2026-09-01: "the public link take a bit too long to load" — a cold, first-
+    // ever visit has no cached grass photo, so waiting for it before drawing anything (the
+    // owner map's own useColonyCanvas.ts pattern) left the public link blank for a whole
+    // network round trip on top of the RPC fetch that already had to finish before this
+    // effect could even run. Layer mounts immediately with grassImage: null (flat ground
+    // colour, same fallback drawColony.ts already uses — `state.grass ?? theme.groundBase`),
+    // then setGrassImage swaps the texture in once it decodes, same pattern
+    // renderColonyPreview.ts already uses ("paint immediately... never blank while the
+    // texture decodes").
+    const layer = createColonyCanvasLayer({
+      model,
+      theme,
+      grassImage: null,
+      state: {
+        statuses: {},
+        selectedId: null,
+        activeStatuses: new Set<string>(),
+        showPlotLabels: true,
+        grass: null,
+        road: null,
+        roadEdge: null,
+        transitions: new Map(),
+        dimensions: null,
+        cornerPlots: new Set<string>(),
+      },
     });
+    layer.addTo(map);
+    layerRef.current = layer;
+    pushState.current();
+
+    void loadGrass().then((grassImage) => {
+      if (cancelled || !grassImage) return;
+      layer.setGrassImage(grassImage);
+    });
+
+    // Owner ask, 2026-09-01: "it loads only when i am pressing reload button manually" —
+    // the public page's map area sits inside a flex layout (.public-colony-map-wrap, below
+    // the header), unlike the authenticated map's .colony-map-container, which is
+    // position: absolute; inset: 0 directly against the full-viewport #root and so is
+    // reliably sized the instant it exists. fitBounds() (and the getBoundsZoom() this
+    // hook's showPlotLabels threshold depends on) both read the container's size at the
+    // moment they're called — calling them before this flex layout (or a web-font swap
+    // changing the header's height) has actually settled reads a stale-or-zero size and
+    // computes a wrong zoom that nothing afterwards corrects; a manual reload "fixed" it
+    // only by chance, landing after layout had already settled by the time this effect ran.
+    // ResizeObserver's callback fires with the container's real size on every change,
+    // including the very first one — the initial fit is deferred to its first callback
+    // rather than done eagerly here, and every later callback re-measures via
+    // invalidateSize() (preserving the current pan/zoom) rather than re-fitting, so a user
+    // who has already panned around isn't yanked back to the fit view by, say, the mobile
+    // browser's chrome showing/hiding.
+    let didInitialFit = false;
+    const fit = () => {
+      didInitialFit = true;
+      map.fitBounds(bounds);
+      fitZoomRef.current = map.getBoundsZoom(bounds);
+      pushState.current();
+    };
+    // jsdom (unit tests only — every real browser this app targets has supported
+    // ResizeObserver for years) implements no ResizeObserver at all; fall back to the old
+    // eager fit rather than leaving the map permanently unfitted under test.
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver((entries) => {
+            const size = entries[0]?.contentRect;
+            if (!size || size.width === 0 || size.height === 0) return;
+            if (!didInitialFit) fit();
+            else map.invalidateSize();
+          });
+    if (resizeObserver) resizeObserver.observe(el);
+    else fit();
 
     const onZoom = () => pushState.current();
     map.on("zoomend", onZoom);
@@ -149,6 +202,7 @@ export function usePublicColonyCanvas(args: Args): void {
 
     return () => {
       cancelled = true;
+      resizeObserver?.disconnect();
       map.off("zoomend", onZoom);
       map.off("click", onClick);
       layerRef.current = null;
@@ -164,9 +218,11 @@ export function usePublicColonyCanvas(args: Args): void {
     pushState.current();
   }, [args.statuses, args.selectedId, args.dimensions]);
 
-  // No colony-specific COL-ZOOM-REF is exposed by get_public_colony() (docs/plans/25.md's
-  // column list stays exactly what that plan added) — null/null makes this fall back to the
-  // fixed SELECT_ZOOM constant, same as any colony without an owner-drawn COL-ZOOM-REF
-  // rectangle in the authenticated app (view.ts's computeSelectZoom).
-  useFlyToSelectedPlot(mapRef, modelRef, selectedId, null, null);
+  useFlyToSelectedPlot(
+    mapRef,
+    modelRef,
+    selectedId,
+    args.selectZoomRefWidthPx,
+    args.selectZoomRefHeightPx,
+  );
 }
