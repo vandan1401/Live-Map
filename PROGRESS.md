@@ -2,6 +2,54 @@
 
 ## Current
 
+- **Click-to-focus zoom transition rebuilt from scratch (Tier 3, 2026-09-04), after three
+  failed patch attempts on the wrong technique.** Owner reported the zoom-to-selected-plot
+  transition was instant/snapping, not animated. First fix (`d3b686b`) raised
+  `zoomAnimationThreshold` — real but insufficient: Leaflet's `_tryAnimatedZoom` also gates
+  on `_nothingToAnimate()`, which needs an element carrying the `leaflet-zoom-animated`
+  class, which the canvas layer never had. Second fix (`1dd1297`) added the class, then a
+  third (`3b2c9e1`) added a `zoomanim` handler mirroring Leaflet's private
+  `Renderer._onAnimZoom` — this actually engaged Leaflet's animated-zoom pipeline, but its
+  own `_onZoomTransitionEnd` is scheduled via a bare `setTimeout` with no cancellation hook;
+  tearing down/recreating the map (or another zoom racing it) while one was pending threw a
+  real, confirmed-via-console Leaflet-internal exception (`Cannot read properties of
+  undefined (reading '_leaflet_pos')`), permanently freezing the canvas mid-transform.
+  `7997058` abandoned hooking Leaflet's pipeline entirely in favour of moving the map
+  instantly (`animate:false`) and animating a CSS transform on the canvas directly — this
+  then needed two more fixes of its own (`a899248`: `getZoomScale`'s arguments were
+  backwards, inverting the scale ~0.05x instead of ~21x; `b285753`: the canvas's
+  `transform-origin` silently defaulted to center instead of the top-left corner all the
+  transform math assumed, once the `leaflet-zoom-animated` class — which happens to also
+  carry Leaflet's own `transform-origin:0 0` rule — was dropped in the same `7997058`
+  rewrite). Even fully correct, that technique has an inherent limit no bug fix solves:
+  blowing up a raster snapshot ~20x for a click-to-focus zoom is fundamentally blurry.
+  **Final approach (`70ad706`):** never freeze a picture. Interpolate the actual camera
+  (center in projected pixel space, zoom linearly, both eased via the same
+  `cubic-bezier(0,0,0.4,1)` curve evaluated directly in JS — chosen and verified numerically
+  over the initial `cubic-bezier(0,0,0.25,1)`, which was 82% done by the transition's
+  halfway point) across 400ms, calling `setView(...,{animate:false})` +
+  `_resize()/_render()` on every frame — the same redraw path already proven at 60fps during
+  normal user pan/zoom. New `canvasFlyTo.ts::startCanvasFlyTo`; `colonyCanvasLayer.ts`
+  exposes `flyTo()`; `useFlyToSelectedPlot.ts` calls it instead of `map.setView`. A second
+  flyTo starting mid-flight cancels the older one's own rAF loop (`isCancelled` checked each
+  tick) rather than letting two loops fight over the same `setView` every frame.
+  **Verified:** live against the local dev server + real Supabase stack (not just
+  typecheck/tests) at every step this session — a screenshot taken *during* the transition,
+  not just at rest, shows fully crisp text/labels with no blur; console clean across
+  repeated and rapid back-to-back plot selections. Also custom booked-plot colour
+  `#2ba1cc` for `bharatkshetra` (`presentation.json`, shallow-merge override — the file's own
+  contract requires repeating all three status colours, not just the one being changed).
+  **Deploy note:** GitHub→Cloudflare auto-deploy (previously reliable for ~10 days) stopped
+  triggering partway through this session for reasons neither side's logs explain from here
+  — Cloudflare's own status page shows no outage, the code builds and pushes cleanly, an
+  empty commit to re-trigger the webhook didn't help either. Owner worked around it with a
+  manual `wrangler deploy`, confirmed working. **Next:** owner re-tests the final rewrite
+  live (this session's automated checks are a strong signal, not a substitute for the
+  owner's own eyes — every one of the three failed prior attempts also passed its own
+  local checks at the time); separately, the Cloudflare auto-deploy trigger itself still
+  needs diagnosing (branch setting / webhook delivery log, both outside what Claude can see)
+  whenever it's convenient — not urgent now that manual deploy is a known-working fallback.
+
 - **JSON-configurable presentation layer shipped (docs/plans/27.md, Tier 2/3,
   2026-09-03), plan closed.** One checked-in `apps/map/src/config/
   presentation.json` (+ `resolvePresentationConfig` in `lib/colony/presentationConfig.ts`)
@@ -3902,3 +3950,30 @@ on a real phone. Not verified by anyone: the five visual behaviours in `## Curre
   documented pre-existing full-suite-parallelism flake (passed in 2.32s run alone). See
   `## Current` for the itemized command output.
   in a browser.
+
+- Done: click-to-focus zoom transition rebuilt from scratch after three patch attempts on
+  a CSS-transform-on-frozen-snapshot technique each failed differently (Leaflet lifecycle
+  bug, inverted scale, wrong transform-origin) — final version interpolates the real
+  camera and redraws crisply every frame instead. Also: custom booked-plot colour for
+  `bharatkshetra` (`#2ba1cc`).
+- Next: owner re-tests the rewritten transition live — this session's own live checks
+  (screenshots taken mid-transition, not just at rest; console monitoring) are the
+  strongest verification a prior attempt in this saga got, and every one of those still
+  turned out wrong once the owner actually looked. Separately, whenever convenient: the
+  GitHub→Cloudflare auto-deploy trigger stopped firing mid-session for reasons neither
+  side's logs explain from here (Cloudflare status page shows no outage); manual
+  `wrangler deploy` is a confirmed-working fallback in the meantime.
+- Surprises: `_nothingToAnimate()`/`_onZoomTransitionEnd`'s bare uncancellable `setTimeout`
+  are real, confirmed-via-console Leaflet-internal fragility, not something obvious from
+  reading Leaflet's public docs — only found by reading `leaflet-src.js` directly after
+  the first two patches didn't hold up. Also: reading `canvas.style.transform` (the
+  assigned CSS text) cannot distinguish "instant snap" from "correctly animating" — it
+  only shows target values, never the live interpolated pixel state — which is why the
+  scale-sign and transform-origin bugs both survived an earlier round of this exact
+  instrumentation looking clean.
+- Verified: `pnpm typecheck && pnpm lint && pnpm build` clean; `pnpm test -- --run` —
+  241/246 pass, the 5 failures are the same pre-existing anon-grant/`subscribePlots`
+  flake documented earlier in this file, confirmed unrelated (none touch
+  `apps/map/src/components/map/**`). Live: dev server + real local Supabase, multiple
+  plot selections (first-click, second-different-plot, rapid back-to-back same-plot),
+  console clean throughout, mid-transition screenshot shows crisp (non-blurred) content.
