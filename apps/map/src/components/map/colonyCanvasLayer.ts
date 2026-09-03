@@ -62,9 +62,14 @@ interface LayerInternals {
   _viewport: { width: number; height: number } | null;
   _dpr: number;
   _frame: number;
+  // What the canvas actually shows right now (set at the end of every _render()) -- the
+  // baseline _onAnimZoom scales/repositions FROM, mirroring Leaflet's own Renderer.
+  _renderedCenter: L.LatLng | null;
+  _renderedZoom: number;
   _schedule(): void;
   _resize(): void;
   _render(): void;
+  _onAnimZoom(e: L.ZoomAnimEvent): void;
 }
 
 const Layer = L.Layer.extend({
@@ -83,6 +88,8 @@ const Layer = L.Layer.extend({
     this._viewport = null;
     this._dpr = 1;
     this._frame = 0;
+    this._renderedCenter = null;
+    this._renderedZoom = 0;
   },
 
   onAdd(this: LayerInternals, map: L.Map) {
@@ -108,6 +115,14 @@ const Layer = L.Layer.extend({
     }
     map.getPanes().overlayPane.appendChild(canvas);
     map.on("move zoom viewreset resize zoomend", this._schedule, this);
+    // The class alone only gets Leaflet to START an animation. Leaflet itself suppresses
+    // 'move'/'zoom' until the animation's very end (Map._animateZoom's two _move calls both
+    // pass supressEvent) -- 'zoomanim' is the ONLY event fired synchronously at the start,
+    // and every built-in layer (Marker, ImageOverlay, GridLayer, path Renderer) uses it to
+    // reposition/rescale itself immediately so the CSS transition has something to animate
+    // between. Without this, the canvas sat motionless for the whole transition and snapped
+    // at the end -- indistinguishable from no animation at all.
+    map.on("zoomanim", this._onAnimZoom, this);
     this._resize();
     this._render();
     return this;
@@ -115,6 +130,7 @@ const Layer = L.Layer.extend({
 
   onRemove(this: LayerInternals, map: L.Map) {
     map.off("move zoom viewreset resize zoomend", this._schedule, this);
+    map.off("zoomanim", this._onAnimZoom, this);
     if (this._frame) cancelAnimationFrame(this._frame);
     this._canvas?.remove();
     this._canvas = null;
@@ -181,6 +197,8 @@ const Layer = L.Layer.extend({
     // travels with the pan instead of being redrawn into a stale position.
     L.DomUtil.setPosition(canvas, map.containerPointToLayerPoint([0, 0]));
     const center = map.getCenter();
+    this._renderedCenter = center;
+    this._renderedZoom = map.getZoom();
     const view = leafletViewState(map.getZoomScale(map.getZoom(), 0), center.lat, center.lng);
     ctx.setTransform(this._dpr, 0, 0, this._dpr, 0, 0);
     drawColony(
@@ -197,6 +215,26 @@ const Layer = L.Layer.extend({
       },
       this._dimensionConfig,
     );
+  },
+
+  // Mirrors Leaflet's own Renderer._onAnimZoom/_updateTransform (leaflet-src.js) -- the
+  // established pattern for a custom layer to ride the built-in zoom animation. Computes
+  // where the LAST rendered frame's content must sit, scaled, to still line up correctly at
+  // the animation's target center/zoom, so the CSS transition (enabled by the
+  // "leaflet-zoom-animated" class) has a real transform change to interpolate toward.
+  // _render() snaps this back to identity (via plain setPosition) once the real content is
+  // redrawn at zoomend/viewreset.
+  _onAnimZoom(this: LayerInternals, e: L.ZoomAnimEvent) {
+    const canvas = this._canvas;
+    const map = this._map;
+    if (!canvas || !map || !this._renderedCenter) return;
+    const scale = map.getZoomScale(e.zoom, this._renderedZoom);
+    const viewHalf = map.getSize().divideBy(2);
+    const currentCenterPoint = map.project(this._renderedCenter, e.zoom);
+    // Public-API equivalent of Map's private _getNewPixelOrigin(center, zoom).
+    const newPixelOrigin = map.project(e.center, e.zoom).subtract(viewHalf).round();
+    const topLeftOffset = viewHalf.multiplyBy(-scale).add(currentCenterPoint).subtract(newPixelOrigin);
+    L.DomUtil.setTransform(canvas, topLeftOffset, scale);
   },
 });
 
