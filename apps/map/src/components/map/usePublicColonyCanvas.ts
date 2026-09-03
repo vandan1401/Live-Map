@@ -100,10 +100,6 @@ export function usePublicColonyCanvas(args: Args): void {
       maxZoom: 4,
       zoomSnap: 0.1,
       attributionControl: false,
-      // See useColonyCanvas.ts's identical option for why: default threshold (4) sits
-      // inside this map's own zoom range, so fit-to-select jumps often exceeded it and
-      // Leaflet snapped instead of animating.
-      zoomAnimationThreshold: 8,
     });
     mapRef.current = map;
 
@@ -226,6 +222,7 @@ export function usePublicColonyCanvas(args: Args): void {
   useFlyToSelectedPlot(
     mapRef,
     modelRef,
+    layerRef,
     selectedId,
     args.selectZoomRefWidthPx,
     args.selectZoomRefHeightPx,

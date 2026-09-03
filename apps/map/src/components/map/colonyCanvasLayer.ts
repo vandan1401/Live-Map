@@ -5,6 +5,7 @@ import { buildGrassPattern, buildRoadEdgePattern, buildRoadPattern } from "./can
 import { drawColony, type DrawState } from "./drawColony.ts";
 import type { DimensionConfig } from "./drawDimensions.ts";
 import { leafletViewState } from "./view.ts";
+import { startCanvasFlyTo } from "./canvasFlyTo.ts";
 
 // A Leaflet layer that owns a canvas sized to the VIEWPORT, never to the colony.
 //
@@ -23,6 +24,11 @@ export interface ColonyCanvasLayer extends L.Layer {
   setDrawState(state: DrawState): void;
   redraw(): void;
   getCanvas(): HTMLCanvasElement | null;
+  // useFlyToSelectedPlot.ts's click-to-focus zoom. Moves the map instantly (no Leaflet
+  // animation) and drives our own CSS transition on the canvas instead — see the
+  // implementation's comment for why this replaced hooking into Leaflet's own
+  // zoomanim/_onZoomTransitionEnd pipeline.
+  flyTo(center: L.LatLng, zoom: number): void;
   // usePublicColonyCanvas.ts (owner ask, 2026-09-01: the public link "takes a bit too long
   // to load"): the grass photo is a network fetch, and the layer used to only ever build
   // its pattern once, from whatever image `createColonyCanvasLayer` was constructed with —
@@ -62,14 +68,21 @@ interface LayerInternals {
   _viewport: { width: number; height: number } | null;
   _dpr: number;
   _frame: number;
-  // What the canvas actually shows right now (set at the end of every _render()) -- the
-  // baseline _onAnimZoom scales/repositions FROM, mirroring Leaflet's own Renderer.
+  // What the canvas actually shows right now (set at the end of every _render()) -- flyTo's
+  // own transition animates FROM this, since it's the last real content actually drawn.
   _renderedCenter: L.LatLng | null;
   _renderedZoom: number;
+  // Guards a flyTo's completion callback against a NEWER flyTo starting before the old one
+  // finishes -- incremented on every call, checked before the completion handler acts.
+  _flyToId: number;
+  // True for the duration of a flyTo's own transition. setView(..., {animate:false}) fires
+  // 'zoom'/'move'/'zoomend' SYNCHRONOUSLY (unlike an animated setView, which suppresses them
+  // until the end) -- without this, _schedule's own listener queues a real _render() on the
+  // very next frame and stomps the transition before it can run.
+  _flyToActive: boolean;
   _schedule(): void;
   _resize(): void;
   _render(): void;
-  _onAnimZoom(e: L.ZoomAnimEvent): void;
 }
 
 const Layer = L.Layer.extend({
@@ -90,20 +103,13 @@ const Layer = L.Layer.extend({
     this._frame = 0;
     this._renderedCenter = null;
     this._renderedZoom = 0;
+    this._flyToId = 0;
+    this._flyToActive = false;
   },
 
   onAdd(this: LayerInternals, map: L.Map) {
     this._map = map;
-    // "leaflet-zoom-animated" is load-bearing, not decorative: Leaflet's own
-    // _tryAnimatedZoom refuses to animate at all (_nothingToAnimate()) unless at least one
-    // element with this class exists in the map container — our canvas lacked it, so every
-    // click-to-focus zoom silently snapped instead of easing regardless of
-    // zoomAnimationThreshold. The class also gets our canvas CSS-transformed along with the
-    // rest of the map pane during the animation, then we redraw crisply on zoomend/viewreset.
-    const canvas = L.DomUtil.create(
-      "canvas",
-      "leaflet-layer leaflet-zoom-animated colony-canvas",
-    ) as HTMLCanvasElement;
+    const canvas = L.DomUtil.create("canvas", "leaflet-layer colony-canvas") as HTMLCanvasElement;
     this._canvas = canvas;
     this._ctx = canvas.getContext("2d");
     // jsdom has no canvas backend, so getContext returns null under vitest. Rendering is
@@ -115,14 +121,6 @@ const Layer = L.Layer.extend({
     }
     map.getPanes().overlayPane.appendChild(canvas);
     map.on("move zoom viewreset resize zoomend", this._schedule, this);
-    // The class alone only gets Leaflet to START an animation. Leaflet itself suppresses
-    // 'move'/'zoom' until the animation's very end (Map._animateZoom's two _move calls both
-    // pass supressEvent) -- 'zoomanim' is the ONLY event fired synchronously at the start,
-    // and every built-in layer (Marker, ImageOverlay, GridLayer, path Renderer) uses it to
-    // reposition/rescale itself immediately so the CSS transition has something to animate
-    // between. Without this, the canvas sat motionless for the whole transition and snapped
-    // at the end -- indistinguishable from no animation at all.
-    map.on("zoomanim", this._onAnimZoom, this);
     this._resize();
     this._render();
     return this;
@@ -130,7 +128,6 @@ const Layer = L.Layer.extend({
 
   onRemove(this: LayerInternals, map: L.Map) {
     map.off("move zoom viewreset resize zoomend", this._schedule, this);
-    map.off("zoomanim", this._onAnimZoom, this);
     if (this._frame) cancelAnimationFrame(this._frame);
     this._canvas?.remove();
     this._canvas = null;
@@ -159,7 +156,7 @@ const Layer = L.Layer.extend({
   // Coalesce to one draw per frame. Leaflet fires `move` and `zoom` together during a
   // gesture, and drawing twice for one frame is pure waste at 17ms a draw.
   _schedule(this: LayerInternals) {
-    if (this._frame || !this._map) return;
+    if (this._frame || !this._map || this._flyToActive) return;
     this._frame = requestAnimationFrame(() => {
       this._frame = 0;
       this._resize();
@@ -217,24 +214,27 @@ const Layer = L.Layer.extend({
     );
   },
 
-  // Mirrors Leaflet's own Renderer._onAnimZoom/_updateTransform (leaflet-src.js) -- the
-  // established pattern for a custom layer to ride the built-in zoom animation. Computes
-  // where the LAST rendered frame's content must sit, scaled, to still line up correctly at
-  // the animation's target center/zoom, so the CSS transition (enabled by the
-  // "leaflet-zoom-animated" class) has a real transform change to interpolate toward.
-  // _render() snaps this back to identity (via plain setPosition) once the real content is
-  // redrawn at zoomend/viewreset.
-  _onAnimZoom(this: LayerInternals, e: L.ZoomAnimEvent) {
+  // Click-to-focus zoom. See canvasFlyTo.ts for why this moves the map instantly and
+  // animates the canvas itself rather than using Leaflet's own animated setView.
+  flyTo(this: LayerInternals, center: L.LatLng, zoom: number) {
     const canvas = this._canvas;
     const map = this._map;
-    if (!canvas || !map || !this._renderedCenter) return;
-    const scale = map.getZoomScale(e.zoom, this._renderedZoom);
-    const viewHalf = map.getSize().divideBy(2);
-    const currentCenterPoint = map.project(this._renderedCenter, e.zoom);
-    // Public-API equivalent of Map's private _getNewPixelOrigin(center, zoom).
-    const newPixelOrigin = map.project(e.center, e.zoom).subtract(viewHalf).round();
-    const topLeftOffset = viewHalf.multiplyBy(-scale).add(currentCenterPoint).subtract(newPixelOrigin);
-    L.DomUtil.setTransform(canvas, topLeftOffset, scale);
+    if (!canvas || !map) return;
+    const fromCenter = this._renderedCenter ?? map.getCenter();
+    const fromZoom = this._renderedZoom || map.getZoom();
+    this._flyToActive = true;
+    map.setView(center, zoom, { animate: false });
+    const myId = ++this._flyToId;
+    startCanvasFlyTo(map, canvas, fromCenter, fromZoom, () => {
+      // Superseded by a newer flyTo -- that one now owns _flyToActive and will clear it
+      // itself; touching it here would re-enable _schedule while the newer one is still
+      // mid-transition (its own transitionend never fires once its transform is
+      // overwritten, so only this stale fallback timeout would ever call in).
+      if (this._flyToId !== myId) return;
+      this._flyToActive = false;
+      this._resize();
+      this._render();
+    });
   },
 });
 

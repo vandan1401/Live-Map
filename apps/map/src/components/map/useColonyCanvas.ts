@@ -126,12 +126,6 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
       maxZoom: 4,
       zoomSnap: 0.1,
       attributionControl: false,
-      // Leaflet's default (4) sits right inside this map's own zoom range (-2..4), so a
-      // fit-to-select jump (overview ~-0.3, computeSelectZoom up to ~3.4) routinely exceeded
-      // it and Leaflet silently skipped animation and snapped instead of easing — the
-      // "instant jump" the click-to-focus zoom looked like. 8 exceeds the widest possible
-      // jump across the whole range, so setView's animate:true is never silently dropped.
-      zoomAnimationThreshold: 8,
     });
     mapRef.current = map;
     map.fitBounds(bounds);
@@ -245,7 +239,7 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
     pushState.current();
   }, [selectedId, activeStatuses]);
 
-  useFlyToSelectedPlot(mapRef, modelRef, selectedId, selectZoomRefWidthPx, selectZoomRefHeightPx);
+  useFlyToSelectedPlot(mapRef, modelRef, layerRef, selectedId, selectZoomRefWidthPx, selectZoomRefHeightPx);
 
   usePlotDimensions(client, colonyId, selectedId, dimensionsRef, useCallback(() => pushState.current(), []));
 

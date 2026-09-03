@@ -1,6 +1,7 @@
 import { useEffect, type RefObject } from "react";
 import L from "leaflet";
 import type { ColonyModel } from "./colonyModel.ts";
+import type { ColonyCanvasLayer } from "./colonyCanvasLayer.ts";
 import { computeSelectZoom } from "./view.ts";
 
 // Selected plot lands at this fraction of the viewport's height, not 0.5 (owner ask,
@@ -18,6 +19,7 @@ const SELECT_VERTICAL_ANCHOR = 0.35;
 export function useFlyToSelectedPlot(
   mapRef: RefObject<L.Map | null>,
   modelRef: RefObject<ColonyModel | null>,
+  layerRef: RefObject<ColonyCanvasLayer | null>,
   selectedId: string | null,
   selectZoomRefWidthPx: number | null,
   selectZoomRefHeightPx: number | null,
@@ -25,7 +27,8 @@ export function useFlyToSelectedPlot(
   useEffect(() => {
     const map = mapRef.current;
     const model = modelRef.current;
-    if (!map || !model || !selectedId) return;
+    const layer = layerRef.current;
+    if (!map || !model || !layer || !selectedId) return;
     const plot = model.plots.find((p) => p.id === selectedId);
     if (!plot) return;
     const cx = (plot.bbox.minX + plot.bbox.maxX) / 2;
@@ -59,6 +62,6 @@ export function useFlyToSelectedPlot(
     const centerPoint = targetPoint.subtract(desiredScreenPoint).add(size.divideBy(2));
     const center = map.unproject(centerPoint, zoom);
 
-    map.setView(center, zoom, { animate: true });
-  }, [mapRef, modelRef, selectedId, selectZoomRefWidthPx, selectZoomRefHeightPx]);
+    layer.flyTo(center, zoom);
+  }, [mapRef, modelRef, layerRef, selectedId, selectZoomRefWidthPx, selectZoomRefHeightPx]);
 }
