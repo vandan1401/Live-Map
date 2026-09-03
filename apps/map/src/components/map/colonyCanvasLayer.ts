@@ -87,7 +87,16 @@ const Layer = L.Layer.extend({
 
   onAdd(this: LayerInternals, map: L.Map) {
     this._map = map;
-    const canvas = L.DomUtil.create("canvas", "leaflet-layer colony-canvas") as HTMLCanvasElement;
+    // "leaflet-zoom-animated" is load-bearing, not decorative: Leaflet's own
+    // _tryAnimatedZoom refuses to animate at all (_nothingToAnimate()) unless at least one
+    // element with this class exists in the map container — our canvas lacked it, so every
+    // click-to-focus zoom silently snapped instead of easing regardless of
+    // zoomAnimationThreshold. The class also gets our canvas CSS-transformed along with the
+    // rest of the map pane during the animation, then we redraw crisply on zoomend/viewreset.
+    const canvas = L.DomUtil.create(
+      "canvas",
+      "leaflet-layer leaflet-zoom-animated colony-canvas",
+    ) as HTMLCanvasElement;
     this._canvas = canvas;
     this._ctx = canvas.getContext("2d");
     // jsdom has no canvas backend, so getContext returns null under vitest. Rendering is
