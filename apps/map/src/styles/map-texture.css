@@ -29,10 +29,21 @@
 }
 
 /* The canvas the colony is drawn into. Leaflet positions it via L.DomUtil.setPosition on
- * every move, so it must not fight that with its own layout. */
+ * every move, so it must not fight that with its own layout.
+ *
+ * transform-origin: 0 0 is load-bearing, not decorative. Leaflet's own CSS sets this on
+ * every element carrying the "leaflet-zoom-animated" class (leaflet.css) -- this canvas
+ * used to carry that class, then lost it when the click-to-focus zoom stopped hooking
+ * Leaflet's own zoomanim pipeline in favour of a self-driven transition (canvasFlyTo.ts).
+ * Without this, the browser defaults to 50% 50% (center), but canvasFlyTo.ts's scale/offset
+ * maths all assume the scale pivots from the top-left corner -- the mismatch shifts the
+ * rendered position by roughly (scale-1) * half the viewport, which at a ~20x zoom is
+ * thousands of pixels off. That's what "content flying in from an edge" actually was: the
+ * numbers were right, the pivot point they were computed for was silently wrong. */
 .colony-map-container .colony-canvas {
   position: absolute;
   left: 0;
   top: 0;
+  transform-origin: 0 0;
   pointer-events: none;
 }
