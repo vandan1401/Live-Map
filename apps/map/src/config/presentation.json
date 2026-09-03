@@ -19,7 +19,12 @@
   },
   "colonies": {
     "bharatkshetra": {
-      "noOwnerTokens": ["", "IV"]
+      "noOwnerTokens": ["", "IV"],
+      "statusColors": {
+        "available": "#e8b84b",
+        "booked": "#2ba1cc",
+        "registered": "#ff145a"
+      }
     }
   }
 }

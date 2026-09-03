@@ -44,9 +44,11 @@ describe("resolvePresentationConfig", () => {
   it("overrides only the keys a colony specifies, leaving the rest at default", () => {
     const config = resolvePresentationConfig("bharatkshetra");
     expect(config.noOwnerTokens).toEqual(presentationData.colonies.bharatkshetra.noOwnerTokens);
-    // Untouched keys still come from default.
+    // bharatkshetra overrides statusColors (a custom "booked" colour) -- its own override
+    // block, not the shared default, is the source of truth here.
+    expect(config.statusColors).toEqual(presentationData.colonies.bharatkshetra.statusColors);
+    // Keys bharatkshetra does NOT specify still come from default.
     expect(config.homeHeading).toBe(DEFAULT.homeHeading);
-    expect(config.statusColors.booked).toBe(DEFAULT.statusColors.booked);
     expect(config.dimension).toEqual(DEFAULT.dimension);
   });
 
