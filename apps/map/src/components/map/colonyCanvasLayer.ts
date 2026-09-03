@@ -24,10 +24,7 @@ export interface ColonyCanvasLayer extends L.Layer {
   setDrawState(state: DrawState): void;
   redraw(): void;
   getCanvas(): HTMLCanvasElement | null;
-  // useFlyToSelectedPlot.ts's click-to-focus zoom. Moves the map instantly (no Leaflet
-  // animation) and drives our own CSS transition on the canvas instead — see the
-  // implementation's comment for why this replaced hooking into Leaflet's own
-  // zoomanim/_onZoomTransitionEnd pipeline.
+  // useFlyToSelectedPlot.ts's click-to-focus zoom — see canvasFlyTo.ts for the approach.
   flyTo(center: L.LatLng, zoom: number): void;
   // usePublicColonyCanvas.ts (owner ask, 2026-09-01: the public link "takes a bit too long
   // to load"): the grass photo is a network fetch, and the layer used to only ever build
@@ -68,17 +65,17 @@ interface LayerInternals {
   _viewport: { width: number; height: number } | null;
   _dpr: number;
   _frame: number;
-  // What the canvas actually shows right now (set at the end of every _render()) -- flyTo's
-  // own transition animates FROM this, since it's the last real content actually drawn.
+  // What the canvas last actually drew (set at the end of every _render()) -- flyTo's own
+  // camera interpolation starts FROM this.
   _renderedCenter: L.LatLng | null;
   _renderedZoom: number;
-  // Guards a flyTo's completion callback against a NEWER flyTo starting before the old one
-  // finishes -- incremented on every call, checked before the completion handler acts.
+  // Bumped on every flyTo call; canvasFlyTo.ts's per-frame isCancelled check compares
+  // against its own captured id, so a superseded flight's rAF loop stops on its next tick
+  // instead of fighting a newer one for the same setView/redraw every frame.
   _flyToId: number;
-  // True for the duration of a flyTo's own transition. setView(..., {animate:false}) fires
-  // 'zoom'/'move'/'zoomend' SYNCHRONOUSLY (unlike an animated setView, which suppresses them
-  // until the end) -- without this, _schedule's own listener queues a real _render() on the
-  // very next frame and stomps the transition before it can run.
+  // True for the duration of a flyTo. setView fires move/zoom/zoomend synchronously on
+  // every frame of it; without this, _schedule's own listener would queue a redundant
+  // _render() on top of the one flyTo's onFrame already does.
   _flyToActive: boolean;
   _schedule(): void;
   _resize(): void;
@@ -214,27 +211,33 @@ const Layer = L.Layer.extend({
     );
   },
 
-  // Click-to-focus zoom. See canvasFlyTo.ts for why this moves the map instantly and
-  // animates the canvas itself rather than using Leaflet's own animated setView.
+  // Click-to-focus zoom. See canvasFlyTo.ts for why this interpolates the real camera and
+  // redraws every frame instead of animating a CSS transform on a frozen snapshot.
   flyTo(this: LayerInternals, center: L.LatLng, zoom: number) {
-    const canvas = this._canvas;
     const map = this._map;
-    if (!canvas || !map) return;
+    if (!map) return;
     const fromCenter = this._renderedCenter ?? map.getCenter();
     const fromZoom = this._renderedZoom || map.getZoom();
+    // Blocks _schedule's own move/zoom listener for the duration -- setView fires those
+    // synchronously on every one of this flight's frames, and onFrame below already redraws
+    // directly; without this they'd double up on every frame.
     this._flyToActive = true;
-    map.setView(center, zoom, { animate: false });
     const myId = ++this._flyToId;
-    startCanvasFlyTo(map, canvas, fromCenter, fromZoom, () => {
-      // Superseded by a newer flyTo -- that one now owns _flyToActive and will clear it
-      // itself; touching it here would re-enable _schedule while the newer one is still
-      // mid-transition (its own transitionend never fires once its transform is
-      // overwritten, so only this stale fallback timeout would ever call in).
-      if (this._flyToId !== myId) return;
-      this._flyToActive = false;
-      this._resize();
-      this._render();
-    });
+    startCanvasFlyTo(
+      map,
+      fromCenter,
+      fromZoom,
+      center,
+      zoom,
+      () => this._flyToId !== myId,
+      () => {
+        this._resize();
+        this._render();
+      },
+      () => {
+        this._flyToActive = false;
+      },
+    );
   },
 });
 
