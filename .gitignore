@@ -48,6 +48,10 @@ Thumbs.db
 *.log
 npm-debug.log*
 
+# --- AI ground-texture spike (2026-09-04, map-integration-exploration memory) ---
+# Not yet /plan'd or wired into either half -- durable scratch, not source.
+/experiments/
+
 # --- throwaway perf harness (2026-08-22 pan/zoom investigation) ---
 # Lives under public/ only because the guard hook reserves servers for the owner and the
 # already-running dev server is the one way to give it an http origin. It ships into
