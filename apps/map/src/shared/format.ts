@@ -64,7 +64,12 @@ export function formatRelativeTime(iso: string, now: Date = new Date()): string 
   return `${dateLabel}, ${formatClock(then)}`;
 }
 
-export function formatStatusLabel(status: string): string {
+// `labels` (docs/plans/27.md) is a per-colony display-name override resolved from
+// presentation.json by the caller — omitted or missing-for-this-status falls back to
+// exactly the original hardcoded behaviour.
+export function formatStatusLabel(status: string, labels?: Partial<Record<string, string>>): string {
+  const override = labels?.[status];
+  if (override !== undefined) return override;
   if (status === "registered") return "Registry done";
   return status.charAt(0).toUpperCase() + status.slice(1);
 }

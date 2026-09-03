@@ -27,10 +27,11 @@ export interface SimpleBulkImportResult {
   skipped: SimpleBulkImportSkip[];
 }
 
-// A blank owner cell or the literal token "NMC" (the owner's own sheet convention for "no
-// name/company") both mean the plot has no real booking — anything else is treated as a
-// real owner name, typos and all, since this format deliberately does no validation of it.
-const NO_OWNER_TOKENS = new Set(["", "NMC"]);
+// A blank owner cell or a colony-specific "no owner" token (each colony's own sheet
+// convention, e.g. "NMC" or "IV" — docs/plans/27.md, resolvePresentationConfig's
+// noOwnerTokens) means the plot has no real booking — anything else is treated as a real
+// owner name, typos and all, since this format deliberately does no validation of it.
+const DEFAULT_NO_OWNER_TOKENS = ["", "NMC"];
 
 function normalisePlotLabel(text: string): string {
   return text.trim().toUpperCase().replace(/\s*-\s*/g, "-");
@@ -42,7 +43,9 @@ function normalisePlotLabel(text: string): string {
 export function parseSimpleBulkImportRows(
   rows: string[][],
   plots: PlotIdentity[],
+  noOwnerTokens: string[] = DEFAULT_NO_OWNER_TOKENS,
 ): SimpleBulkImportResult {
+  const noOwnerTokenSet = new Set(noOwnerTokens.map((t) => t.toUpperCase()));
   const svgIdByLabel = new Map<string, string>();
   for (const plot of plots) {
     svgIdByLabel.set(normalisePlotLabel(formatPlotLabel(plot)), plot.svgId);
@@ -74,7 +77,7 @@ export function parseSimpleBulkImportRows(
     seenSvgIds.add(svgId);
 
     const ownerRaw = (cells[1] ?? "").trim();
-    const hasOwner = !NO_OWNER_TOKENS.has(ownerRaw.toUpperCase());
+    const hasOwner = !noOwnerTokenSet.has(ownerRaw.toUpperCase());
 
     bulkRows.push({
       svg_id: svgId,
@@ -96,8 +99,12 @@ export function parseSimpleBulkImportRows(
 // No quoted-field/embedded-comma support — matches scripts/import-seed.ts's own CSV
 // parser precedent. An owner name with a comma in it isn't expected in practice; extra
 // columns beyond the first two are trimmed by construction (they're simply never indexed).
-export function parseSimpleBulkImportCsv(raw: string, plots: PlotIdentity[]): SimpleBulkImportResult {
+export function parseSimpleBulkImportCsv(
+  raw: string,
+  plots: PlotIdentity[],
+  noOwnerTokens: string[] = DEFAULT_NO_OWNER_TOKENS,
+): SimpleBulkImportResult {
   const lines = raw.trim().split(/\r?\n/);
   const rows = lines.map((line) => line.split(","));
-  return parseSimpleBulkImportRows(rows, plots);
+  return parseSimpleBulkImportRows(rows, plots, noOwnerTokens);
 }

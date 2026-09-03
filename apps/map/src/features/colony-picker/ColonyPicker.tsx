@@ -1,5 +1,10 @@
 import type { ColonyRow } from "../../lib/db/types.ts";
+import { resolvePresentationConfig } from "../../lib/colony/presentationConfig.ts";
 import { ShareLinkButton } from "./ShareLinkButton.tsx";
+
+// No colonyId — this screen renders before any colony is selected, so it only ever reads
+// the default block (docs/plans/27.md).
+const { homeHeading } = resolvePresentationConfig();
 
 interface Props {
   colonies: ColonyRow[];
@@ -27,7 +32,7 @@ export function ColonyPicker({ colonies, onSelect, freshnessLabel, onUpload, onL
         <button type="button" className="colony-picker-logout" onClick={onLogout}>
           Log out
         </button>
-        <h1 className="colony-picker-heading">Nimantran Group Colonies</h1>
+        <h1 className="colony-picker-heading">{homeHeading}</h1>
         {freshnessLabel && <p className="colony-picker-freshness">{freshnessLabel}</p>}
         <p className="colony-picker-empty">No colonies yet.</p>
         <button type="button" className="colony-picker-upload" onClick={onUpload}>
@@ -42,7 +47,7 @@ export function ColonyPicker({ colonies, onSelect, freshnessLabel, onUpload, onL
       <button type="button" className="colony-picker-logout" onClick={onLogout}>
         Log out
       </button>
-      <h1 className="colony-picker-heading">Nimantran Group Colonies</h1>
+      <h1 className="colony-picker-heading">{homeHeading}</h1>
       {freshnessLabel && <p className="colony-picker-freshness">{freshnessLabel}</p>}
       <ul className="colony-picker-list">
         {colonies.map((colony) => (

@@ -2,6 +2,52 @@
 
 ## Current
 
+- **JSON-configurable presentation layer shipped (docs/plans/27.md, Tier 2/3,
+  2026-09-03), plan closed.** One checked-in `apps/map/src/config/
+  presentation.json` (+ `resolvePresentationConfig` in `lib/colony/presentationConfig.ts`)
+  now drives the home-screen heading, per-colony bulk-import "no owner" tokens
+  (`bharatkshetra` → `"IV"`, real data point from the owner), the three existing statuses'
+  display names and colours (colours wired by writing `--colony-status-*` CSS variables
+  from JSON before `resolveColonyTheme()` runs — D-004's CSS-is-the-only-colour-source rule
+  literally unchanged, just fed from JSON now), and `drawDimensions.ts`'s line offset +
+  label text template. Deliberately does **not** touch `PlotStatus`, `transitions.ts`, or
+  any DB migration — arbitrary-count/new-name statuses (e.g. a real "house built" status)
+  is a separate, genuinely Tier-1 follow-up plan the user asked to split out, not started.
+  First `/review` pass found and fixed two real issues: (1) `renderColonyPreview.ts` (the
+  upload-confirmation screen, invariant 2's sole `verified: true` write gate) never called
+  the new colour-override function, so it could have painted a colony's confirmation
+  preview in whichever *other* colony's colours were last applied to
+  `document.documentElement` elsewhere in the app — fixed by threading the manifest's own
+  `colony.id` through `ColonyUploadScreen.tsx` into `renderColonyPreview`, same pattern the
+  two canvas hooks already use; (2) `useColonyCanvas.ts` landed at 264 lines (over
+  invariant 7's 250 cap) after this plan's edits — fixed by deleting real duplication
+  rather than arbitrarily splitting the file: `loadGrass()` was byte-identical in
+  `useColonyCanvas.ts` and `usePublicColonyCanvas.ts` (now shared from new
+  `components/map/loadGrass.ts`), the inline click-pick math duplicated the existing
+  `plotPicker.ts::resolveClickedPlot` helper (now reused instead), and the orphan-count
+  loop became a tested pure function (`colonyModel.ts::countOrphanStatuses`, +2 tests in
+  `colonyModel.test.ts`). Second `/review` pass found two more: `loadGrass.ts` had been
+  left untracked (fixed with `git add -AN`, a real "ships a broken build" catch, not just
+  style), and `NAVIGATION.md`'s `loadShareSummaryData`/`formatShareSummary` and
+  `renderColonyPreview` rows still documented the pre-this-plan signatures (fixed) plus a
+  now-false "`ColonyUploadScreen.tsx`'s call is unchanged" claim (removed). Also added a
+  test (`presentationConfig.test.ts`) that reads `colony-theme.css` and asserts its
+  `--colony-status-*` hexes equal `presentation.json`'s `default.statusColors` — the two
+  are two independent literal copies of the same three colours with nothing else keeping
+  them in sync now that `applyStatusColorOverrides` writes an inline style that outranks
+  the CSS rule after the first map mount. A third `/review` pass was requested but hit a
+  session limit before it could run (reset 7:20pm IST); owner explicitly chose to proceed
+  to `/wrap` on the two completed clean-after-fix passes rather than wait. Full gate run at
+  wrap: `npm run build` (`tsc -b && vite build`) succeeded; `npx vitest run` — 30 files pass
+  (191 tests, +13 new vs. the plan's 178-test baseline), 12 files still fail on the same
+  pre-existing `fetch failed`/no-local-Supabase reason as before this change (unrelated,
+  needs the `db-up` skill to verify further); `npx oxlint` clean; every touched file
+  ≤ 250 lines (`useColonyCanvas.ts` 247, `usePublicColonyCanvas.ts` 229). **Next:** the
+  owner's own manual check from the plan's §5 (open the home screen, confirm the heading;
+  open `bharatkshetra`, confirm a bulk-import CSV using "IV" reads as available) — Claude
+  has no browser to do this. Also next, whenever the owner wants it: the split-out Tier-1
+  follow-up plan for an arbitrary-count/new-name status vocabulary (see `## Deferred`).
+
 - **Deploy of `697145a` (docs/plans/26.md's zoom-ref + stuck-loading fixes) is mid-
   troubleshooting with the owner, unresolved at session end (2026-09-01).** Owner reported
   the public link's zoom still didn't match the .json after the code was pushed. Walked
@@ -984,6 +1030,31 @@
   feature-labels yet, so this is latent, not live).
 
 ## Log
+
+### 2026-09-03 — JSON-configurable presentation layer (docs/plans/27.md, Tier 2/3)
+
+- Done: home-screen heading, per-colony bulk-import "no owner" tokens (`bharatkshetra` →
+  `"IV"`), the three existing statuses' display names/colours, and the dimension-callout
+  line offset + text template all now read from one checked-in `apps/map/src/config/
+  presentation.json` instead of being hardcoded. Colours are wired by writing
+  `--colony-status-*` CSS custom properties from JSON before the canvas theme resolver
+  reads them — D-004 (CSS is the only colour source) unchanged, just fed from JSON.
+  Deliberately does not touch `PlotStatus`, `transitions.ts`, or any DB migration.
+- Next: owner's manual check (home heading renders; a `bharatkshetra` CSV using "IV" reads
+  as available) — Claude has no browser. Separately, whenever wanted: a genuinely Tier-1
+  follow-up plan for an arbitrary-count/new-name status vocabulary, split out of this
+  session's original ask on the user's own call.
+- Surprises: two `/review` passes each found a real bug outside the original plan's
+  checklist — the upload-confirmation preview (invariant 2's sole `verified: true` gate)
+  never got the colour-override call and could have shown one colony's colours while
+  confirming a different colony's upload; and the plan's own edits pushed
+  `useColonyCanvas.ts` over the 250-line cap, fixed by deleting two pieces of real
+  duplication (`loadGrass`, an inline reimplementation of `plotPicker.ts::
+  resolveClickedPlot`) rather than an arbitrary split. A third review pass hit a session
+  limit before running; owner chose to wrap on the two completed passes rather than wait.
+- Verified: `npm run build` (tsc -b + vite build) clean; `npx vitest run` 30/42 files pass
+  (191/246 tests, 12 pre-existing DB-dependent failures unrelated to this change); `npx
+  oxlint` clean; every touched file re-checked ≤ 250 lines.
 
 ### 2026-09-01 — Public link: zoom-ref applied, stuck-loading fixed, deploy unresolved (docs/plans/26.md, Tier 1/2)
 
@@ -2397,6 +2468,17 @@ on a real phone. Not verified by anyone: the five visual behaviours in `## Curre
 
 ## Deferred
 
+- **Arbitrary-count / new-name plot status vocabulary (e.g. a real "house built" status
+  beyond today's available/booked/registered) is a genuinely Tier-1 follow-up, not started.**
+  docs/plans/27.md (2026-09-03) shipped JSON-configurable *names and colours* for the
+  existing 3 statuses only — deliberately did not touch `PlotStatus`
+  (`apps/map/src/lib/db/types.ts`), the D-013 transition table
+  (`lib/plot-status/transitions.ts`), or the DB CHECK on `plots.status`. Adding a real 4th
+  status needs its own `/plan` + `/review`: extending the type, the transition table, the DB
+  constraint, `apply_plot_transition()`/`bulk_set_initial_plot_data()`'s own status
+  validation, and re-testing every legal/illegal transition (tier-1.md: "every rejected
+  illegal transition has its own test"). User's own call this session to split it out
+  rather than fold it into the Tier 2/3 batch.
 - **`20260901010000_m20_public_link_zoom_ref.sql` has only been applied to the local
   Docker Supabase, not to the real production Supabase project.** Same DB-before-deploy
   ordering as every prior migration — needs the owner's own Dashboard SQL Editor run,

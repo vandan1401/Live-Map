@@ -1,5 +1,6 @@
 import { parseColonyModel } from "./colonyModel.ts";
 import { resolveColonyTheme } from "./colonyTheme.ts";
+import { applyStatusColorOverrides } from "./applyPresentationColors.ts";
 import { buildGrassPattern, buildRoadEdgePattern, buildRoadPattern } from "./canvasPatterns.ts";
 import { drawColony } from "./drawColony.ts";
 import { fitView } from "./view.ts";
@@ -31,8 +32,15 @@ export function renderColonyPreview(
   container: HTMLElement,
   svg: string,
   statuses?: Record<string, string>,
+  // docs/plans/27.md — resolves this colony's status colours before painting, same as
+  // both canvas hooks. Without this, this render shares document.documentElement's CSS
+  // variables with whichever colony was last viewed elsewhere in the app (a real bug
+  // found in /review: the upload-confirmation preview, invariant 2's one write gate,
+  // could otherwise paint colony A's colours while confirming colony B's upload).
+  colonyId?: string,
 ): () => void {
   const model = parseColonyModel(svg);
+  applyStatusColorOverrides(colonyId);
   const theme = resolveColonyTheme();
 
   const canvas = document.createElement("canvas");

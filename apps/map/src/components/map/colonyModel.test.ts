@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseColonyModel } from "./colonyModel.ts";
+import { countOrphanStatuses, parseColonyModel } from "./colonyModel.ts";
 import { pickPlotAt, resolveClickedPlot } from "./plotPicker.ts";
 import { polygonCentroid } from "../../lib/colony/plotGeometry.ts";
 import { resolveColonyTheme } from "./colonyTheme.ts";
@@ -145,5 +145,17 @@ describe("resolveColonyTheme", () => {
   it("keeps the pinned 0.5 stroke width when the variable is unreadable", () => {
     const el = document.createElement("div");
     expect(resolveColonyTheme(el).plotStrokeWidth).toBe(0.5);
+  });
+});
+
+describe("countOrphanStatuses", () => {
+  const plots = [{ id: "plot-A-01" }, { id: "plot-A-02" }] as ReturnType<typeof parseColonyModel>["plots"];
+
+  it("returns 0 when every status svg_id has a matching plot", () => {
+    expect(countOrphanStatuses(plots, { "plot-A-01": "booked", "plot-A-02": "available" })).toBe(0);
+  });
+
+  it("counts a status svg_id the SVG doesn't have a plot for (spec/00-rules.md failure mode 4)", () => {
+    expect(countOrphanStatuses(plots, { "plot-A-01": "booked", "plot-Z-99": "booked" })).toBe(1);
   });
 });

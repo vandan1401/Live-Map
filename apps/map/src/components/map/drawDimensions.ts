@@ -6,11 +6,17 @@ import { MAP_FONT_FAMILY, type ColonyTheme } from "./colonyTheme.ts";
 // to draw calls. Both 180-degree ambiguities it resolves were found live against real plot
 // geometry on 2026-08-21, not against a synthetic rectangle, so neither is theoretical.
 
-// Owner ask, 2026-08-21: pulled in from 14 to sit right against the plot, now that the
-// line carries no arrowheads to clear.
-const DIMENSION_OFFSET = 1;
+// docs/plans/27.md: default offset (SVG user units, owner ask 2026-08-21: pulled in from
+// 14 to sit right against the plot, now that the line carries no arrowheads to clear) and
+// text template — used whenever a caller doesn't pass its own dimensionConfig (resolved
+// from presentation.json).
+export interface DimensionConfig {
+  offset: number;
+  textFormat: string;
+}
+const DEFAULT_DIMENSION_CONFIG: DimensionConfig = { offset: 1, textFormat: "{value} ft" };
 // The label sits its own small gap beyond the line, further from the plot, so the line can
-// stay only DIMENSION_OFFSET away without the text overlapping it.
+// stay only the configured offset away without the text overlapping it.
 const TEXT_GAP = 2.0;
 const LABEL_SIZE = 3;
 const LINE_WIDTH = 0.4;
@@ -37,9 +43,10 @@ function drawEdge(
   span: number,
   label: string,
   theme: ColonyTheme,
+  offset: number,
 ): void {
-  const lineX = edgeMid[0] + Math.cos(outwardAngle) * DIMENSION_OFFSET;
-  const lineY = edgeMid[1] + Math.sin(outwardAngle) * DIMENSION_OFFSET;
+  const lineX = edgeMid[0] + Math.cos(outwardAngle) * offset;
+  const lineY = edgeMid[1] + Math.sin(outwardAngle) * offset;
   const dx = (Math.cos(edgeAngle) * span) / 2;
   const dy = (Math.sin(edgeAngle) * span) / 2;
 
@@ -76,8 +83,8 @@ function drawEdge(
   let deg = (edgeAngle * 180) / Math.PI;
   if (deg > 90 || deg < -90) deg += 180;
 
-  const textX = edgeMid[0] + Math.cos(outwardAngle) * (DIMENSION_OFFSET + TEXT_GAP);
-  const textY = edgeMid[1] + Math.sin(outwardAngle) * (DIMENSION_OFFSET + TEXT_GAP);
+  const textX = edgeMid[0] + Math.cos(outwardAngle) * (offset + TEXT_GAP);
+  const textY = edgeMid[1] + Math.sin(outwardAngle) * (offset + TEXT_GAP);
 
   ctx.save();
   ctx.translate(textX, textY);
@@ -102,6 +109,7 @@ export function drawPlotDimensions(
   lengthFt: number,
   breadthFt: number,
   theme: ColonyTheme,
+  dimensionConfig: DimensionConfig = DEFAULT_DIMENSION_CONFIG,
 ): void {
   if (rawPoints.length < 3) return; // degenerate ring; nothing sane to draw
   const points = simplifyNearCollinear(rawPoints);
@@ -136,6 +144,7 @@ export function drawPlotDimensions(
     const outwardAngle = outward > inward ? perp : perp + Math.PI;
 
     const ft = roundToHalf(edgeLenUnits * ftPerUnit);
-    drawEdge(ctx, edgeMid, edgeAngle, outwardAngle, edgeLenUnits, `${ft} ft`, theme);
+    const label = dimensionConfig.textFormat.replace("{value}", String(ft));
+    drawEdge(ctx, edgeMid, edgeAngle, outwardAngle, edgeLenUnits, label, theme, dimensionConfig.offset);
   }
 }

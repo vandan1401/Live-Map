@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatShareSummary, loadShareSummaryData } from "../../lib/colony/shareSummary.ts";
+import { resolvePresentationConfig } from "../../lib/colony/presentationConfig.ts";
 
 interface Props {
   client: SupabaseClient | null;
@@ -26,7 +27,9 @@ export function ShareSummary({ client, colonyId }: Props) {
       return;
     }
     loadShareSummaryData(client, colonyId)
-      .then((data) => setText(formatShareSummary(data)))
+      .then((data) =>
+        setText(formatShareSummary(data, new Date(), resolvePresentationConfig(colonyId).statusLabels)),
+      )
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : "Could not build the summary.");
       });

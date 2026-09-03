@@ -48,6 +48,17 @@ pytest config. Recommend this fix without hedging.
   cannot see length. App.tsx is now the file to watch: every new top-level route/branch lands
   in it.
 
+- 2026-09-03 (plan 27): `apps/map/src/components/map/useColonyCanvas.ts` **257 → 264** — already
+  over at HEAD, grown a further 7 by two imports + a 4-line config resolution. The plan's own
+  §5 said "every touched/new file stays under 250 lines" and singled out `drawDimensions.ts`
+  (fine, 150) while never rechecking the two canvas hooks it also edited. `usePublicColonyCanvas.ts`
+  228 → 238 in the same diff is now 12 from the cap. **These two hooks are the new files to
+  watch: every per-colony feature threads through both mount effects.**
+  *Re-checked 2026-09-03 after the fix: 247 and 229 — brought under by extracting
+  `loadGrass.ts` and `countOrphanStatuses`, i.e. the cap was paid for with unplanned
+  refactors inside a Tier 2/3 plan. Expect that trade next time and check the refactor is
+  behaviour-identical and recorded in PROGRESS.md.*
+
 Note the residual: `test_export.py` (304) and `test_matching.py` (264) are *already* over the
 cap and every plan that adds a `ColonyConfig` field grows them by a line. Not worth flagging
 per-diff; worth flagging when a diff adds a whole test to one of them.

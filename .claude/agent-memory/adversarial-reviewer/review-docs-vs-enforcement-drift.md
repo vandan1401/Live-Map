@@ -131,6 +131,23 @@ Three checks that have each caught a real defect:
     exists. **Probe a new guard rule with the flag-carrying variant, not just the textbook
     one.**
 
+13. **2026-09-03 (plan 27) — `NAVIGATION.md`'s reusable-function table restates exported
+    *signatures and behaviour*, and nothing regenerates it.** `parseSimpleBulkImportCsv`
+    gained a third `noOwnerTokens` parameter and its "blank/`NMC` → `available`" rule became
+    per-colony; the table row (line 248) still shows the 2-arg signature and the hardcoded
+    `NMC`. The new shared `resolvePresentationConfig` — imported by seven files — got no row
+    at all. **On any diff that changes an exported signature or adds a helper used by 3+
+    files, grep `NAVIGATION.md` for the function name before accepting the diff.**
+
+14. **2026-09-03 (plan 27, second pass) — same file, same diff, two rows still stale after
+    the first review's NAVIGATION.md edit.** The wrap updated the `parseSimpleBulkImportCsv`
+    row and added a `resolvePresentationConfig` row, but left `formatShareSummary(data, now?)`
+    (now `(data, now?, statusLabels?)`) and `renderColonyPreview(container, svg, statuses?)`
+    (now `(…, colonyId?)`) — the latter row also still asserts "`ColonyUploadScreen.tsx`'s
+    call is unchanged", which the same diff falsified. **Editing NAVIGATION.md at all is not
+    evidence it is now correct: enumerate every exported signature the diff touched and grep
+    each one, including the ones that only gained an optional trailing parameter.**
+
 **How to apply:** on any review that touches `CLAUDE.md`, `.claude/settings.json`, or a
 skill file, open `.claude/hooks/guard.sh` and `_json.sh` and check the greps in the same
 pass. This has now recurred ten times — worth a CLAUDE.md line or a guard.sh self-test.

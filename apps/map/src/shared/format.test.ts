@@ -62,6 +62,12 @@ describe("formatRelativeTime", () => {
 });
 
 describe("formatStatusLabel", () => {
+  it("uses a supplied labels override in place of the default text (docs/plans/27.md)", () => {
+    expect(formatStatusLabel("available", { available: "खाली" })).toBe("खाली");
+    // A status absent from the override still falls back to the default logic.
+    expect(formatStatusLabel("registered", { available: "खाली" })).toBe("Registry done");
+  });
+
   it("capitalises available and booked", () => {
     expect(formatStatusLabel("available")).toBe("Available");
     expect(formatStatusLabel("booked")).toBe("Booked");

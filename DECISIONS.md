@@ -44,6 +44,7 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-031 | Public colony link: `get_public_colony`'s token is the entire auth boundary (no `org_id` check, by design); hash-fragment routing (`#/public/<uuid>`), not a path segment, so no deploy-config change is needed | accepted |
 | D-032 | Admin portal: local-only Node `http` server (no new dependency), no login layer (the service-role key is the real gate), JSON-content-type CSRF check on every mutating route, guard-hook-blocked from Claude the same way `make ui`/`make serve` already are | accepted |
 | D-033 | Reload PostgREST's schema cache and verify with a live RPC call, not `pg_proc`, after any migration that changes a function's parameter list | accepted |
+| D-034 | Per-colony presentation config (heading, no-owner tokens, status names/colours, dimension spacing/text) is a checked-in JSON file resolved client-side, not a database table | accepted |
 
 ## tools/pipeline
 

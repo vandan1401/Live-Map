@@ -37,6 +37,32 @@ Occurrences (both from plan 15, blockless plot ids):
    `parsererror` branch.** Verified by running `build_svg` with `PARK & GARDEN <A>` and
    `ET.fromstring` — "not well-formed (invalid token)".
 
+4. 2026-09-03 (plan 27) — the widened "contract" was a **global**: `--colony-status-*` went
+   from a fixed value in `styles/colony-theme.css` to a per-colony inline property written
+   onto `document.documentElement` by `applyStatusColorOverrides`, called only from
+   `useColonyCanvas.ts`/`usePublicColonyCanvas.ts` and never cleared. Every other consumer
+   assumes the stylesheet value: `renderColonyPreview.ts` calls `resolveColonyTheme()` off
+   the same root (and it is the invariant-2 upload-confirmation render — the human verifies
+   a colony painted in the *previously viewed* colony's colours), plus `login-screen.css`,
+   `install-instructions.css`, `plot-table.css`, `public-colony.css` use
+   `var(--colony-status-booked)` on screens outside the map. Latent only because no colony
+   in `presentation.json` overrides `statusColors` yet. **Rule: when a diff starts writing a
+   value that used to be static onto a shared global (CSS custom property on
+   `documentElement`, `localStorage` key, module singleton), grep every reader of that
+   global — not just the ones the plan names — and ask what clears it.**
+   *Re-checked 2026-09-03: `renderColonyPreview` now takes and applies `colonyId`, and
+   `applyStatusColorOverrides` always writes all three, so the leak is closed. The
+   **residual** is the shape to look for next time: the palette now exists twice —
+   `config/presentation.json` `default.statusColors` and `styles/colony-theme.css:76-78` —
+   and an inline style on `documentElement` beats the `:root` rule, so after the first map
+   mount the CSS declarations are dead for `map-toolbar.css`/`plot-table.css`/
+   `public-colony.css` while still live on pre-mount screens (`login-screen.css`,
+   `install-instructions.css`). Nothing checks the two copies agree; the plan only pinned
+   them equal "at the moment of the first commit". **Rule: when a value moves into a new
+   config source but the old declaration must stay for a bootstrap/pre-mount path, that is
+   two sources of truth — demand a test asserting they are equal, not a plan sentence
+   saying they were equal once.**
+
 **How to apply:** grep for the widened field name across both halves and sort the hits into
 "validates it" vs "assumes something about it" — ordering, uniqueness of the rendered form,
 substring/prefix parsing, string concatenation. Only the second group is worth reviewing.

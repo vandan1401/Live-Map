@@ -6,6 +6,7 @@ import {
   type SimpleBulkImportSkip,
 } from "../../lib/colony/parseBulkImportFile.ts";
 import { bulkImportInitialPlotData } from "../../lib/colony/bulkImportInitialPlotData.ts";
+import { resolvePresentationConfig } from "../../lib/colony/presentationConfig.ts";
 import { fetchPlotsByColony } from "../../lib/db/plots.ts";
 import type { BulkImportResult, BulkImportRow } from "../../lib/db/types.ts";
 
@@ -63,7 +64,8 @@ export function BulkImportScreen({ client, colonyId, onClose }: Props) {
     file
       .text()
       .then((raw) => {
-        const { rows, skipped } = parseSimpleBulkImportCsv(raw, plots);
+        const { noOwnerTokens } = resolvePresentationConfig(colonyId);
+        const { rows, skipped } = parseSimpleBulkImportCsv(raw, plots, noOwnerTokens);
         setStage({ kind: "ready", fileName: file.name, rows, skipped });
       })
       .catch(() => {

@@ -49,6 +49,14 @@ root, run that root's lint yourself before believing any "clean" claim, and chec
 new dependency landed in `[project] dependencies` vs `[project.optional-dependencies]`
 (`flask>=3.0` went into the required list of an offline CAD pipeline).**
 
+**6th, 2026-09-03 (plan 27).** The smallest and most dangerous version yet: a *single*
+untracked file, `apps/map/src/components/map/loadGrass.ts`, extracted from two hooks that
+are tracked, modified, and now `import { loadGrass } from "./loadGrass.ts"`. Everything
+else in the diff was staged (`A`/`M`), so `git status --short` had exactly one `??` line and
+the tree builds locally — a commit of the index alone ships a broken build. **Rule: for
+every `??` file, grep the tracked half of the diff for an import of it; a refactor that
+extracts a helper is the shape that produces exactly one untracked file.**
+
 **How to apply:** every review, first tool call. If untracked files exist and are in scope
 for the plan, read them directly rather than reviewing only what the diff showed, and say
 in the report that the supplied diff was incomplete. Conversely, diff every changed file

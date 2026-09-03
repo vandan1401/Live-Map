@@ -1,4 +1,5 @@
 import type { PlotDetail } from "../../lib/colony/plotDetail.ts";
+import type { PlotStatus } from "../../lib/db/types.ts";
 import {
   formatActorName,
   formatPlotLabel,
@@ -6,12 +7,18 @@ import {
   formatStatusLabel,
 } from "../../shared/format.ts";
 
+type Props = PlotDetail & {
+  // Resolved by PlotDetailSheet.tsx from presentation.json (docs/plans/27.md) — omitted
+  // falls back to formatStatusLabel's own default text.
+  statusLabels?: Partial<Record<PlotStatus, string>>;
+};
+
 // Read-only display: dimensions, owner name only while booked (D-012 amended this
 // session — narrower than the original D-012 field list), plus the attribution line
 // and history (D-006/D-007 — a different question than "what does this plot look
 // like," kept regardless of the field-list change).
-export function PlotDetailContent({ plot, history }: PlotDetail) {
-  const attribution = `${formatStatusLabel(plot.status)} — updated by ${formatActorName(
+export function PlotDetailContent({ plot, history, statusLabels }: Props) {
+  const attribution = `${formatStatusLabel(plot.status, statusLabels)} — updated by ${formatActorName(
     plot.updated_by,
   )}, ${formatRelativeTime(plot.updated_at)}`;
 
@@ -50,7 +57,7 @@ export function PlotDetailContent({ plot, history }: PlotDetail) {
           <ul>
             {history.map((row) => (
               <li key={row.id}>
-                {formatStatusLabel(row.status)} — {formatActorName(row.changed_by)},{" "}
+                {formatStatusLabel(row.status, statusLabels)} — {formatActorName(row.changed_by)},{" "}
                 {formatRelativeTime(row.changed_at)}
                 {row.note && ` — ${row.note}`}
               </li>

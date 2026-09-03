@@ -35,7 +35,7 @@ export function ColonyUploadScreen({ client, onClose }: Props) {
     if (stage.kind !== "ready" || !previewRef.current) return;
     const container = previewRef.current;
     container.innerHTML = "";
-    return renderColonyPreview(container, stage.svg);
+    return renderColonyPreview(container, stage.svg, undefined, stage.manifest.colony.id);
   }, [stage]);
 
   const validateAndContinue = () => {

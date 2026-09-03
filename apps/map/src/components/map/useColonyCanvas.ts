@@ -3,15 +3,17 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { attachSync } from "../../lib/sync/attachSync.ts";
-import { parseColonyModel, type ColonyModel } from "./colonyModel.ts";
+import { countOrphanStatuses, parseColonyModel, type ColonyModel } from "./colonyModel.ts";
 import { resolveColonyTheme } from "./colonyTheme.ts";
+import { applyStatusColorOverrides } from "./applyPresentationColors.ts";
+import { resolvePresentationConfig } from "../../lib/colony/presentationConfig.ts";
 import { createColonyCanvasLayer, type ColonyCanvasLayer } from "./colonyCanvasLayer.ts";
-import { pickPlotAt } from "./plotPicker.ts";
+import { resolveClickedPlot } from "./plotPicker.ts";
 import { StatusTransitions } from "./statusTransitions.ts";
 import { usePlotDimensions, type PlotDimensions } from "./usePlotDimensions.ts";
 import { useFlyToSelectedPlot } from "./useFlyToSelectedPlot.ts";
-import { colonyLatLngBounds, leafletViewState, screenToWorld, ZOOM_DETAIL_MARGIN } from "./view.ts";
-import grassPhotoUrl from "../../assets/textures/grass-satellite.jpg";
+import { colonyLatLngBounds, leafletViewState, ZOOM_DETAIL_MARGIN } from "./view.ts";
+import { loadGrass } from "./loadGrass.ts";
 import { fetchCornerPlotIds } from "../../lib/db/plots.ts";
 
 // Leaflet init, the canvas layer, attachSync's subscription, picking and the transition
@@ -40,15 +42,6 @@ export interface CanvasMapHandle {
   applyStatus: (svgId: string, status: string) => void;
   /** Plots the database knows about that the SVG does not — never allowed to be silent. */
   orphanCount: number;
-}
-
-function loadGrass(): Promise<HTMLImageElement | null> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
-    img.src = grassPhotoUrl;
-  });
 }
 
 export function useColonyCanvas(args: Args): CanvasMapHandle {
@@ -120,7 +113,11 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
 
     const model = parseColonyModel(colonySvg);
     modelRef.current = model;
+    // docs/plans/27.md: writes this colony's status colours onto the CSS variables
+    // resolveColonyTheme() reads below — must run first every time.
+    applyStatusColorOverrides(colonyId);
     const theme = resolveColonyTheme();
+    const dimensionConfig = resolvePresentationConfig(colonyId).dimension;
     const bounds = colonyLatLngBounds(model.width, model.height);
 
     const map = L.map(el, {
@@ -153,6 +150,7 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
       const layer = createColonyCanvasLayer({
         model,
         theme,
+        dimensionConfig,
         grassImage,
         state: {
           statuses: {},
@@ -195,13 +193,13 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
       const size = map.getSize();
       const center = map.getCenter();
       const view = leafletViewState(map.getZoomScale(map.getZoom(), 0), center.lat, center.lng);
-      const [wx, wy] = screenToWorld(
+      const plot = resolveClickedPlot(
+        currentModel,
         view,
         { width: size.x, height: size.y },
         e.containerPoint.x,
         e.containerPoint.y,
       );
-      const plot = pickPlotAt(currentModel, wx, wy);
       // Tapping the map rather than a plot dismisses the sheet (spec/03).
       onSelect(plot ? plot.id : null);
     };
@@ -212,15 +210,7 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
       // plots arriving at once do not become 675 simultaneous fades.
       applyStatuses: (statuses) => {
         statusesRef.current = { ...statuses };
-        // An orphaned plot row must never be silently invisible (spec/00-rules.md,
-        // apps/map failure mode 4). The renderer this replaces did
-        // `plotsById.get(id)?.setAttribute(...)` and said nothing at all when the id was
-        // unknown. Counted, surfaced in the dev badge, never thrown — a half-imported
-        // colony must still render.
-        const known = new Set(model.plots.map((p) => p.id));
-        let orphans = 0;
-        for (const id of Object.keys(statuses)) if (!known.has(id)) orphans++;
-        setOrphanCount(orphans);
+        setOrphanCount(countOrphanStatuses(model.plots, statuses));
         pushState.current();
       },
       applyStatus: (svgId, status) => applyRef.current(svgId, status),

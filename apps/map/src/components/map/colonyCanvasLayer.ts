@@ -3,6 +3,7 @@ import type { ColonyModel } from "./colonyModel.ts";
 import type { ColonyTheme } from "./colonyTheme.ts";
 import { buildGrassPattern, buildRoadEdgePattern, buildRoadPattern } from "./canvasPatterns.ts";
 import { drawColony, type DrawState } from "./drawColony.ts";
+import type { DimensionConfig } from "./drawDimensions.ts";
 import { leafletViewState } from "./view.ts";
 
 // A Leaflet layer that owns a canvas sized to the VIEWPORT, never to the colony.
@@ -37,6 +38,9 @@ interface Options {
   theme: ColonyTheme;
   state: DrawState;
   grassImage: CanvasImageSource | null;
+  // docs/plans/27.md — resolved from presentation.json by the caller; omitted keeps
+  // drawPlotDimensions's own default.
+  dimensionConfig?: DimensionConfig;
 }
 
 // L.Layer.extend() is untyped, so `this` inside these methods has to be declared by hand.
@@ -47,6 +51,7 @@ interface LayerInternals {
   _model: ColonyModel;
   _theme: ColonyTheme;
   _state: DrawState;
+  _dimensionConfig: DimensionConfig | undefined;
   _grassImage: CanvasImageSource | null;
   _grass: CanvasPattern | null;
   _road: CanvasPattern | null;
@@ -67,6 +72,7 @@ const Layer = L.Layer.extend({
     this._model = options.model;
     this._theme = options.theme;
     this._state = options.state;
+    this._dimensionConfig = options.dimensionConfig;
     this._grassImage = options.grassImage;
     this._grass = null;
     this._road = null;
@@ -168,12 +174,20 @@ const Layer = L.Layer.extend({
     const center = map.getCenter();
     const view = leafletViewState(map.getZoomScale(map.getZoom(), 0), center.lat, center.lng);
     ctx.setTransform(this._dpr, 0, 0, this._dpr, 0, 0);
-    drawColony(ctx, this._model, view, viewport, this._theme, {
-      ...this._state,
-      grass: this._grass,
-      road: this._road,
-      roadEdge: this._roadEdge,
-    });
+    drawColony(
+      ctx,
+      this._model,
+      view,
+      viewport,
+      this._theme,
+      {
+        ...this._state,
+        grass: this._grass,
+        road: this._road,
+        roadEdge: this._roadEdge,
+      },
+      this._dimensionConfig,
+    );
   },
 });
 

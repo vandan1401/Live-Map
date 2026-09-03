@@ -2,7 +2,7 @@ import type { ColonyModel, PlotShape } from "./colonyModel.ts";
 import type { ColonyTheme } from "./colonyTheme.ts";
 import { visibleBounds, type ViewState, type Viewport } from "./view.ts";
 import { drawLabels } from "./drawLabels.ts";
-import { drawPlotDimensions } from "./drawDimensions.ts";
+import { drawPlotDimensions, type DimensionConfig } from "./drawDimensions.ts";
 import type { PlotDimensions } from "./usePlotDimensions.ts";
 import { roundedPlotPath } from "./plotPath.ts";
 import { fillDecor, pathFor } from "./drawDecor.ts";
@@ -72,6 +72,9 @@ export function drawColony(
   viewport: Viewport,
   theme: ColonyTheme,
   state: DrawState,
+  // docs/plans/27.md — resolved from presentation.json by the caller; omitted keeps
+  // drawPlotDimensions's own default (matches today's fixed spacing/text exactly).
+  dimensionConfig?: DimensionConfig,
 ): void {
   const k = view.scale;
   ctx.clearRect(0, 0, viewport.width, viewport.height);
@@ -210,7 +213,7 @@ export function drawColony(
       // recomputed from geometry (spec/00-rules.md, dead computation).
       const dims = state.dimensions;
       if (dims && dims.plotId === plot.id) {
-        drawPlotDimensions(ctx, plot.points, dims.lengthFt, dims.breadthFt, theme);
+        drawPlotDimensions(ctx, plot.points, dims.lengthFt, dims.breadthFt, theme, dimensionConfig);
       }
     }
   }

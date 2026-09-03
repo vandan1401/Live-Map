@@ -64,6 +64,7 @@ export function PublicColonyView({ client, token }: Props) {
 
   usePublicColonyCanvas({
     containerRef,
+    colonyId: found?.colony.id ?? null,
     svg: found?.colony.svg ?? null,
     statuses,
     selectedId,

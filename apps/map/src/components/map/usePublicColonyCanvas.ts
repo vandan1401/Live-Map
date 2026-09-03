@@ -3,12 +3,14 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { parseColonyModel, type ColonyModel } from "./colonyModel.ts";
 import { resolveColonyTheme } from "./colonyTheme.ts";
+import { applyStatusColorOverrides } from "./applyPresentationColors.ts";
+import { resolvePresentationConfig } from "../../lib/colony/presentationConfig.ts";
 import { createColonyCanvasLayer, type ColonyCanvasLayer } from "./colonyCanvasLayer.ts";
 import { resolveClickedPlot } from "./plotPicker.ts";
 import type { PlotDimensions } from "./usePlotDimensions.ts";
 import { useFlyToSelectedPlot } from "./useFlyToSelectedPlot.ts";
 import { colonyLatLngBounds, leafletViewState, ZOOM_DETAIL_MARGIN } from "./view.ts";
-import grassPhotoUrl from "../../assets/textures/grass-satellite.jpg";
+import { loadGrass } from "./loadGrass.ts";
 
 // The public link's counterpart to useColonyCanvas.ts (owner ask, 2026-09-01: "exactly copy
 // colony owners ui" for the public link — real pan/zoom, fly-to-plot on selection, and the
@@ -31,6 +33,9 @@ import grassPhotoUrl from "../../assets/textures/grass-satellite.jpg";
 
 interface Args {
   containerRef: RefObject<HTMLDivElement | null>;
+  // docs/plans/27.md — resolves this colony's status colours/dimension config; null (no
+  // colony loaded yet) falls back to presentation.json's default block.
+  colonyId: string | null;
   svg: string | null;
   statuses: Record<string, string>;
   selectedId: string | null;
@@ -44,17 +49,8 @@ interface Args {
   selectZoomRefHeightPx: number | null;
 }
 
-function loadGrass(): Promise<HTMLImageElement | null> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
-    img.src = grassPhotoUrl;
-  });
-}
-
 export function usePublicColonyCanvas(args: Args): void {
-  const { containerRef, svg, selectedId, onSelect } = args;
+  const { containerRef, colonyId, svg, selectedId, onSelect } = args;
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<ColonyCanvasLayer | null>(null);
   const modelRef = useRef<ColonyModel | null>(null);
@@ -91,7 +87,11 @@ export function usePublicColonyCanvas(args: Args): void {
 
     const model = parseColonyModel(svg);
     modelRef.current = model;
+    // docs/plans/27.md: writes this colony's status colours onto the CSS variables
+    // resolveColonyTheme() reads below — must run first every time.
+    applyStatusColorOverrides(colonyId ?? undefined);
     const theme = resolveColonyTheme();
+    const dimensionConfig = resolvePresentationConfig(colonyId ?? undefined).dimension;
     const bounds = colonyLatLngBounds(model.width, model.height);
 
     const map = L.map(el, {
@@ -117,6 +117,7 @@ export function usePublicColonyCanvas(args: Args): void {
     const layer = createColonyCanvasLayer({
       model,
       theme,
+      dimensionConfig,
       grassImage: null,
       state: {
         statuses: {},
@@ -210,7 +211,7 @@ export function usePublicColonyCanvas(args: Args): void {
       modelRef.current = null;
       map.remove();
     };
-  }, [containerRef, svg, onSelect]);
+  }, [containerRef, colonyId, svg, onSelect]);
 
   // Selection, status and dimension changes all repaint without remounting the map — same
   // split useColonyCanvas.ts makes between its mount effect and this one.

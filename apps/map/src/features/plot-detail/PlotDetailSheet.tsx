@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { motion, useDragControls, type PanInfo } from "framer-motion";
 import { loadPlotDetail, type PlotDetail } from "../../lib/colony/plotDetail.ts";
+import { resolvePresentationConfig } from "../../lib/colony/presentationConfig.ts";
 import { applyPlotTransition } from "../../lib/plot-status/applyPlotTransition.ts";
 import { fetchPlotHistory } from "../../lib/db/plotHistory.ts";
 import type { PlotStatus } from "../../lib/db/types.ts";
@@ -54,6 +55,8 @@ export function PlotDetailSheet({
   // this, a mouse drag past DRAG_THRESHOLD sets `expanded` and the trailing click on
   // the same handle immediately flips it back.
   const didDrag = useRef(false);
+  // docs/plans/27.md — per-colony status display names, resolved once per colonyId.
+  const { statusLabels } = resolvePresentationConfig(colonyId);
 
   useEffect(() => {
     setDetail(null);
@@ -179,12 +182,13 @@ export function PlotDetailSheet({
       )}
       {detail && (
         <>
-          <PlotDetailContent {...detail} />
+          <PlotDetailContent {...detail} statusLabels={statusLabels} />
           <PlotStatusActions
             plot={detail.plot}
             history={detail.history}
             actor={actor}
             saving={saving}
+            statusLabels={statusLabels}
             onChangeStatus={(status, ownerName) => void handleChangeStatus(status, ownerName)}
             onUndo={handleUndo}
           />

@@ -15,6 +15,9 @@ interface Props {
   // — every other status button omits it.
   onChangeStatus: (toStatus: PlotStatus, ownerName?: string) => void;
   onUndo: () => void;
+  // Resolved by PlotDetailSheet.tsx from presentation.json (docs/plans/27.md) — omitted
+  // falls back to formatStatusLabel's own default text.
+  statusLabels?: Partial<Record<PlotStatus, string>>;
 }
 
 // Undo is a new forward transition, never a delete (spec/04) — eligible only when the
@@ -30,7 +33,15 @@ function canUndo(plot: PlotRow, history: PlotHistoryRow[], actor: string): boole
   );
 }
 
-export function PlotStatusActions({ plot, history, actor, saving, onChangeStatus, onUndo }: Props) {
+export function PlotStatusActions({
+  plot,
+  history,
+  actor,
+  saving,
+  statusLabels,
+  onChangeStatus,
+  onUndo,
+}: Props) {
   const [ownerNameDraft, setOwnerNameDraft] = useState("");
   const nextStatuses = ALL_STATUSES.filter((status) => isLegalTransition(plot.status, status));
   const showRecentEditWarning =
@@ -77,7 +88,7 @@ export function PlotStatusActions({ plot, history, actor, saving, onChangeStatus
             disabled={saving}
             onClick={() => onChangeStatus(status)}
           >
-            Mark {formatStatusLabel(status)}
+            Mark {formatStatusLabel(status, statusLabels)}
           </button>
         ))}
         {canUndo(plot, history, actor) && (

@@ -1,0 +1,25 @@
+{
+  "default": {
+    "homeHeading": "Nimantran Group Colonies",
+    "noOwnerTokens": ["", "NMC"],
+    "statusLabels": {
+      "available": "Available",
+      "booked": "Booked",
+      "registered": "Registry done"
+    },
+    "statusColors": {
+      "available": "#e8b84b",
+      "booked": "#3b82f6",
+      "registered": "#ff145a"
+    },
+    "dimension": {
+      "offset": 1,
+      "textFormat": "{value} ft"
+    }
+  },
+  "colonies": {
+    "bharatkshetra": {
+      "noOwnerTokens": ["", "IV"]
+    }
+  }
+}

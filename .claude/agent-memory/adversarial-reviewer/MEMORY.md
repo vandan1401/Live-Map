@@ -1,9 +1,9 @@
 - [Autonomous skill loop](project-autonomous-loop.md) — approval gates removed on purpose; flag the fallout, not the decision.
-- [Review diff blind spots](review-diff-blind-spots.md) — 5x: `diff-head` hides untracked files and sweeps in unplanned work; (5) unplanned `ui/` turned the gate red. Run `git status --short` + the root's lint.
-- [Docs vs enforcement drift](review-docs-vs-enforcement-drift.md) — 12x: docs claim a guarantee the runtime lacks; (12) `pnpm -C apps/map admin-portal` walks past the new guard rule.
-- [Contract widening consumers](review-contract-widening-consumers.md) — 3x: widening `svg_id` broke sort/uniqueness; (3) raw operator text into SVG = malformed XML, empty map. Grep consumers that *assume*.
-- [Line-cap breaches](review-line-cap-breaches.md) — 5x: `filesize.sh` is advisory, oxlint has no `max-lines`; (5) `App.tsx` 242→253. `wc -l` every touched file vs `git show HEAD:<f>`.
-- [Vacuous acceptance tests](review-vacuous-acceptance-tests.md) — 13x: tests passing for the wrong reason; (13) a click test round-tripping through `worldToScreen`'s own inverse.
+- [Review diff blind spots](review-diff-blind-spots.md) — 6x: `diff-head` hides untracked files and sweeps in unplanned work; (6) one `??` helper two tracked files import. `git status --short` first.
+- [Docs vs enforcement drift](review-docs-vs-enforcement-drift.md) — 14x: docs claim a guarantee the runtime lacks; (14) NAVIGATION.md edited but 2 rows still stale. Grep every touched signature.
+- [Contract widening consumers](review-contract-widening-consumers.md) — 4x: widening `svg_id` broke sort/uniqueness; (4) a per-colony CSS var on `documentElement` — leak fixed, palette now duplicated in JSON + CSS unchecked.
+- [Line-cap breaches](review-line-cap-breaches.md) — 6x: `filesize.sh` is advisory, oxlint has no `max-lines`; (6) `useColonyCanvas.ts` 257→264, since refactored to 247. `wc -l` vs `git show HEAD:<f>`.
+- [Vacuous acceptance tests](review-vacuous-acceptance-tests.md) — 14x: tests passing for the wrong reason; (14) config-driven colours tested only on the default branch (since fixed by an injectable config).
 - [Prod migration deploy order](review-prod-migration-deploy-order.md) — RPC results are unchecked `as` casts and prod lags local; a return-shape change with no PROGRESS.md pending entry renders blanks.
 - [Migrations run on an empty DB](review-migration-empty-db-blind-spot.md) — `db reset` replays migrations before any seed, so triggers/nullability/constraints over existing rows are untestable locally.
 - [Non-TypeScript call sites](review-non-ts-call-sites.md) — "tsc caught every call site" misses the Makefile, package.json scripts and hooks; `make db-reseed` broke on a new required CLI arg.

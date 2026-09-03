@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AnimatePresence } from "framer-motion";
 import type { PlotStatus } from "../lib/db/types.ts";
+import { resolvePresentationConfig } from "../lib/colony/presentationConfig.ts";
 import { PlotDetailSheet } from "../features/plot-detail/PlotDetailSheet.tsx";
 import { PlotSearch } from "../features/search/PlotSearch.tsx";
 import { ShareSummary } from "../features/share-summary/ShareSummary.tsx";
@@ -59,6 +60,9 @@ export function ColonyMap({
   // of the map's own container div, so Leaflet's mount effect (below, keyed to
   // containerRef) never tears down and reinitialises when this toggles.
   const [tableViewOpen, setTableViewOpen] = useState(false);
+
+  // docs/plans/27.md — per-colony status display names, resolved once per colonyId.
+  const { statusLabels } = resolvePresentationConfig(colonyId);
 
   // Leaflet (pan/zoom only, D-009), the canvas layer, attachSync's subscription, picking
   // and the 400ms status fade all live in useColonyCanvas.ts — the canvas renderer that
@@ -124,6 +128,7 @@ export function ColonyMap({
           active={activeStatuses}
           onToggle={handleToggleStatusFilter}
           onClear={() => setActiveStatuses(new Set())}
+          statusLabels={statusLabels}
         />
         <ShareSummary client={client} colonyId={colonyId} />
         <button

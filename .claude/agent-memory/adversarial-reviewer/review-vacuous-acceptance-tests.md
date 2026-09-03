@@ -150,6 +150,25 @@ issues (`translate(w/2,h/2); scale(k); translate(-cx,-cy)`), or pin literal scre
 Same test dropped plan §G's third case (a point inside a plot's bbox but outside its ring),
 which is the only case distinguishing `pointInRing` from `plotPicker.ts`'s bbox pre-filter.
 
+**14th recurrence, 2026-09-03 (plan 27).** A config-driven feature tested only on the branch
+where the config is empty. `applyPresentationColors.test.ts`'s two tests both call
+`applyStatusColorOverrides("no-such-colony", root)` — and `presentation.json` contains **no**
+`statusColors` override for any colony, so the per-colony colour path is never executed
+anywhere in the repo. The second test is titled "does not leak a previous colony's override"
+but plants the stale value by hand (`root.style.setProperty(...)`), which is the same
+assertion as test 1. Plan §2.4 had explicitly asked for "a config fixture that overrides
+`booked`'s colour" — and `applyStatusColorOverrides` offers no seam to inject one, since it
+calls `resolvePresentationConfig` internally off a statically imported JSON. **Rule: when a
+feature reads a checked-in config file whose committed contents exercise only the default
+branch, the override branch is untested by construction — check whether the function even
+takes an injectable config, and treat "no fixture possible" as the finding.**
+*Resolved in the same working tree (re-checked 2026-09-03): `applyStatusColorOverrides` now
+takes a third `config: PresentationConfig = resolvePresentationConfig(colonyId)` parameter
+and test 2 injects a real `booked` override before reverting — keep the rule, the specific
+claim about that file is no longer true.* Related:
+[[review-comment-asserts-unimplemented]] (the test title asserted the setup it lacked),
+[[review-unpinned-constants]].
+
 **How to apply:** the local Supabase Docker stack is usually up
 (`docker exec supabase_db_colony-map psql -U postgres -d postgres -c "..."`). Postgres's
 `CONTEXT:` line names the exact failing SQL statement — one command settles it. For a

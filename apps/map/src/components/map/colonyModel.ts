@@ -141,6 +141,22 @@ export function parseColonyModel(raw: string): ColonyModel {
   return { width, height, plots, decor, labels };
 }
 
+// docs/plans/27.md (extracted from useColonyCanvas.ts, shared with usePublicColonyCanvas.ts
+// only by not needing to exist there — the public link never receives an orphaned svg_id,
+// get_public_colony() only returns rows for plots that exist). An orphaned plot row must
+// never be silently invisible (spec/00-rules.md, apps/map failure mode 4) — the old SVG
+// renderer did `plotsById.get(id)?.setAttribute(...)` and said nothing when the id was
+// unknown; this is what feeds the dev badge instead.
+export function countOrphanStatuses(
+  plots: Pick<PlotShape, "id">[],
+  statuses: Record<string, string>,
+): number {
+  const known = new Set(plots.map((p) => p.id));
+  let orphans = 0;
+  for (const id of Object.keys(statuses)) if (!known.has(id)) orphans++;
+  return orphans;
+}
+
 function rotationFromTransform(el: Element): number {
   const t = el.getAttribute("transform");
   if (!t) return 0;

@@ -58,20 +58,26 @@ export async function loadShareSummaryData(
 // The literal text block the family pastes into WhatsApp (spec/06) — plain sentence
 // case, no product-marketing tone (tier-3.md's Copy rule applies here too even though
 // this function lives in lib/, since its whole output is user-facing copy).
-export function formatShareSummary(data: ShareSummaryData, now: Date = new Date()): string {
+export function formatShareSummary(
+  data: ShareSummaryData,
+  now: Date = new Date(),
+  // Resolved by ShareSummary.tsx from presentation.json (docs/plans/27.md) — omitted
+  // falls back to formatStatusLabel's own default text.
+  statusLabels?: Partial<Record<PlotStatus, string>>,
+): string {
   const lines = [
     `${data.colonyName} — plot status`,
     "",
-    `Available: ${data.counts.available}`,
-    `Booked: ${data.counts.booked}`,
-    `Registry done: ${data.counts.registered}`,
+    `${formatStatusLabel("available", statusLabels)}: ${data.counts.available}`,
+    `${formatStatusLabel("booked", statusLabels)}: ${data.counts.booked}`,
+    `${formatStatusLabel("registered", statusLabels)}: ${data.counts.registered}`,
   ];
 
   if (data.recentChanges.length > 0) {
     lines.push("", "Recent changes:");
     for (const change of data.recentChanges) {
       lines.push(
-        `${change.label} — ${formatStatusLabel(change.status)} by ${change.changedBy}, ${formatRelativeTime(change.changedAt, now)}`,
+        `${change.label} — ${formatStatusLabel(change.status, statusLabels)} by ${change.changedBy}, ${formatRelativeTime(change.changedAt, now)}`,
       );
     }
   }

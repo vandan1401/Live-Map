@@ -19,6 +19,9 @@ interface Props {
   saving: boolean;
   conflictWinner: string | null;
   error: string | null;
+  // Resolved by PlotTableView.tsx from presentation.json (docs/plans/27.md) — omitted
+  // falls back to formatStatusLabel's own default text.
+  statusLabels?: Partial<Record<PlotStatus, string>>;
   onPendingStatusChange: (status: PlotStatus | null) => void;
   onOwnerNameChange: (value: string) => void;
   onSave: () => void;
@@ -35,6 +38,7 @@ export function PlotTableRow({
   saving,
   conflictWinner,
   error,
+  statusLabels,
   onPendingStatusChange,
   onOwnerNameChange,
   onSave,
@@ -62,10 +66,10 @@ export function PlotTableRow({
             onPendingStatusChange(next === plot.status ? null : next);
           }}
         >
-          <option value={plot.status}>{formatStatusLabel(plot.status)}</option>
+          <option value={plot.status}>{formatStatusLabel(plot.status, statusLabels)}</option>
           {nextStatuses.map((status) => (
             <option key={status} value={status}>
-              {formatStatusLabel(status)}
+              {formatStatusLabel(status, statusLabels)}
             </option>
           ))}
         </select>

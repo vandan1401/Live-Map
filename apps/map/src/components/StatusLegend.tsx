@@ -7,12 +7,15 @@ interface Props {
   active: Set<PlotStatus>;
   onToggle: (status: PlotStatus) => void;
   onClear: () => void;
+  // Resolved by the caller from presentation.json (docs/plans/27.md) — omitted falls back
+  // to formatStatusLabel's own default text.
+  statusLabels?: Partial<Record<PlotStatus, string>>;
 }
 
 // Presentational only — ColonyMap.tsx owns the active-filter state and applies the
 // resulting dim/highlight to the map itself (spec/06: "tapping 'Available' dims
 // everything else to 20% opacity"). Multi-select, with a clear-all once anything is on.
-export function StatusLegend({ active, onToggle, onClear }: Props) {
+export function StatusLegend({ active, onToggle, onClear, statusLabels }: Props) {
   return (
     <div className="colony-legend">
       {STATUSES.map((status) => (
@@ -26,7 +29,7 @@ export function StatusLegend({ active, onToggle, onClear }: Props) {
           onClick={() => onToggle(status)}
         >
           <span className="colony-legend-swatch" />
-          {formatStatusLabel(status)}
+          {formatStatusLabel(status, statusLabels)}
         </button>
       ))}
       {active.size > 0 && (

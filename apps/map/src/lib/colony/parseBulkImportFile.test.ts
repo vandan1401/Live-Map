@@ -114,6 +114,17 @@ describe("parseSimpleBulkImportCsv", () => {
     expect(result.rows).toHaveLength(2);
     expect(result.skipped).toEqual([]);
   });
+
+  it("uses a colony-specific no-owner token list instead of the default (docs/plans/27.md)", () => {
+    const csv = ["plot,owner", "A-01,IV", "A-02,NMC"].join("\n");
+    const result = parseSimpleBulkImportCsv(csv, PLOTS, ["", "IV"]);
+    // "IV" is this colony's own no-owner token, so A-01 reads as available; "NMC" is not
+    // in this colony's list, so it is treated as a real (if odd) owner name.
+    expect(result.rows).toEqual([
+      expect.objectContaining({ svg_id: "plot-A-01", status: "available", owner_name: null }),
+      expect.objectContaining({ svg_id: "plot-A-02", status: "booked", owner_name: "NMC" }),
+    ]);
+  });
 });
 
 describe("parseSimpleBulkImportRows (shared by a future XLSX adapter)", () => {

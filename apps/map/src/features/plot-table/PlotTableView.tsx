@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { applyPlotTransition } from "../../lib/plot-status/applyPlotTransition.ts";
+import { resolvePresentationConfig } from "../../lib/colony/presentationConfig.ts";
 import { fetchPlotBySvgId, fetchPlotsByColony } from "../../lib/db/plots.ts";
 import { subscribePlotChanges } from "../../lib/sync/subscribePlots.ts";
 import { BulkImportScreen } from "../bulk-import/BulkImportScreen.tsx";
@@ -38,6 +39,8 @@ export function PlotTableView({ client, colonyId, onBack }: Props) {
   const [loadError, setLoadError] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, RowDraft>>({});
   const [showImport, setShowImport] = useState(false);
+  // docs/plans/27.md — per-colony status display names, resolved once per colonyId.
+  const { statusLabels } = resolvePresentationConfig(colonyId);
 
   useEffect(() => {
     let cancelled = false;
@@ -196,6 +199,7 @@ export function PlotTableView({ client, colonyId, onBack }: Props) {
                   saving={draft.saving}
                   conflictWinner={draft.conflictWinner}
                   error={draft.error}
+                  statusLabels={statusLabels}
                   onPendingStatusChange={(status) => patchDraft(plot.id, { pendingStatus: status })}
                   onOwnerNameChange={(value) => patchDraft(plot.id, { ownerNameDraft: value })}
                   onSave={() => void handleSave(plot)}
