@@ -44,7 +44,7 @@ export function startCanvasFlyTo(
   const targetOffset = viewHalf.multiplyBy(-scale).add(oldCenterPoint).subtract(pixelOrigin);
 
   canvas.getBoundingClientRect(); // commit whatever transform is already showing, pre-transition
-  canvas.style.transition = `transform ${DURATION_MS}ms cubic-bezier(0,0,0.25,1)`;
+  canvas.style.transition = `transform ${DURATION_MS}ms cubic-bezier(0,0,0.4,1)`;
   requestAnimationFrame(() => L.DomUtil.setTransform(canvas, targetOffset, scale));
 
   const finish = () => {
