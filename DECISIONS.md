@@ -47,6 +47,7 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-034 | Per-colony presentation config (heading, no-owner tokens, status names/colours, dimension spacing/text) is a checked-in JSON file resolved client-side, not a database table | accepted |
 | D-035 | Click-to-focus zoom interpolates the real camera and redraws every frame; never animates a CSS transform on a frozen raster snapshot of the canvas | accepted |
 | D-036 | A synthetic, manually-aligned aerial-style backdrop (composited with real OSM vector data) is a narrow, named exception to the "no satellite/aerial imagery" rule — per-colony opt-in only, real/licensed imagery of a real place stays banned | accepted |
+| D-037 | Google Maps/Earth imagery stays out of scope for backdrop generation, even via screenshot + AI-regeneration — checked against Google's own Geo Guidelines, not just re-asserted | accepted |
 
 ## tools/pipeline
 

@@ -3,33 +3,45 @@
 ## Current
 
 - **Bharatkshetra public link: synthetic-aerial backdrop + real OSM place/road labels
-  shipped (Tier 2/3, docs/plans/28.md, 2026-09-08).** Closes out the multi-day
+  shipped and live (Tier 2/3, docs/plans/28.md, 2026-09-08/09).** Closes out the multi-day
   `map-integration-exploration` prototype work — Bharatkshetra's real colony now renders,
   on its public link only, with a synthetic AI-generated + OSM-composited aerial-style
   backdrop layered under the live plots (D-022's ground-fill mechanism unchanged for every
   other colony), real place names ("Bibdod", "Khetalpur", "Sarwani Khurd") plus the
-  crossing highway's real OSM ref ("MD2512" — **not** the prototype's invented "Bibdod
-  Road" descriptive name, caught and fixed by `/review` 2026-09-08 as a real content-
-  honesty problem: it was rendering under a label claiming the text came from OSM, and
-  contradicted the owner's own "10% truth, not 100% fabricated" framing for this feature)
-  as plain Leaflet markers (visible whenever panned/zoomed into view — no fade effect, see
-  Deferred), and a screen-space edge vignette that's opaque at the default (padded) view
-  and fades out on zoom-in toward the plots. A backdrop colony also fits to a PADDED bbox
-  by default (`BACKDROP_FIT_PADDING`, `useMapBackdrop.ts`) instead of the normal tight
-  colony-only fit, with `minZoom`/`maxBounds` derived from the raster's own world extent
-  (`applyBackdropMinZoom`) rather than a guessed constant — `/review` 2026-09-08 caught, by
-  actual measurement across five separate passes, that a tight fit put every backdrop
-  label permanently out of reach, the vignette's own reference zoom unreachable, a naively-
-  derived minZoom let a visitor pan/zoom onto bare grass around the raster's edge, and even
-  the fix for that used the wrong (circumscribing, not inscribed) bounding box; every other
-  colony's fit is untouched. Required narrowing
-  `spec/00-rules.md`'s blanket "no satellite/aerial imagery" rule first (D-036) — surfaced
-  to the owner mid-session rather than silently building past it; the owner's call was to
-  update the rule, not the feature. New per-colony config
+  crossing highway's real OSM ref ("MD2512"), as plain Leaflet markers (visible whenever
+  panned/zoomed into view — no fade effect, see Deferred), and a screen-space edge vignette
+  that's opaque at the default (padded) view and fades out on zoom-in toward the plots. A
+  backdrop colony fits to a PADDED bbox by default (`BACKDROP_FIT_PADDING`,
+  `useMapBackdrop.ts`), with `minZoom`/`maxBounds` derived from the raster's own world
+  extent (`applyBackdropMinZoom`). Required narrowing `spec/00-rules.md`'s blanket "no
+  satellite/aerial imagery" rule first (D-036). New per-colony config
   (`apps/map/src/config/mapBackdrop.json`, D-034's checked-in-JSON precedent) means a
-  future colony opts in with one config entry, not a new mechanism. Vignette-blur
-  performance on real mobile Safari and the fit-padding/vignette-range constants are both
-  flagged under Deferred below, not resolved by this work.
+  future colony opts in with one config entry, not a new mechanism.
+  **2026-09-09: pushed live twice.** First push (`54b0c1d`) shipped plan 28 as originally
+  built, after a fresh `/review` pass (single forked run, not the multi-pass loop that
+  burned tokens in a prior session) found and fixed 2 Tier-3 issues (attribution box
+  overlapped Leaflet's zoom control; plan 28's pinned test-baseline count doesn't reproduce,
+  restated as "zero failures under `components/map/`") and deferred one Tier-1 finding
+  (`sw.js` evicts the backdrop JPEG every navigation — see Deferred). Owner then swapped the
+  shipped backdrop image itself (`f6f3ea3`): out with the OSM-inpainted duotone JPEG, in
+  with a new image the owner generated via a paid tool from their own patwari-trace overlay
+  plus OSM vector layers — same synthetic-generation mechanism D-036 already covers, no
+  Google Maps/Earth imagery involved. Manually re-aligned via a fresh
+  `experiments/map-texture-poc/stitch_v3.html` pass (gitignored scratch); transform/
+  imageWidth/imageHeight in `mapBackdrop.json` updated to match
+  (`x=864,y=283,scale=0.1050,rotateDeg=0`, `1798x875`); the 9 OSM labels' world coordinates
+  were left unchanged (real-world positions, independent of which raster depicts them) —
+  **not yet confirmed whether they land on recognizable features in the new image**, open
+  question from the swap itself. New decision this session: D-037 — Google Maps/Earth
+  imagery (screenshot or otherwise, even AI-regenerated past recognition) stays out of
+  scope for backdrop generation, confirmed against Google's own published Geo Guidelines
+  after an informal secondhand "our law team says this is fine" claim didn't hold up
+  against the primary source. Five further asks from the owner (admin-map backdrop parity,
+  tighter default zoom, a spacer.land-style load animation, zoom-dependent duotone/color
+  crossfade, Sentinel-2 macro land-cover as an extra AI-generation input) are recorded in
+  `## Backlog` below, explicitly not started — effort-estimated only, to be called out one
+  at a time. Vignette-blur performance on real mobile Safari and the fit-padding/vignette-
+  range constants are still flagged under Deferred, not resolved by this work.
 - **Click-to-focus zoom transition rebuilt from scratch (Tier 3, 2026-09-04), after three
   failed patch attempts on the wrong technique.** Owner reported the zoom-to-selected-plot
   transition was instant/snapping, not animated. First fix (`d3b686b`) raised
@@ -3160,6 +3172,28 @@ effort estimates below are for planning, not a commitment to build in this order
    content — fields, roads — maps into that dark range). Not a bug in what shipped
    (the vignette + duotone are working exactly as plan 28 designed them to make the
    colony's live plot colors pop), just the wrong zoom range for the effect per this new ask.
+5. **Feed real Sentinel-2 (Copernicus) macro land-cover into the AI backdrop generation as
+   an extra conditioning layer, alongside the OSM road vectors already used.** Medium,
+   fits as an enhancement to the existing `rasterize_osm.py` -> AI-generation step, not a
+   replacement of it. Raised 2026-09-09 via a roundabout path: owner first proposed
+   AI-upscaling raw 10m/px Sentinel-2 tiles into a close-up satellite look, which doesn't
+   hold up on its own (10m/px means a colony-sized area is ~20-30 source pixels; getting to
+   a usable ~0.3-0.5m/px close-up is a 20-30x *linear* upscale, i.e. 400-900x more pixels
+   than the source contains — past ~2-4x an upscaler isn't recovering real detail, it's
+   inventing it, same failure class as the already-documented missing-roads/text-leak
+   problems in `map-integration-exploration.md`). Owner then clarified the actual bar:
+   invented fine detail is fine, same as today's shipped pipeline (OSM road *positions*
+   stay real, the farmland texture around them has always been 100% AI-invented). Under
+   that bar, the honest version of the idea isn't "upscale Sentinel into a fake close-up,"
+   it's "use Sentinel-2's real macro-level land-cover (actual field boundaries, real
+   crop/vegetation color patterns, water bodies, seasonal palette) as one more real
+   conditioning input" — genuine new information the OSM-only pipeline doesn't have today
+   (OSM only carries manually-mapped roads/places, not real crop-color patterns). Licensing
+   is clean: Copernicus's own open-data terms are genuinely permissive for commercial reuse
+   (unlike the Google Maps/Earth path ruled out the same session — see the geo-guidelines
+   citation earlier in this backlog's originating conversation). Not urgent — revisit
+   alongside colony #2's backdrop generation or a future Bharatkshetra texture redo, not on
+   its own.
 
 ## Log
 
@@ -4101,3 +4135,50 @@ effort estimates below are for planning, not a commitment to build in this order
   `apps/map/src/components/map/**`). Live: dev server + real local Supabase, multiple
   plot selections (first-click, second-different-plot, rapid back-to-back same-plot),
   console clean throughout, mid-transition screenshot shows crisp (non-blurred) content.
+
+### 2026-09-09 — Fresh `/review` of plan 28, pushed live, backdrop image swapped, D-037
+- Done: continued a prior session's plan 28 review from a clean context (single forked
+  `/review` pass instead of the multi-pass loop that burned tokens before) — 3 findings,
+  fixed the 2 Tier-3 ones (attribution-vs-zoom-control z-index collision; plan 28's stale
+  test-baseline criterion restated as "zero failures under `components/map/`") and deferred
+  the Tier-1 one (`sw.js` evicts the backdrop JPEG every navigation). Committed and pushed
+  (`54b0c1d`) — Cloudflare's Git-integration auto-deploy built and deployed it
+  (`#411c35b8`, confirmed via the actual dashboard screenshot after an earlier wrong
+  conclusion from `wrangler deployments list`, see Surprises). Diagnosed a real user report
+  ("still see grass texture") as the admin map, not a caching bug — the backdrop is
+  public-link-only by design (plan 28 non-goal), confirmed once the owner checked the
+  correct link. Researched a Google Maps/Earth "screenshot + AI-regenerate = clean asset"
+  claim (informal, secondhand, "a friend on Google's law team said") against Google's own
+  published Geo Guidelines — didn't hold up (attribution survives reuse; "don't
+  significantly alter without disclosing it's a simulation"; explicit ban on using Earth/
+  Street View output "to reconstruct 3D models or create similar content") — logged as
+  **D-037**. Owner then supplied a genuinely different backdrop image (AI-generated from
+  their own patwari-trace overlay + OSM vector layers via a paid tool, no Google imagery),
+  manually re-aligned it via a fresh `stitch_v3.html` pass, and it's now live (`f6f3ea3`).
+  Recorded 5 further owner asks (admin-map backdrop parity, tighter load zoom, a
+  spacer.land-style zoom-in animation, zoom-dependent duotone/colour crossfade, Sentinel-2
+  macro land-cover as an AI-generation input) as a new `## Backlog` section — explicitly
+  not started, effort-estimated only, per the owner's own instruction to discuss and save
+  rather than build immediately.
+- Next: owner confirms live on the actual public link whether the 9 OSM labels (Bibdod,
+  Khetalpur, Sarwani Khurd, MD2512 x6) land on anything recognizable in the new backdrop
+  image — open question from the swap itself, not yet answered. `## Backlog`'s 5 items wait
+  on the owner calling each one out individually. `sw.js`'s asset-eviction bug (Deferred)
+  still needs its own `/plan`.
+- Surprises: `wrangler deployments list` (read-only CLI check) showed a stale/incomplete
+  deployment history — its most recent entry lagged the actual Cloudflare dashboard by a
+  full deploy, leading to a wrong "the auto-deploy didn't fire" conclusion that the owner
+  caught by screenshotting the real dashboard. The CLI and the dashboard are not
+  interchangeable sources of truth for deploy status; trust the dashboard, or a fresher
+  query, over a cached-looking CLI list. Also: `git push` to `master` is blocked outright
+  by the auto-mode permission classifier (not a normal approve/deny prompt) — the owner
+  has to run it themselves via `! <command>` for a push to actually happen from auto mode.
+- Verified: `pnpm typecheck && pnpm lint && pnpm test -- --run mapBackdrop && pnpm build`
+  clean after both the review fixes and the image swap (12/12 backdrop-specific tests).
+  Full `pnpm test -- --run`: 203 passed / 18 failed / 37 skipped, all 18 failures are the
+  same pre-existing live-Supabase-required tests (auth/db/colony/sync/admin-portal), none
+  under `components/map/` — reproduced across three separate runs this session with
+  differing failure *counts* (18, 20, 18) confirming the count itself is environment-flaky,
+  not a fixed regression signal (recorded in docs/plans/28.md §5). Both commits pushed to
+  `origin/master` for real (`git log` confirms `54b0c1d` and `f6f3ea3` both on `origin/
+  master`); Cloudflare deploy of the first confirmed live via the dashboard screenshot.

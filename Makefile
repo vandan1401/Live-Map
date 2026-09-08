@@ -1,7 +1,7 @@
 # Root dispatcher. Targets are the interface — found by name, never by searching.
 # Real implementations land in M1; these are the names the skills and CLAUDE.md rely on.
 
-.PHONY: verify verify-map verify-pipe gate contract inspect ingest export serve ui admin-portal db-start db-up db-restart db-reseed
+.PHONY: verify verify-map verify-pipe gate contract inspect ingest export serve ui admin-portal db-start db-up db-restart db-reseed backdrop-jpg
 
 verify: verify-map verify-pipe
 
@@ -53,6 +53,9 @@ gate: contract
 	cd apps/map && pnpm typecheck && pnpm lint && pnpm test -- --run && pnpm build
 	$(MAKE) -C tools/pipeline verify
 	$(MAKE) -C tools/pipeline golden
+
+backdrop-jpg:  ## re-encode a generated map-backdrop PNG to the JPEG the app ships (D-036); make backdrop-jpg SRC=path/to.png COLONY=bharatkshetra
+	cd apps/map && python scripts/encode-backdrop.py "../../$(SRC)" "$(COLONY)"
 
 inspect:   ## triage only — what is this file? make inspect PDF=fixtures/demo-plan.pdf
 	$(MAKE) -C tools/pipeline inspect PDF=../../$(PDF)
