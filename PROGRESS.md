@@ -3107,6 +3107,60 @@ on a real phone. Not verified by anyone: the five visual behaviours in `## Curre
   being last and becomes urgent. `make inspect` on one real file settles it.
 - How a new colony reaches production once exported is undecided. M6 imports by script.
 
+## Backlog — owner-requested, not started
+
+Four asks from the owner (2026-09-09, after seeing Bharatkshetra's backdrop live) to extend
+docs/plans/28.md's work. Explicitly not to be started until called out one at a time —
+effort estimates below are for planning, not a commitment to build in this order.
+
+1. **Backdrop on the admin (authenticated) map too, not just the public link.** Small–Medium.
+   `resolveMapBackdrop`/`attachMapBackdrop`/`drawMapBackdrop` are already colony-agnostic
+   pure functions, proven in `usePublicColonyCanvas.ts`. `useColonyCanvas.ts` currently
+   passes `backdrop: null` unconditionally (plan 28's explicit non-goal). Wiring it in is
+   mostly mirroring the public hook's pattern — the real work is the vignette/attribution/
+   labels not colliding with the admin map's *other* chrome (compass, freshness indicator,
+   plot panel, toolbar) that the public link doesn't have. Tier 3 (`components/map`,
+   `styles`) — no `/plan` required by CLAUDE.md's risk table, though an abbreviated plan doc
+   may be worth it given plan 28's own precedent.
+2. **More zoomed-in on load.** Trivial in isolation — `BACKDROP_FIT_PADDING` (currently
+   `4.5`, `useMapBackdrop.ts`) tuned down. Not independent of #3: if load becomes a fly-in
+   animation, "how zoomed in on load" is really "where the animation lands," decided
+   together with #3, not a separate constant tweak.
+3. **A Google-Earth/spacer.land-style zoom-in animation on load — the biggest item.**
+   Medium–Large. The camera-interpolation engine already exists and is proven
+   (`canvasFlyTo.ts`'s `runFlyTo`/`FlyToHost`, built for click-to-focus zoom — took a full
+   rewrite and three failed patch attempts before landing on real per-frame interpolation,
+   see the 2026-09-08/09 log entries below). Reusing it for a load-time "wide establishing
+   shot → fly into the colony" sequence is the right foundation. Real cost is calibrating
+   against the actual reference (starting zoom, duration, easing, any parallax/tilt) and
+   staying canvas-native throughout (no CSS/SVG blur-per-frame — `tier-3.md`'s mobile-Safari
+   rule). Ties to #4 if the crossfade is meant to run *during* the animation.
+   **Reference research done 2026-09-09** (`https://spacer.land/2QMAh?status=il4klN`,
+   "Nakshatra" project): branded loading splash before the map appears; a compass widget
+   (N/E/S/W, tap resets to north); bottom-right "Zones"/"Status" layer toggles; a bottom
+   action bar (Gallery, Search, GPS, Brochure, Info, Locate); a "3D" toggle; a WhatsApp
+   "Inquire project" CTA; a share icon. **Not captured:** the actual fly-in motion itself —
+   a click on what looked like the home/reset icon produced no visible change (wrong
+   target, or the view was already at rest), so only static end-states were observed, not
+   the animation's real timing/easing. Needs another attempt (fresh reload to catch the
+   very first load, or drive it from a project list entry) before this estimate can
+   tighten further.
+4. **Duotone only when zoomed in close; colorful when zoomed out.** Medium. A second,
+   colorful (non-duotone) backdrop asset needs shipping alongside the current duotone one —
+   a pre-duotone colorful source already exists in `experiments/map-texture-poc/` (e.g.
+   `bharatkshetra_composite_final.png`), just needs the same re-export/JPEG re-encode step
+   already done once for `bharatkshetra.jpg`. `drawBackdrop.ts` then draws both images with
+   an alpha blend interpolated by `(currentZoom − fitZoom)`, the same shape of math as the
+   existing vignette-opacity interpolation in `useMapBackdrop.ts`. **Direction confirmed
+   against the spacer.land reference, and it points the opposite way from what's shipped
+   today:** on spacer.land, the basemap is desaturated/grayscale at max zoom-in and full
+   color once zoomed out; ours is *always* duotone, including at the wide default load
+   view — which is the concrete reason today's default view reads as "too dark" (the
+   duotone LUT's shadow end is ~RGB(35,38,45), near-black, and most of the raster's
+   content — fields, roads — maps into that dark range). Not a bug in what shipped
+   (the vignette + duotone are working exactly as plan 28 designed them to make the
+   colony's live plot colors pop), just the wrong zoom range for the effect per this new ask.
+
 ## Log
 
 <!-- Append-only. Four lines per entry: Done / Next / Surprises / Verified. -->

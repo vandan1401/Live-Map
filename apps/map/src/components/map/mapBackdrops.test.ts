@@ -5,8 +5,8 @@ describe("resolveMapBackdrop", () => {
   it("returns the bharatkshetra backdrop with its labels", () => {
     const backdrop = resolveMapBackdrop("bharatkshetra");
     expect(backdrop).not.toBeNull();
-    expect(backdrop?.data.imageWidth).toBe(1440);
-    expect(backdrop?.data.imageHeight).toBe(960);
+    expect(backdrop?.data.imageWidth).toBe(1798);
+    expect(backdrop?.data.imageHeight).toBe(875);
     expect(backdrop?.data.labels).toHaveLength(9);
     expect(backdrop?.url).toEqual(expect.any(String));
   });

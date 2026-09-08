@@ -1,8 +1,8 @@
 {
   "bharatkshetra": {
-    "transform": { "x": 731.25, "y": 345.0, "scale": 0.0703125, "rotateDeg": 2.5 },
-    "imageWidth": 1440,
-    "imageHeight": 960,
+    "transform": { "x": 864, "y": 283, "scale": 0.1050, "rotateDeg": 0 },
+    "imageWidth": 1798,
+    "imageHeight": 875,
     "attribution": "Backdrop and place/road labels contain information from OpenStreetMap © OpenStreetMap contributors (ODbL)",
     "labels": [
       { "text": "Bibdod", "kind": "place", "worldX": -1294.73, "worldY": -162.70 },

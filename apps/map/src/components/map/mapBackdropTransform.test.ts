@@ -7,8 +7,13 @@ import {
   type MapBackdropTransform,
 } from "./mapBackdropTransform.ts";
 
-// Exact Bharatkshetra transform (docs/plans/28.md §3) -- reused verbatim from
-// experiments/map-texture-poc/bharatkshetra_transform_v2.json, do not re-derive.
+// Fixed test fixture for the transform math itself -- was Bharatkshetra's shipped
+// transform at the time this test was written (experiments/map-texture-poc/
+// bharatkshetra_transform_v2.json), but the two are no longer required to match: this
+// file tests worldToBackdropPixel/backdropPixelToWorld/backdropCoveredWorldBounds as pure
+// functions, decoupled from whatever apps/map/src/config/mapBackdrop.json ships today
+// (mapBackdrops.test.ts covers that). Do not re-derive these specific numbers -- the
+// round-trip/bounds/rotation-limit assertions below depend on their exact values.
 const TRANSFORM: MapBackdropTransform = { x: 731.25, y: 345.0, scale: 0.0703125, rotateDeg: 2.5 };
 const IMAGE_WIDTH = 1440;
 const IMAGE_HEIGHT = 960;
