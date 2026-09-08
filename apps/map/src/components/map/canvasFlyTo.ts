@@ -35,6 +35,53 @@ function cubicBezierEase(t: number, x1: number, y1: number, x2: number, y2: numb
 
 const ease = (t: number) => cubicBezierEase(t, 0, 0, 0.4, 1);
 
+// The bits of ColonyCanvasLayer's internal state runFlyTo needs, named rather than passed
+// as `this: LayerInternals` so this file doesn't depend on colonyCanvasLayer.ts's own
+// private interface (invariant 7's 250-line cap moved this extraction here, /review
+// 2026-09-08 — colonyCanvasLayer.ts's flyTo() is now a thin adapter over this).
+export interface FlyToHost {
+  map: L.Map | null;
+  renderedCenter: L.LatLng | null;
+  renderedZoom: number;
+  // Live accessors, not snapshot values -- isCancelled below must see a LATER flyTo call's
+  // bump, not the id captured when this call started (that was the whole point of bumping
+  // it on the actual layer instance in the first place).
+  getFlyToId(): number;
+  setFlyToId(id: number): void;
+  setFlyToActive(active: boolean): void;
+  resize(): void;
+  render(): void;
+}
+
+// Click-to-focus zoom. Bumps flyToId itself so a superseded flight's rAF loop (isCancelled,
+// below) stops on its next tick instead of fighting a newer one over the same setView/
+// redraw every frame — same reasoning colonyCanvasLayer.ts's own comment used to carry.
+export function runFlyTo(host: FlyToHost, center: L.LatLng, zoom: number): void {
+  const map = host.map;
+  if (!map) return;
+  const fromCenter = host.renderedCenter ?? map.getCenter();
+  const fromZoom = host.renderedZoom || map.getZoom();
+  // Blocks _schedule's own move/zoom listener for the duration -- setView fires those
+  // synchronously on every frame of this flight, and onFrame below already redraws
+  // directly; without this they'd double up on every frame.
+  host.setFlyToActive(true);
+  const myId = host.getFlyToId() + 1;
+  host.setFlyToId(myId);
+  startCanvasFlyTo(
+    map,
+    fromCenter,
+    fromZoom,
+    center,
+    zoom,
+    () => host.getFlyToId() !== myId,
+    () => {
+      host.resize();
+      host.render();
+    },
+    () => host.setFlyToActive(false),
+  );
+}
+
 export function startCanvasFlyTo(
   map: L.Map,
   fromCenter: L.LatLng,

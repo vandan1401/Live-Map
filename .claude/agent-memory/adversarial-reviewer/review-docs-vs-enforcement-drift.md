@@ -148,6 +148,35 @@ Three checks that have each caught a real defect:
     evidence it is now correct: enumerate every exported signature the diff touched and grep
     each one, including the ones that only gained an optional trailing parameter.**
 
+15. **2026-09-08 (plan 28) — a whole new subsystem with no `NAVIGATION.md` row at all.** Six
+    new `components/map/` modules (`mapBackdrops`, `mapBackdropTransform`, `drawBackdrop`,
+    `loadMapBackdrop`, `mapBackdropLabels`, plus `config/mapBackdrop.json`) and a new
+    `ColonyCanvasLayer.setBackdrop` method shipped while `NAVIGATION.md` still lists
+    `setGrassImage` as the only post-mount swap and describes `drawColony.ts`'s paint order
+    without the backdrop. CLAUDE.md tells the next session to use `NAVIGATION.md` *instead of*
+    exploring. **A plan that lists "new files" should be read as a `NAVIGATION.md` checklist:
+    every new module and every new public method on an existing class needs a row.**
+
+16. **2026-09-08 (plan 28, second pass) — the `DECISIONS.md` index row and the decision
+    *filename/title* assert a property the plan's own Non-goals rule out.** D-036 is filed as
+    `D-036-synthetic-georeferenced-backdrop-…` and indexed as "A synthetic, **georeferenced**
+    aerial-style backdrop", while `mapBackdropTransform.ts`'s header says "manual eyeball
+    placement -- no real surveyed anchor points exist yet" and plan §4 explicitly excludes
+    `georeference.py`/`anchor_transform.py`. The decision *body* never claims georeferencing —
+    only the one-line summary a future session actually reads does. **Read every D-xxx
+    filename and `DECISIONS.md` row as a load-bearing claim and check it against the code, not
+    against the decision body it summarises.**
+
+17. **2026-09-08 (plan 28, third pass) — the diff edited the very NAVIGATION.md row whose
+    "only place" claim it invalidated, and left the claim.** That row still reads "`view.ts`
+    (… `colonyLatLngBounds`/`leafletViewState`, the **only** place SVG space is bound to
+    Leaflet)" while the same commit adds `useMapBackdrop.ts:45-57` (`paddedColonyLatLngBounds`
+    writes `lat = -y` by hand) and `mapBackdropLabels.ts:33` (`L.marker([-worldY, worldX])`).
+    Plan §1 asserted the same thing about itself: "nothing new in this plan re-derives it".
+    **A row you are editing anyway gets read for its new clause and not its old one — reread
+    the whole row, and treat any word like "only"/"single"/"never" in it as an assertion the
+    diff must be checked against.**
+
 **How to apply:** on any review that touches `CLAUDE.md`, `.claude/settings.json`, or a
 skill file, open `.claude/hooks/guard.sh` and `_json.sh` and check the greps in the same
 pass. This has now recurred ten times — worth a CLAUDE.md line or a guard.sh self-test.

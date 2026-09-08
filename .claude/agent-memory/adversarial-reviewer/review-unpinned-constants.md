@@ -19,6 +19,16 @@ spec's 0.001 gap, which lands inside the window and passes; a 0.02–1 ft gap �
 rejected — sails through. Nothing in the plan, PROGRESS.md, or the commit records the new
 constant as a decided-alone judgement.
 
+**2nd occurrence, 2026-09-08 (plan 28, backdrop).** `useMapBackdrop.ts:21`
+`VIGNETTE_FADE_RANGE = 1.2` is *not* in plan §3's pinned list (which names only
+`BACKDROP_FIT_PADDING` and `BACKDROP_MIN_ZOOM`), and its comment justifies it as "eyeballed
+against the approved ... zoom_labels_demo.html prototype". That prototype has an exact
+equivalent: `edgeBlurOpacity(s) = 1 - (s - baseScale)/(baseScale * 0.6)`, i.e. fully faded at
+1.6x the fit scale = **log2(1.6) = 0.678 zoom levels**, not 1.2 — and the prototype's own
+comment says that blur "is what was blurring the plot numbers". **When a constant's only
+justification is "eyeballed against <prototype file>", open the prototype and convert its
+units: a multiplicative scale ratio and a Leaflet zoom delta are not the same number.**
+
 **How to apply:** for any tolerance check, write out the accept/reject intervals and probe
 the boundaries directly with the project venv rather than trusting the test that shipped —
 one `python -c` loop over `[0.001, 0.02, 0.05, 0.5, 2.0]` settles it. Also check *which*

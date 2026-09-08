@@ -1,0 +1,248 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Bharatkshetra — pan/zoom label prototype</title>
+<style>
+  html, body {
+    margin: 0; padding: 0; background: #111; overflow: hidden;
+    font-family: -apple-system, "Segoe UI", Arial, sans-serif;
+  }
+  #viewport {
+    position: relative; width: 100vw; height: 100vh; overflow: hidden;
+    cursor: grab;
+  }
+  #viewport.dragging { cursor: grabbing; }
+  #stage {
+    position: absolute; top: 0; left: 0;
+    width: 1440px; height: 960px;
+    transform-origin: 0 0;
+  }
+  #stage img, #stage object { position: absolute; top: 0; left: 0; display: block; border: none; }
+  #bg {
+    width: 1440px; height: 960px;
+    /* the transform-scaled backdrop looked gaussian-blurred under Chrome's
+       default bilinear upscaling (2026-09-08) -- pixelated forces
+       nearest-neighbor so zoomed-in road/field edges stay crisp instead of
+       smeared, at the cost of visible pixels only at the very highest zoom */
+    image-rendering: pixelated;
+  }
+  /* Edge vignette-blur (2026-09-08): the colony itself (screen center, since
+     the default view centers on it) should always read sharp; only the
+     raster backdrop visible toward the screen's outer edges gets blurred,
+     like a shallow depth-of-field falloff. backdrop-filter blurs whatever is
+     actually rendered beneath it in real time, so this stays correct as the
+     user pans/zooms -- it's a screen-space mask, not baked into the raster. */
+  #edgeBlur {
+    position: fixed; inset: 0; pointer-events: none; z-index: 5;
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+    mask-image: radial-gradient(ellipse at center, transparent 45%, black 90%);
+    -webkit-mask-image: radial-gradient(ellipse at center, transparent 45%, black 90%);
+    transition: opacity 150ms linear;
+  }
+  #svgWrap {
+    position: absolute; top: 0; left: 0;
+    transform-origin: 0 0;
+    transform: translate(731.25px, 345px) rotate(2.5deg) scale(0.0703125);
+  }
+  .label {
+    position: absolute; top: 0; left: 0;
+    transform-origin: 0 0;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 220ms ease;
+  }
+  .label .pin {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #fff; border: 1px solid #333;
+    box-shadow: 0 0 0 1px rgba(0,0,0,.25);
+    position: absolute; left: -3px; top: -3px;
+  }
+  .label .text {
+    position: absolute; left: 7px; top: -9px;
+    font-size: 13px; font-weight: 600; color: #2a2a2a;
+    text-shadow: 0 0 3px #fff, 0 0 3px #fff, 0 0 6px #fff;
+    letter-spacing: 0.2px;
+  }
+  .label.road .text {
+    background: #e8d9a8; border: 1px solid #8a7434; border-radius: 3px;
+    padding: 1px 5px; font-size: 11px; color: #4a3d10;
+    text-shadow: none; top: -8px; left: 7px;
+  }
+  #hint {
+    position: fixed; bottom: 14px; left: 14px; color: #ddd;
+    font-size: 12px; background: rgba(0,0,0,.45); padding: 6px 10px;
+    border-radius: 6px; pointer-events: none;
+  }
+  #attribution {
+    position: fixed; bottom: 14px; right: 14px; color: #bbb;
+    font-size: 11px; background: rgba(0,0,0,.45); padding: 4px 8px;
+    border-radius: 6px; pointer-events: none;
+  }
+  #zoomLevel {
+    position: fixed; top: 14px; right: 14px; color: #ddd;
+    font-size: 12px; background: rgba(0,0,0,.45); padding: 6px 10px;
+    border-radius: 6px; pointer-events: none; font-variant-numeric: tabular-nums;
+  }
+</style>
+</head>
+<body>
+<div id="viewport">
+  <div id="stage">
+    <img id="bg" src="backdrop_duotone_v2.png" alt="composite backdrop">
+    <div id="svgWrap">
+      <!-- <object>, not <img>: Chrome caches an <img src=svg> as a fixed-
+           resolution bitmap sized to its layout box and just blurs that
+           bitmap on further CSS-transform scaling -- exactly why plot
+           numbers went soft at high zoom (2026-09-08). <object> keeps it
+           live vector content that repaints crisply at any zoom. -->
+      <object type="image/svg+xml" data="bharatkshetra_colony.svg" width="1000" height="1399.73" aria-label="Bharatkshetra colony"></object>
+    </div>
+
+    <!-- real OSM place/road labels -- Overpass query 2026-09-08, see osm_labels_raw.json -->
+    <div class="label" data-min-zoom="1.15" style="left:640.8px; top:329.6px;">
+      <div class="pin"></div><div class="text">Bibdod</div>
+    </div>
+    <div class="label" data-min-zoom="1.6" style="left:1180.9px; top:678.6px;">
+      <div class="pin"></div><div class="text">Khetalpur</div>
+    </div>
+    <div class="label" data-min-zoom="1.6" style="left:353.8px; top:860.5px;">
+      <div class="pin"></div><div class="text">Sarwani Khurd</div>
+    </div>
+    <!-- named "Bibdod Road" (the real village it runs past) rather than its
+         OSM ref=MD2512 tag -- repeated at several points along its length so
+         one is always nearby regardless of where you've panned, matching
+         how real map UIs repeat a long road's name as you scroll along it -->
+    <div class="label road" data-min-zoom="1.0" style="left:82.8px; top:414.1px;">
+      <div class="text">Bibdod Road</div>
+    </div>
+    <div class="label road" data-min-zoom="1.0" style="left:374.9px; top:412.6px;">
+      <div class="text">Bibdod Road</div>
+    </div>
+    <div class="label road" data-min-zoom="1.0" style="left:681.7px; top:423.6px;">
+      <div class="text">Bibdod Road</div>
+    </div>
+    <div class="label road" data-min-zoom="1.0" style="left:982.0px; top:482.4px;">
+      <div class="text">Bibdod Road</div>
+    </div>
+    <div class="label road" data-min-zoom="1.0" style="left:1280.6px; top:592.4px;">
+      <div class="text">Bibdod Road</div>
+    </div>
+    <div class="label road" data-min-zoom="1.0" style="left:1400.8px; top:636.4px;">
+      <div class="text">Bibdod Road</div>
+    </div>
+  </div>
+  <div id="edgeBlur"></div>
+</div>
+<div id="hint">Scroll to zoom &middot; drag to pan &middot; labels fade in like a real map</div>
+<div id="zoomLevel">1.00&times;</div>
+<div id="attribution">Place/road labels &copy; OpenStreetMap contributors (ODbL)</div>
+
+<script>
+const viewport = document.getElementById('viewport');
+const stage = document.getElementById('stage');
+const labels = Array.from(document.querySelectorAll('.label'));
+const zoomLevelEl = document.getElementById('zoomLevel');
+
+let scale = 1.0;
+let tx = 0, ty = 0;
+// MAX_SCALE raised 6 -> 90 (2026-09-08): the colony's on-canvas footprint is
+// tiny (73x100px in the 1440x960 stage) relative to real plot-number legibility
+// -- 6x still made individual plots unreadable. Now that the colony renders
+// via <object> (live vector, not a cached bitmap), scaling this far stays
+// crisp instead of blurring.
+const MIN_SCALE = 0.4, MAX_SCALE = 90;
+const STAGE_W = 1440, STAGE_H = 960;
+const edgeBlurEl = document.getElementById('edgeBlur');
+
+// colony's real on-canvas footprint, from site_boundary_mask.png's own bbox
+// (727,345)-(800,445) -- not eyeballed
+const COLONY_BBOX = { x0: 727, y0: 345, x1: 800, y1: 445 };
+const COLONY_X = (COLONY_BBOX.x0 + COLONY_BBOX.x1) / 2;
+const COLONY_Y = (COLONY_BBOX.y0 + COLONY_BBOX.y1) / 2;
+
+// default view: the colony fills a comfortable fraction of the screen (not
+// the whole wide backdrop, 2026-09-08 fix) -- padding multiplier controls
+// how much surrounding context shows around the plots
+const COLONY_VIEW_PADDING = 4.5;
+function colonyFitScale() {
+  const w = (COLONY_BBOX.x1 - COLONY_BBOX.x0) * COLONY_VIEW_PADDING;
+  const h = (COLONY_BBOX.y1 - COLONY_BBOX.y0) * COLONY_VIEW_PADDING;
+  return Math.min(viewport.clientWidth / w, viewport.clientHeight / h);
+}
+
+function clampScale(s) { return Math.min(MAX_SCALE, Math.max(MIN_SCALE, s)); }
+
+// The edge vignette-blur is a screen-space effect meant for the wide
+// establishing view -- once the user zooms in far enough that the colony
+// itself would reach the blurred ring, it needs to fade out rather than
+// eating into the plots being zoomed into (2026-09-08 fix: this is what was
+// blurring the plot numbers in the screenshot, not just the zoom ceiling).
+// baseScale is the initial default zoom (colony + generous context); the
+// vignette is fully faded out by 1.6x that.
+let baseScale = 1;
+function edgeBlurOpacity(s) {
+  const t = (s - baseScale) / (baseScale * 0.6);
+  return Math.max(0, Math.min(1, 1 - t));
+}
+
+function apply() {
+  stage.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+  labels.forEach(el => {
+    const minZ = parseFloat(el.dataset.minZoom);
+    el.style.opacity = scale >= minZ ? '1' : '0';
+    // counter-scale so label text stays a constant screen size
+    const x = parseFloat(el.style.left), y = parseFloat(el.style.top);
+    el.style.transform = `scale(${1 / scale})`;
+  });
+  edgeBlurEl.style.opacity = edgeBlurOpacity(scale);
+  zoomLevelEl.textContent = scale.toFixed(2) + '×';
+}
+
+function centerOn(px, py, s) {
+  scale = clampScale(s);
+  tx = viewport.clientWidth / 2 - px * scale;
+  ty = viewport.clientHeight / 2 - py * scale;
+  apply();
+}
+
+// resizing the window keeps whatever zoom/pan the user is at -- only the
+// initial load below uses fitScale()
+
+viewport.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const rect = viewport.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  // point under cursor in stage-space before zoom
+  const sx = (mx - tx) / scale, sy = (my - ty) / scale;
+  const factor = Math.exp(-e.deltaY * 0.0015);
+  scale = clampScale(scale * factor);
+  tx = mx - sx * scale;
+  ty = my - sy * scale;
+  apply();
+}, { passive: false });
+
+let dragging = false, lastX = 0, lastY = 0;
+viewport.addEventListener('mousedown', (e) => {
+  dragging = true; lastX = e.clientX; lastY = e.clientY;
+  viewport.classList.add('dragging');
+});
+window.addEventListener('mouseup', () => { dragging = false; viewport.classList.remove('dragging'); });
+window.addEventListener('mousemove', (e) => {
+  if (!dragging) return;
+  tx += e.clientX - lastX; ty += e.clientY - lastY;
+  lastX = e.clientX; lastY = e.clientY;
+  apply();
+});
+
+// default view: zoomed onto the colony itself, not the wide backdrop --
+// (?z=N overrides the starting zoom, for testing/screenshots)
+const qs = new URLSearchParams(location.search);
+const zParam = parseFloat(qs.get('z'));
+baseScale = colonyFitScale();
+centerOn(COLONY_X, COLONY_Y, zParam || baseScale);
+</script>
+</body>
+</html>

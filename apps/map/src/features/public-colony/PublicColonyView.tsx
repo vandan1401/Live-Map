@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadPublicColony } from "../../lib/colony/publicColony.ts";
 import { usePublicColonyCanvas } from "../../components/map/usePublicColonyCanvas.ts";
+import { resolveMapBackdrop } from "../../components/map/mapBackdrops.ts";
 import type { PublicColonyResult } from "../../lib/db/types.ts";
 import { formatPlotLabel } from "../../shared/format.ts";
 
@@ -29,6 +30,9 @@ export function PublicColonyView({ client, token }: Props) {
   const [result, setResult] = useState<PublicColonyResult | "loading" | "error">("loading");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  // docs/plans/28.md, D-036: read by usePublicColonyCanvas.ts to fade this out on zoom;
+  // unused whenever backdrop below is null (the element then never even renders).
+  const backdropVignetteRef = useRef<HTMLDivElement>(null);
   // Bumped by the error state's "Try again" button (owner ask, 2026-09-01: a stalled
   // mobile connection used to leave this stuck on "Loading…" with no way back except a
   // full page reload — fetchPublicColony now times out instead of hanging forever
@@ -58,6 +62,9 @@ export function PublicColonyView({ client, token }: Props) {
   const statuses: Record<string, string> = {};
   for (const plot of found?.plots ?? []) statuses[plot.svg_id] = plot.status;
   const selectedPlot = found?.plots.find((plot) => plot.svg_id === selectedId) ?? null;
+  // docs/plans/28.md, D-036: null for every colony without a mapBackdrop.json entry —
+  // decides whether the vignette/attribution below render at all.
+  const backdrop = resolveMapBackdrop(found?.colony.id ?? null);
   const dimensions = selectedPlot
     ? { plotId: selectedPlot.svg_id, lengthFt: selectedPlot.length_ft, breadthFt: selectedPlot.breadth_ft }
     : null;
@@ -72,6 +79,7 @@ export function PublicColonyView({ client, token }: Props) {
     onSelect: useCallback((svgId: string | null) => setSelectedId(svgId), []),
     selectZoomRefWidthPx: found?.colony.select_zoom_ref_width_px ?? null,
     selectZoomRefHeightPx: found?.colony.select_zoom_ref_height_px ?? null,
+    backdropVignetteRef,
   });
 
   if (result === "loading") {
@@ -120,11 +128,15 @@ export function PublicColonyView({ client, token }: Props) {
       </header>
       <div className="public-colony-map-wrap">
         <div ref={containerRef} className="colony-map-container" />
+        {backdrop && <div ref={backdropVignetteRef} className="public-colony-backdrop-vignette" aria-hidden="true" />}
         <p className="colony-scale-note">Indicative layout — not to scale</p>
         <div className="colony-compass" aria-hidden="true">
           <span className="colony-compass-arrow">▲</span>
           <span>N</span>
         </div>
+        {backdrop && (
+          <p className="public-colony-backdrop-attribution">{backdrop.data.attribution}</p>
+        )}
       </div>
       {selectedPlot && (
         <div className="public-colony-plot-panel">

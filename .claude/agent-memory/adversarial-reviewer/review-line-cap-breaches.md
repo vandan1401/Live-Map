@@ -59,6 +59,25 @@ pytest config. Recommend this fix without hedging.
   refactors inside a Tier 2/3 plan. Expect that trade next time and check the refactor is
   behaviour-identical and recorded in PROGRESS.md.*
 
+- 2026-09-08 (plan 28, backdrop): **both** watched canvas files over at once —
+  `usePublicColonyCanvas.ts` **230 → 267** and `colonyCanvasLayer.ts` **250 → 267**. The
+  prediction above held exactly: a per-colony feature threads through both mount effects, and
+  `colonyCanvasLayer.ts` was sitting *at* 250 with zero headroom. The plan (§2.9/§2.10) listed
+  both as edited files and never mentioned length; its §5 acceptance criteria list typecheck,
+  tests and a `git grep`, but no `wc -l`. **Ask for a `wc -l` line in the plan's acceptance
+  criteria whenever `usePublicColonyCanvas.ts`/`colonyCanvasLayer.ts`/`useColonyCanvas.ts` are
+  on the edited-files list.** Smallest fix that session: extract the backdrop wiring
+  (resolve + image load + label layer lifecycle) into a `useMapBackdrop.ts` sibling hook,
+  mirroring the `useFlyToSelectedPlot.ts` split already made for the same reason.
+  *Adopted the same day: `useMapBackdrop.ts` (69) + `canvasFlyTo.ts`'s `runFlyTo`/`FlyToHost`
+  split brought the two back to 246/250. The "extract a sibling, don't inline" prescription
+  works here and is worth repeating verbatim.*
+  *Re-checked at the end of the same session (2026-09-08, 6th pass): `colonyCanvasLayer.ts`
+  **exactly 250**, `usePublicColonyCanvas.ts` 248, `useColonyCanvas.ts` 249, `useMapBackdrop.ts`
+  128 — all under the cap, but the three canvas files now have 0/2/1 lines of headroom between
+  them. The next feature that threads through a mount effect breaches on its first line.
+  Say this out loud on the next plan that names any of them.*
+
 Note the residual: `test_export.py` (304) and `test_matching.py` (264) are *already* over the
 cap and every plan that adds a `ColonyConfig` field grows them by a line. Not worth flagging
 per-diff; worth flagging when a diff adds a whole test to one of them.

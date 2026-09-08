@@ -86,6 +86,12 @@
   border-radius: 0.75rem;
   box-shadow: 0 2px 16px rgba(0, 0, 0, 0.18);
   padding: 1rem 1.25rem;
+  /* Matches .plot-detail-sheet's 1200 -- this panel previously had no explicit value, which
+   * was harmless only because nothing else on this page needed to compete for stacking
+   * order. docs/plans/28.md's backdrop vignette (z-index: 900) now does (/review
+   * 2026-09-08): without this, the vignette would paint over this panel whenever both are
+   * visible (zoomed out with a plot selected). */
+  z-index: 1200;
 }
 
 .public-colony-plot-panel-close {
@@ -121,4 +127,94 @@
 .public-colony-plot-panel-fields dd {
   margin: 0;
   font-size: 0.9rem;
+}
+
+/* docs/plans/28.md, D-036: one colony's synthetic-aerial backdrop only. Screen-space
+ * (not raster-space) blur that fades toward the screen's outer edges, ported from the
+ * experiments/map-texture-poc/zoom_labels_demo.html prototype's #edgeBlur — keeps the
+ * colony itself sharp while the backdrop's own wide establishing view softens at the
+ * margins. useMapBackdrop.ts's attachMapBackdrop() writes this element's opacity directly
+ * (via PublicColonyView.tsx's backdropVignetteRef) on every zoom change, fading it to 0
+ * over VIGNETTE_FADE_RANGE zoom units past the default fit view — see that file. */
+.public-colony-backdrop-vignette {
+  position: absolute;
+  inset: 0;
+  /* Leaflet's own panes (leaflet.css) carry z-index up to 600; .colony-scale-note/
+   * .colony-compass sit at 1000/1050 for the same reason (colony-theme.css,
+   * map-toolbar.css) -- without this the vignette paints UNDER the map and has no
+   * visible effect at all (/review, 2026-09-08). */
+  z-index: 900;
+  pointer-events: none;
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  mask-image: radial-gradient(ellipse at center, transparent 45%, black 90%);
+  -webkit-mask-image: radial-gradient(ellipse at center, transparent 45%, black 90%);
+}
+
+/* ODbL attribution — real obligation, not decorative (the backdrop's road/place labels are
+ * derived from real OpenStreetMap data). Same low-emphasis weight as .colony-scale-note. */
+.public-colony-backdrop-attribution {
+  position: absolute;
+  /* top-left, not bottom -- .public-colony-plot-panel is position: fixed along the whole
+   * bottom edge (z-index: 1200) whenever a plot is selected, and at phone widths this
+   * two-line attribution string sits entirely behind it there (/review 2026-09-08).
+   * top-left also clears .colony-compass (map-toolbar.css, top-right, 2rem square).
+   * top: 3rem, not 0.5rem -- Leaflet's own zoom control sits at (10, 10) inside
+   * .colony-map-container (zoomControl defaults true, never disabled here) and is also
+   * z-index: 1000; 0.5rem painted this attribution directly over the +/- buttons
+   * (/review 2026-09-09). Matches .colony-freshness-indicator's same top: 3rem fix for the
+   * same collision (colony-theme.css). */
+  top: 3rem;
+  left: 0.5rem;
+  right: 3.5rem; /* clears .colony-compass (top: 0.75rem, right: 0.75rem, 2rem square) */
+  /* Same reason as .public-colony-backdrop-vignette above — without this it renders
+     behind the map's own Leaflet panes and is never visible. */
+  z-index: 1000;
+  margin: 0;
+  font-size: 0.65rem;
+  color: var(--colony-site-boundary);
+  background: rgba(255, 255, 255, 0.7);
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.25rem;
+  pointer-events: none;
+}
+
+/* mapBackdropLabels.ts's L.divIcon markup — real place/road names, visible whenever
+ * panned/zoomed into view (no fade effect). Informational only, never interactive
+ * (docs/plans/28.md §2.7) -- interactive: false on the Leaflet marker only stops event
+ * registration, so pointer-events: none is still needed here. */
+.map-backdrop-label {
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.map-backdrop-label-pin {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 1px solid #333333;
+  margin-right: 0.3em;
+  vertical-align: middle;
+}
+
+.map-backdrop-label-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #2a2a2a;
+  text-shadow:
+    0 0 3px #ffffff,
+    0 0 3px #ffffff,
+    0 0 6px #ffffff;
+}
+
+.map-backdrop-label-road .map-backdrop-label-text {
+  background: #e8d9a8;
+  border: 1px solid #8a7434;
+  border-radius: 3px;
+  padding: 1px 5px;
+  font-size: 0.65rem;
+  color: #4a3d10;
+  text-shadow: none;
 }

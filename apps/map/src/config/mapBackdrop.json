@@ -1,0 +1,19 @@
+{
+  "bharatkshetra": {
+    "transform": { "x": 731.25, "y": 345.0, "scale": 0.0703125, "rotateDeg": 2.5 },
+    "imageWidth": 1440,
+    "imageHeight": 960,
+    "attribution": "Backdrop and place/road labels contain information from OpenStreetMap © OpenStreetMap contributors (ODbL)",
+    "labels": [
+      { "text": "Bibdod", "kind": "place", "worldX": -1294.73, "worldY": -162.70 },
+      { "text": "Khetalpur", "kind": "place", "worldX": 6595.89, "worldY": 4461.07 },
+      { "text": "Sarwani Khurd", "kind": "place", "worldX": -5043.27, "worldY": 7558.73 },
+      { "text": "MD2512", "kind": "road", "worldX": -9170.76, "worldY": 1384.10 },
+      { "text": "MD2512", "kind": "road", "worldX": -5021.33, "worldY": 1181.57 },
+      { "text": "MD2512", "kind": "road", "worldX": -655.28, "worldY": 1147.54 },
+      { "text": "MD2512", "kind": "road", "worldX": 3648.07, "worldY": 1796.72 },
+      { "text": "MD2512", "kind": "road", "worldX": 7959.02, "worldY": 3174.43 },
+      { "text": "MD2512", "kind": "road", "worldX": 9694.20, "worldY": 3725.05 }
+    ]
+  }
+}

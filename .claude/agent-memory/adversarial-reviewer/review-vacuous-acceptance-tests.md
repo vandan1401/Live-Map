@@ -169,6 +169,46 @@ claim about that file is no longer true.* Related:
 [[review-comment-asserts-unimplemented]] (the test title asserted the setup it lacked),
 [[review-unpinned-constants]].
 
+**15th recurrence, 2026-09-08 (plan 28, 6th pass) — the tests cover the part that was never
+wrong.** `mapBackdropTransform.test.ts` ships three cases, all on
+`worldToBackdropPixel`/`backdropPixelToWorld` (a round-trip, a colony-centre-in-frame check,
+one pinned label) — that composition was correct on the first pass and has never been a
+finding. Zero cases touch `backdropWorldBounds` or the rotation-inset in
+`useMapBackdrop.ts::applyBackdropMinZoom`, which five consecutive review passes each found
+wrong (guessed constant → wrong `inside` flag → ratchet feedback loop → circumscribed vs
+inscribed box). **Rule: after a multi-pass review of one function, check that the tests added
+by the fixes point at the function the passes were about. Test files grow around the pure,
+easy-to-test helper next door while the load-bearing derivation stays in the hook where a
+test needs a live Leaflet map.** The cheap fix is to make the derivation pure and testable
+(export the inset rect from `mapBackdropTransform.ts`) rather than to mock the map.
+Related: [[review-prototype-envelope-mismatch]].
+
+**16th recurrence, 2026-09-08 (plan 28, 7th pass) — #15's fix landed on the helper, not on
+the caller.** `backdropCoveredWorldBounds` now has a dedicated case, but
+`useMapBackdrop.ts::applyBackdropMinZoom` (11 lines, the actual site of review passes 3 and
+4: `getBoundsZoom(bounds, true)`'s `inside` flag, and the
+`setMinZoom(BACKDROP_PLACEHOLDER_MIN_ZOOM)` reset that has to precede the re-measure or
+minZoom ratchets up-only) still has **zero** tests. Both fixes are pure call ordering/
+argument choice against an `L.Map`, and both are asserted only by a comment. It takes a
+~15-line stub (`{ setMinZoom, getBoundsZoom, setMaxBounds, getZoom }` recording calls) to
+pin them. **Rule: when a fix is "we pass a different flag" or "we call X before Y", the test
+must assert the call, not the maths around it — extracting the pure part and testing that
+leaves the actual regression uncovered.**
+
+**17th recurrence, 2026-09-08 (plan 28, 8th pass) — #16's fix landed, but the stub throws
+away the one argument the bug lived in.** `useMapBackdrop.test.ts` now exists and asserts
+`getBoundsZoom(inside=true)` and the placeholder-before-measure ordering — both real. But
+its `stubMap` signature is `getBoundsZoom: (_bounds: unknown, inside?: boolean)` and
+`setMaxBounds: () => {...}`: the *bounds* are never captured or asserted. Review pass 5's
+finding was precisely that `applyBackdropMinZoom` passed the **circumscribed**
+`backdropWorldBounds` where it needed the **inscribed** `backdropCoveredWorldBounds`;
+reverting that one identifier today keeps all three `useMapBackdrop.test.ts` cases and all
+four `mapBackdropTransform.test.ts` cases green. **Rule: a call-recording stub must record
+the arguments, not just the call. When a past finding was "we passed the wrong value", the
+regression test has to compare the value — recording `setMaxBounds` as the bare string
+`"setMaxBounds"` documents that a call happened and nothing about whether it was right.**
+Related: [[review-prototype-envelope-mismatch]].
+
 **How to apply:** the local Supabase Docker stack is usually up
 (`docker exec supabase_db_colony-map psql -U postgres -d postgres -c "..."`). Postgres's
 `CONTEXT:` line names the exact failing SQL statement — one command settles it. For a

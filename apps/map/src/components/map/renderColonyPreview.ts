@@ -92,6 +92,8 @@ export function renderColonyPreview(
       // (D-025's preview runs before import) — treated as "no corner plots" rather than
       // blocking the preview on data that cannot exist yet.
       cornerPlots: new Set<string>(),
+      // docs/plans/28.md: the upload-confirmation preview never shows a backdrop.
+      backdrop: null,
     });
   };
 

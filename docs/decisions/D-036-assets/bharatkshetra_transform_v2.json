@@ -1,0 +1,14 @@
+{
+  "colony": "bharatkshetra",
+  "texture": "bharatkshetra_composite_final.png",
+  "texture_center": { "lat": 23.33353, "lon": 74.98714, "zoom": 15 },
+  "canvas": { "width": 1440, "height": 960 },
+  "transform": {
+    "note": "CSS transform: translate(x, y) rotate(rotateDeg) scale(scale), transform-origin 0 0, applied to the colony SVG at its native viewBox size (1000 x 1399.73). Scaled from bharatkshetra_transform.json's manual placement (x=780,y=368,scale=0.075 on a 1536x1024 canvas) by 1440/1536=0.9375 -- flux-fill-pro's output came back at that resized canvas, uniform scale, same aspect ratio, no rotation/crop change so a flat multiply is exact.",
+    "x": 731.25,
+    "y": 345.0,
+    "scale": 0.0703125,
+    "rotateDeg": 2.5
+  },
+  "method": "manual eyeball placement (stitch.html) rescaled for the flux-fill-pro composite's actual output resolution -- not re-derived from anchor points, still no real surveyed anchors for this colony"
+}

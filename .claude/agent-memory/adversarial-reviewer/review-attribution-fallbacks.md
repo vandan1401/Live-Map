@@ -1,6 +1,6 @@
 ---
 name: review-attribution-fallbacks
-description: Recurring defect — a fabricated, synthetic, or stale provenance value (actor fallback, a `confidence` for a match that never ran, `import` rows shown as real changes, a sticky `owner_name`, a JWT claim the user can rewrite) writes a fake fact into the evidence trail. Flagged seven times.
+description: Recurring defect — a fabricated, synthetic, or stale provenance value (actor fallback, a `confidence` for a match that never ran, `import` rows shown as real changes, a sticky `owner_name`, a JWT claim the user can rewrite, an ODbL credit on an invented place name) writes a fake fact into the evidence trail. Flagged eight times.
 metadata:
   type: feedback
 ---
@@ -63,6 +63,32 @@ Occurrences so far:
    string as the mistake not to reintroduce. Grep the placeholder strings themselves
    (`"unknown"`, `"import"`, `"system"`, `"anonymous"`) on every diff that touches identity.
 
+8. 2026-09-08 (plan 28, backdrop labels) — **attribution of shipped *content*, not of a
+   database row.** `apps/map/src/config/mapBackdrop.json` ships nine labels under
+   `"attribution": "Place/road labels © OpenStreetMap contributors (ODbL)"`. Six of the nine
+   read `"Bibdod Road"`. The prototype's own source comment
+   (`experiments/map-texture-poc/zoom_labels_demo.html:114`) says that road was *named*
+   "Bibdod Road (the real village it runs past) rather than its OSM ref=MD2512 tag" — i.e.
+   OSM carries `ref=MD2512` and no `name` for it, and the string is invented. Nothing in
+   `docs/plans/28.md` §3, `D-036`, or `PROGRESS.md` records that. **Rule: an attribution/
+   credit string is a claim about where the adjacent data came from — check the source for
+   the field the string names, not just that the source was used somewhere in the pipeline.**
+   Extra pull here: the label is styled as a road-shield chip, a convention that exists for
+   `ref`s specifically, so the presentation reinforces the false claim.
+
+9. 2026-09-08 (plan 28, same feature, next pass) — #8's label text was fixed to the real
+   `ref=MD2512`, but the credit is still **scoped to the wrong artifact**.
+   `mapBackdrop.json`'s string reads "Place/**road labels** © OpenStreetMap contributors
+   (ODbL)" and `PublicColonyView.tsx:137` renders it only `when backdrop.data.labels.length
+   > 0`. `D-036` itself says the shipped raster is "composited with real, freely-licensed
+   OpenStreetMap vector data (roads, place names)" — and the JPEG visibly contains the OSM
+   road/river network. So the ODbL obligation attaches to the **image**, which is credited
+   only as a side effect of the DOM labels existing; a future `mapBackdrop.json` entry with
+   `labels: []` ships an OSM-derived Produced Work with no notice at all. **Rule: check what
+   the credit string *names* against what in the diff is actually derived from the source —
+   a credit gated on a proxy (labels exist) rather than on the obligation's cause (the asset
+   is derived) is the same defect as a `?? "unknown"`: it looks like provenance and isn't.**
+
 **How to apply:** the fix is always the same — make the guarantee structural (pass the actor
 as a required prop from the component that already enforces it) or refuse the write. Related:
-[[review-vacuous-acceptance-tests]].
+[[review-vacuous-acceptance-tests]], [[review-gitignored-provenance]].

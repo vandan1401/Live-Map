@@ -13,7 +13,7 @@ Each entry is out of scope. Where a narrow exception exists it is named; where i
 
 | Never build | Narrow approved exception |
 |---|---|
-| Satellite or aerial imagery overlay | None. Ruled out explicitly by the owner. |
+| Satellite, licensed aerial, or any real photographic imagery of an actual site | None. Real/licensed imagery of a real place stays banned outright, satellite or drone, at any license tier. A synthetic, AI-generated aerial-**style** backdrop — not derived from any real photo of the real site — composited with real, freely-licensed OpenStreetMap vector data is the sole approved exception (D-036), and only per-colony, opted in one at a time via `apps/map/src/config/mapBackdrop.json` — never a default every colony gets. |
 | Native iOS/Android app, App Store, TestFlight, Capacitor wrapper | None. PWA only (D-001). |
 | Per-user roles, granular permissions, broker-scoped visibility | None. All users are equal admins (D-007). |
 | Public buyer-facing or broker-facing view | None in v1. |

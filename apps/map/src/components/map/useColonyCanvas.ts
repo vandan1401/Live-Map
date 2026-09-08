@@ -91,6 +91,7 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
       transitions: transitionsRef.current.progress(performance.now()),
       dimensions: dimensionsRef.current,
       cornerPlots: cornerPlotsRef.current,
+      backdrop: null, // docs/plans/28.md: public-link-only (Non-goals)
     });
   };
 
@@ -163,6 +164,7 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
           transitions: new Map(),
           dimensions: null,
           cornerPlots: new Set<string>(),
+          backdrop: null,
         },
       });
       layer.addTo(map);

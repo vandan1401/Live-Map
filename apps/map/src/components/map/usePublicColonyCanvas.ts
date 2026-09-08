@@ -9,8 +9,11 @@ import { createColonyCanvasLayer, type ColonyCanvasLayer } from "./colonyCanvasL
 import { resolveClickedPlot } from "./plotPicker.ts";
 import type { PlotDimensions } from "./usePlotDimensions.ts";
 import { useFlyToSelectedPlot } from "./useFlyToSelectedPlot.ts";
-import { colonyLatLngBounds, leafletViewState, ZOOM_DETAIL_MARGIN } from "./view.ts";
+import { colonyLatLngBounds, paddedColonyLatLngBounds, leafletViewState, ZOOM_DETAIL_MARGIN } from "./view.ts";
 import { loadGrass } from "./loadGrass.ts";
+import { resolveMapBackdrop } from "./mapBackdrops.ts";
+import { attachMapBackdrop, applyBackdropMinZoom, BACKDROP_FIT_PADDING, BACKDROP_PLACEHOLDER_MIN_ZOOM } from "./useMapBackdrop.ts";
+import type { MapBackdropController } from "./useMapBackdrop.ts";
 
 // The public link's counterpart to useColonyCanvas.ts (owner ask, 2026-09-01: "exactly copy
 // colony owners ui" for the public link — real pan/zoom, fly-to-plot on selection, and the
@@ -33,28 +36,26 @@ import { loadGrass } from "./loadGrass.ts";
 
 interface Args {
   containerRef: RefObject<HTMLDivElement | null>;
-  // docs/plans/27.md — resolves this colony's status colours/dimension config; null (no
-  // colony loaded yet) falls back to presentation.json's default block.
-  colonyId: string | null;
+  colonyId: string | null; // docs/plans/27.md — null falls back to presentation.json's default
   svg: string | null;
   statuses: Record<string, string>;
   selectedId: string | null;
   dimensions: PlotDimensions | null;
   onSelect: (svgId: string | null) => void;
-  // docs/plans/26.md — the owner-drawn COL-ZOOM-REF extent (get_public_colony()'s colony
-  // object), same prop names useColonyCanvas.ts already uses. null/null (a colony with no
-  // such rectangle) falls back to the fixed SELECT_ZOOM constant, same as the authenticated
-  // map (view.ts's computeSelectZoom).
+  // docs/plans/26.md — COL-ZOOM-REF extent; null/null falls back to the fixed SELECT_ZOOM.
   selectZoomRefWidthPx: number | null;
   selectZoomRefHeightPx: number | null;
+  backdropVignetteRef?: RefObject<HTMLDivElement | null>; // absent/null: useMapBackdrop.ts no-ops
 }
 
 export function usePublicColonyCanvas(args: Args): void {
-  const { containerRef, colonyId, svg, selectedId, onSelect } = args;
+  const { containerRef, colonyId, svg, selectedId, onSelect, backdropVignetteRef } = args;
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<ColonyCanvasLayer | null>(null);
   const modelRef = useRef<ColonyModel | null>(null);
-  const fitZoomRef = useRef(0);
+  const fitZoomRef = useRef(0); // tight colony-only zoom — showPlotLabels' own threshold
+  const defaultZoomRef = useRef(0); // ACTUAL fit() target (padded for a backdrop colony)
+  const backdropRef = useRef<MapBackdropController | null>(null); // null: no backdrop entry
 
   // Latest statuses/dimensions without re-running the mount effect — same shape as
   // useColonyCanvas.ts's viewStateRef, since a public visitor tapping a second plot must
@@ -78,7 +79,11 @@ export function usePublicColonyCanvas(args: Args): void {
       transitions: new Map(),
       dimensions: drawArgsRef.current.dimensions,
       cornerPlots: new Set(),
+      backdrop: null, // placeholder — the real value lives on the layer, like grass/road above
     });
+    // Refreshed on every push, not just 'zoomend', so the initial fit's first paint
+    // already has correct label/vignette visibility.
+    backdropRef.current?.update();
   };
 
   useEffect(() => {
@@ -87,16 +92,18 @@ export function usePublicColonyCanvas(args: Args): void {
 
     const model = parseColonyModel(svg);
     modelRef.current = model;
-    // docs/plans/27.md: writes this colony's status colours onto the CSS variables
-    // resolveColonyTheme() reads below — must run first every time.
+    // docs/plans/27.md: writes status colours onto CSS vars resolveColonyTheme() reads below.
     applyStatusColorOverrides(colonyId ?? undefined);
     const theme = resolveColonyTheme();
     const dimensionConfig = resolvePresentationConfig(colonyId ?? undefined).dimension;
-    const bounds = colonyLatLngBounds(model.width, model.height);
+    const backdrop = resolveMapBackdrop(colonyId);
+    const bounds = backdrop
+      ? paddedColonyLatLngBounds(model.width, model.height, BACKDROP_FIT_PADDING)
+      : colonyLatLngBounds(model.width, model.height);
 
     const map = L.map(el, {
       crs: L.CRS.Simple,
-      minZoom: -2,
+      minZoom: backdrop ? BACKDROP_PLACEHOLDER_MIN_ZOOM : -2, // fit() -> applyBackdropMinZoom refines
       maxZoom: 4,
       zoomSnap: 0.1,
       attributionControl: false,
@@ -130,10 +137,14 @@ export function usePublicColonyCanvas(args: Args): void {
         transitions: new Map(),
         dimensions: null,
         cornerPlots: new Set<string>(),
+        backdrop: null,
       },
     });
     layer.addTo(map);
     layerRef.current = layer;
+
+    // docs/plans/28.md, D-036: null (no-op) for a colony with no backdrop.
+    backdropRef.current = attachMapBackdrop(map, layer, backdrop, () => defaultZoomRef.current, backdropVignetteRef?.current ?? null);
     pushState.current();
 
     void loadGrass().then((grassImage) => {
@@ -161,7 +172,9 @@ export function usePublicColonyCanvas(args: Args): void {
     const fit = () => {
       didInitialFit = true;
       map.fitBounds(bounds);
-      fitZoomRef.current = map.getBoundsZoom(bounds);
+      defaultZoomRef.current = map.getBoundsZoom(bounds);
+      fitZoomRef.current = map.getBoundsZoom(colonyLatLngBounds(model.width, model.height));
+      if (backdrop) applyBackdropMinZoom(map, backdrop);
       pushState.current();
     };
     // jsdom (unit tests only — every real browser this app targets has supported
@@ -174,7 +187,10 @@ export function usePublicColonyCanvas(args: Args): void {
             const size = entries[0]?.contentRect;
             if (!size || size.width === 0 || size.height === 0) return;
             if (!didInitialFit) fit();
-            else map.invalidateSize();
+            else {
+              map.invalidateSize();
+              if (backdrop) applyBackdropMinZoom(map, backdrop); // re-derive for e.g. rotation
+            }
           });
     if (resizeObserver) resizeObserver.observe(el);
     else fit();
@@ -206,12 +222,14 @@ export function usePublicColonyCanvas(args: Args): void {
       resizeObserver?.disconnect();
       map.off("zoomend", onZoom);
       map.off("click", onClick);
+      backdropRef.current?.destroy();
+      backdropRef.current = null;
       layerRef.current = null;
       mapRef.current = null;
       modelRef.current = null;
       map.remove();
     };
-  }, [containerRef, colonyId, svg, onSelect]);
+  }, [containerRef, colonyId, svg, onSelect, backdropVignetteRef]);
 
   // Selection, status and dimension changes all repaint without remounting the map — same
   // split useColonyCanvas.ts makes between its mount effect and this one.

@@ -127,6 +127,20 @@ Occurrences so far:
     column, diff its nullability against `types.ts`, and find where the *existing* path guards
     that column.**
 
+13. 2026-09-08 (plan 28, backdrop) — the *thirteenth* shape: **the layout commits to an asset
+    that may never load**. `loadMapBackdropImage` (`loadMapBackdrop.ts`) deliberately resolves
+    `null` on decode/network failure — i.e. failure is *anticipated* — but nothing consumes the
+    null. By the time it resolves, `usePublicColonyCanvas.ts` has already applied the 4.5x
+    padded fit, `applyBackdropMinZoom`'s raster-derived `minZoom`/`maxBounds`, the opaque
+    vignette, the 9 label markers and the ODbL credit. On the target device (rural mobile, a
+    431 KB JPEG) the visitor gets the colony at 1/4.5 scale on bare tiled grass, blurred at the
+    edges, with floating village names and a credit for an image that never arrived — strictly
+    worse than the no-backdrop render. The plan's §6 "Failure modes" names only the vignette's
+    blur perf and asserts it is "the one real, open risk". **Check: whenever a loader is written
+    to resolve `null` rather than reject, grep for the null branch. `if (cancelled || !image)
+    return;` is the tell — the `!image` case silently shares the cancel path, which does
+    nothing on purpose.**
+
 **How to apply:** the fix is a nullable initial value plus an explicit "not yet" render
 ("Not synced yet"), or deriving initial state from the real signal at effect start rather
 than a hopeful literal. Related: [[review-vacuous-acceptance-tests]].

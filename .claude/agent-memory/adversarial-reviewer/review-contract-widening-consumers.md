@@ -63,6 +63,20 @@ Occurrences (both from plan 15, blockless plot ids):
    two sources of truth — demand a test asserting they are equal, not a plan sentence
    saying they were equal once.**
 
+5. 2026-09-08 (plan 28, backdrop) — the widened "contract" was a **local ref's meaning**.
+   `usePublicColonyCanvas.ts`'s `fitZoomRef` used to mean exactly one thing: the zoom at which
+   the colony's own tight bbox fills the viewport. Plan 28 changed the fit target to a
+   4.5x-padded bbox for a backdrop colony and reused the same ref, so it now means "the
+   default view's zoom". The new consumer (`getFitZoom()` for the vignette) wants the new
+   meaning; the **pre-existing** consumer — `showPlotLabels: map.getZoom() >=
+   fitZoomRef.current - ZOOM_DETAIL_MARGIN` — wanted the old one, and plot label sizes are in
+   world units (`drawLabels.ts`, `PLOT_LABEL_DEFAULT_SIZE = 6`), so the threshold fires ~2.2
+   zoom levels early and every plot number renders at ~22% of its former on-screen size at
+   the default view. Nothing in the plan, PROGRESS.md or the acceptance criteria mentions it;
+   typecheck/lint/tests all green. **Rule: when a diff changes what a shared ref/variable is
+   computed FROM (not its type), list its existing readers before its new one. A one-line
+   change to a `fitBounds` argument is a semantic change to every derived threshold.**
+
 **How to apply:** grep for the widened field name across both halves and sort the hits into
 "validates it" vs "assumes something about it" — ordering, uniqueness of the rendered form,
 substring/prefix parsing, string concatenation. Only the second group is worth reviewing.

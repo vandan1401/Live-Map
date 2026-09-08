@@ -5,7 +5,9 @@ import { buildGrassPattern, buildRoadEdgePattern, buildRoadPattern } from "./can
 import { drawColony, type DrawState } from "./drawColony.ts";
 import type { DimensionConfig } from "./drawDimensions.ts";
 import { leafletViewState } from "./view.ts";
-import { startCanvasFlyTo } from "./canvasFlyTo.ts";
+import { runFlyTo } from "./canvasFlyTo.ts";
+
+type BackdropState = DrawState["backdrop"];
 
 // A Leaflet layer that owns a canvas sized to the VIEWPORT, never to the colony.
 //
@@ -26,14 +28,14 @@ export interface ColonyCanvasLayer extends L.Layer {
   getCanvas(): HTMLCanvasElement | null;
   // useFlyToSelectedPlot.ts's click-to-focus zoom — see canvasFlyTo.ts for the approach.
   flyTo(center: L.LatLng, zoom: number): void;
-  // usePublicColonyCanvas.ts (owner ask, 2026-09-01: the public link "takes a bit too long
-  // to load"): the grass photo is a network fetch, and the layer used to only ever build
-  // its pattern once, from whatever image `createColonyCanvasLayer` was constructed with —
-  // so a caller that wants to paint immediately (grassImage: null, flat ground colour) and
-  // swap in the texture once it arrives needs a way to update the pattern after `onAdd()`.
-  // Owner's authenticated map still constructs with the image already in hand (its own
-  // mount effect awaits loadGrass() before creating the layer at all) — unaffected.
+  // usePublicColonyCanvas.ts (owner ask, 2026-09-01: public link loaded too slowly): lets a
+  // caller that constructed with grassImage: null (paint immediately, flat ground colour)
+  // swap the real texture in once its network fetch decodes. useColonyCanvas.ts still
+  // awaits loadGrass() before constructing at all and never calls this.
   setGrassImage(image: CanvasImageSource | null): void;
+  // docs/plans/28.md, D-036: same shape as setGrassImage above. useColonyCanvas.ts never
+  // calls this (Non-goals — authenticated map has no backdrop).
+  setBackdrop(backdrop: BackdropState): void;
 }
 
 interface Options {
@@ -41,9 +43,10 @@ interface Options {
   theme: ColonyTheme;
   state: DrawState;
   grassImage: CanvasImageSource | null;
-  // docs/plans/27.md — resolved from presentation.json by the caller; omitted keeps
-  // drawPlotDimensions's own default.
+  // docs/plans/27.md — from presentation.json; omitted keeps drawPlotDimensions's default.
   dimensionConfig?: DimensionConfig;
+  // docs/plans/28.md, D-036 — omitted/null for every colony without a backdrop.
+  backdrop?: BackdropState;
 }
 
 // L.Layer.extend() is untyped, so `this` inside these methods has to be declared by hand.
@@ -57,6 +60,7 @@ interface LayerInternals {
   _dimensionConfig: DimensionConfig | undefined;
   _grassImage: CanvasImageSource | null;
   _grass: CanvasPattern | null;
+  _backdrop: BackdropState;
   _road: CanvasPattern | null;
   _roadEdge: CanvasPattern | null;
   _map: L.Map | null;
@@ -65,17 +69,11 @@ interface LayerInternals {
   _viewport: { width: number; height: number } | null;
   _dpr: number;
   _frame: number;
-  // What the canvas last actually drew (set at the end of every _render()) -- flyTo's own
-  // camera interpolation starts FROM this.
+  // What the canvas last actually drew — flyTo's (canvasFlyTo.ts) camera interpolation
+  // starts FROM this. _flyToId/_flyToActive: see that file's FlyToHost/runFlyTo.
   _renderedCenter: L.LatLng | null;
   _renderedZoom: number;
-  // Bumped on every flyTo call; canvasFlyTo.ts's per-frame isCancelled check compares
-  // against its own captured id, so a superseded flight's rAF loop stops on its next tick
-  // instead of fighting a newer one for the same setView/redraw every frame.
   _flyToId: number;
-  // True for the duration of a flyTo. setView fires move/zoom/zoomend synchronously on
-  // every frame of it; without this, _schedule's own listener would queue a redundant
-  // _render() on top of the one flyTo's onFrame already does.
   _flyToActive: boolean;
   _schedule(): void;
   _resize(): void;
@@ -90,6 +88,7 @@ const Layer = L.Layer.extend({
     this._dimensionConfig = options.dimensionConfig;
     this._grassImage = options.grassImage;
     this._grass = null;
+    this._backdrop = options.backdrop ?? null;
     this._road = null;
     this._roadEdge = null;
     this._map = null;
@@ -150,6 +149,11 @@ const Layer = L.Layer.extend({
     this._schedule();
   },
 
+  setBackdrop(this: LayerInternals, backdrop: BackdropState) {
+    this._backdrop = backdrop;
+    this._schedule();
+  },
+
   // Coalesce to one draw per frame. Leaflet fires `move` and `zoom` together during a
   // gesture, and drawing twice for one frame is pure waste at 17ms a draw.
   _schedule(this: LayerInternals) {
@@ -206,37 +210,33 @@ const Layer = L.Layer.extend({
         grass: this._grass,
         road: this._road,
         roadEdge: this._roadEdge,
+        backdrop: this._backdrop,
       },
       this._dimensionConfig,
     );
   },
 
-  // Click-to-focus zoom. See canvasFlyTo.ts for why this interpolates the real camera and
-  // redraws every frame instead of animating a CSS transform on a frozen snapshot.
+  // Click-to-focus zoom — runFlyTo (canvasFlyTo.ts) owns the interpolation/rAF loop and why
+  // it redraws the real camera every frame instead of a CSS transform on a snapshot; this
+  // is just the adapter onto this layer's own private fields.
   flyTo(this: LayerInternals, center: L.LatLng, zoom: number) {
-    const map = this._map;
-    if (!map) return;
-    const fromCenter = this._renderedCenter ?? map.getCenter();
-    const fromZoom = this._renderedZoom || map.getZoom();
-    // Blocks _schedule's own move/zoom listener for the duration -- setView fires those
-    // synchronously on every one of this flight's frames, and onFrame below already redraws
-    // directly; without this they'd double up on every frame.
-    this._flyToActive = true;
-    const myId = ++this._flyToId;
-    startCanvasFlyTo(
-      map,
-      fromCenter,
-      fromZoom,
+    runFlyTo(
+      {
+        map: this._map,
+        renderedCenter: this._renderedCenter,
+        renderedZoom: this._renderedZoom,
+        getFlyToId: () => this._flyToId,
+        setFlyToId: (id) => {
+          this._flyToId = id;
+        },
+        setFlyToActive: (active) => {
+          this._flyToActive = active;
+        },
+        resize: () => this._resize(),
+        render: () => this._render(),
+      },
       center,
       zoom,
-      () => this._flyToId !== myId,
-      () => {
-        this._resize();
-        this._render();
-      },
-      () => {
-        this._flyToActive = false;
-      },
     );
   },
 });

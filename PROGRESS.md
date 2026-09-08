@@ -2,6 +2,34 @@
 
 ## Current
 
+- **Bharatkshetra public link: synthetic-aerial backdrop + real OSM place/road labels
+  shipped (Tier 2/3, docs/plans/28.md, 2026-09-08).** Closes out the multi-day
+  `map-integration-exploration` prototype work — Bharatkshetra's real colony now renders,
+  on its public link only, with a synthetic AI-generated + OSM-composited aerial-style
+  backdrop layered under the live plots (D-022's ground-fill mechanism unchanged for every
+  other colony), real place names ("Bibdod", "Khetalpur", "Sarwani Khurd") plus the
+  crossing highway's real OSM ref ("MD2512" — **not** the prototype's invented "Bibdod
+  Road" descriptive name, caught and fixed by `/review` 2026-09-08 as a real content-
+  honesty problem: it was rendering under a label claiming the text came from OSM, and
+  contradicted the owner's own "10% truth, not 100% fabricated" framing for this feature)
+  as plain Leaflet markers (visible whenever panned/zoomed into view — no fade effect, see
+  Deferred), and a screen-space edge vignette that's opaque at the default (padded) view
+  and fades out on zoom-in toward the plots. A backdrop colony also fits to a PADDED bbox
+  by default (`BACKDROP_FIT_PADDING`, `useMapBackdrop.ts`) instead of the normal tight
+  colony-only fit, with `minZoom`/`maxBounds` derived from the raster's own world extent
+  (`applyBackdropMinZoom`) rather than a guessed constant — `/review` 2026-09-08 caught, by
+  actual measurement across five separate passes, that a tight fit put every backdrop
+  label permanently out of reach, the vignette's own reference zoom unreachable, a naively-
+  derived minZoom let a visitor pan/zoom onto bare grass around the raster's edge, and even
+  the fix for that used the wrong (circumscribing, not inscribed) bounding box; every other
+  colony's fit is untouched. Required narrowing
+  `spec/00-rules.md`'s blanket "no satellite/aerial imagery" rule first (D-036) — surfaced
+  to the owner mid-session rather than silently building past it; the owner's call was to
+  update the rule, not the feature. New per-colony config
+  (`apps/map/src/config/mapBackdrop.json`, D-034's checked-in-JSON precedent) means a
+  future colony opts in with one config entry, not a new mechanism. Vignette-blur
+  performance on real mobile Safari and the fit-padding/vignette-range constants are both
+  flagged under Deferred below, not resolved by this work.
 - **Click-to-focus zoom transition rebuilt from scratch (Tier 3, 2026-09-04), after three
   failed patch attempts on the wrong technique.** Owner reported the zoom-to-selected-plot
   transition was instant/snapping, not animated. First fix (`d3b686b`) raised
@@ -2516,6 +2544,48 @@ on a real phone. Not verified by anyone: the five visual behaviours in `## Curre
 
 ## Deferred
 
+- **Backdrop-vignette (`.public-colony-backdrop-vignette`, docs/plans/28.md) `backdrop-
+  filter: blur()` performance on real low-end mobile Safari is unbenchmarked.** Not an
+  SVG filter (tier-3.md's actual rule), so it doesn't force a canvas repaint the way that
+  rule warns about, but it's still a compositor-level per-frame effect and Claude has no
+  device to test it on. If a human finds it janky on a real phone, removing it is a
+  one-line, Tier-3, no-plan-needed change (drop the `<div>` and its CSS in
+  `PublicColonyView.tsx`/`public-colony.css`).
+- **Backdrop labels have no fade/reveal effect, by design correction, not yet owner-seen.**
+  An earlier build had a zoom-threshold fade (copied from the standalone prototype); `/review`
+  2026-09-08 found it unreachable/backwards once checked against this app's real fitBounds
+  geometry, so it was replaced with plain Leaflet-marker viewport clipping — a label is
+  visible exactly when panned/zoomed to where it actually is, nothing more. This is a real
+  design simplification, not a stopgap, but the owner hasn't seen it in the real app yet.
+- **`BACKDROP_FIT_PADDING = 4.5`/`VIGNETTE_FADE_RANGE = Math.log2(1.6)` (`useMapBackdrop.ts`)
+  are tuned by eye/measurement against the prototype, not owner-confirmed against the real
+  shipped app.** Adjusting either is a pure constant edit. (`minZoom`/`maxBounds` for a
+  backdrop colony are no longer a constant at all — `applyBackdropMinZoom` derives them
+  from the raster's own extent every fit/resize, nothing to tune here.)
+- **A failed/blocked backdrop image fetch (`useMapBackdrop.ts`'s `attachMapBackdrop`) tears
+  down the labels and vignette (`/review` 2026-09-08 — without this, a failed fetch left
+  those applied around an image that never arrived, worse than no backdrop at all) but two
+  pieces still don't fully react to the failure, left as-is on the reviewer's own call that
+  this is acceptable to defer rather than fix now:** the padded fit / raster-derived
+  `minZoom`/`maxBounds` stay applied (undoing camera state after the fact was judged its
+  own can of worms), and `PublicColonyView.tsx`'s ODbL attribution still renders (it's
+  computed from `resolveMapBackdrop`'s synchronous config resolution, not from whether the
+  async image load actually succeeded — reacting to that would need lifting load-success
+  into React state, a real but larger change than this pass's scope).
+- **`apps/map/public/sw.js`'s `refreshShellCache()` evicts the backdrop JPEG on every
+  navigation, defeating the offline caching plan §6.2 assumes exists** (`/review`
+  2026-09-09, docs/plans/28.md). It builds its allowed-asset set by regexing `/assets/…`
+  paths out of `index.html` alone (`sw.js:11-13`) and deletes every cached `/assets/*`
+  entry not in that set (`sw.js:25-29`), on install and on every successful navigation
+  (`sw.js:72`). `bharatkshetra.jpg` (431 KB, first runtime-fetched hashed asset the app has
+  shipped — `loadGrass.ts`'s `grass-satellite.jpg` is under Vite's 4096-byte inline limit
+  and never reaches `dist/assets/`) is referenced only from the JS chunk, not
+  `index.html`, so `sw.js` caches it on first use and prunes it on the very next page
+  load — re-downloading 431 KB every navigation, nothing available offline. `sw.js` is
+  Tier 1 (CLAUDE.md risk table); this needs its own `/plan` + `/review`, not a Tier-3 fix
+  bundled into plan 28. Real fix is one of: narrow `refreshShellCache`'s prune predicate to
+  `.js`/`.css` only, or also regex asset paths out of the built JS chunks, not just
+  `index.html`.
 - **Arbitrary-count / new-name plot status vocabulary (e.g. a real "house built" status
   beyond today's available/booked/registered) is a genuinely Tier-1 follow-up, not started.**
   docs/plans/27.md (2026-09-03) shipped JSON-configurable *names and colours* for the

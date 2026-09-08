@@ -7,8 +7,14 @@ import type { ColonyModel } from "./colonyModel.ts";
 // of the viewport. Everything else derives from those three numbers.
 //
 // L.CRS.Simple maps latitude to -y, so a Leaflet centre is (lng, viewBoxHeight - lat) in
-// SVG space. That mismatch has already caused one real bug here, so leafletViewState()
-// below is the ONLY place it is written down. Never inline the flip a second time.
+// SVG space. That mismatch has already caused one real bug here, so THIS FILE is the only
+// place the lat=-y,lng=x flip is written down -- every site that needs it (leafletViewState,
+// colonyLatLngBounds, colonyLatLng, worldRectLatLngBounds, paddedColonyLatLngBounds, all
+// below) lives here, and nowhere outside this file re-derives it (docs/plans/28.md added
+// three of those sites; a stale version of this comment named leafletViewState() alone as
+// the "ONLY place", which a /review 2026-09-08 pass caught as no longer true literally,
+// though the invariant it protects -- one file, not one function -- always held).
+// Never inline the flip a second time outside this file.
 
 export interface ViewState {
   scale: number;
@@ -119,6 +125,46 @@ export function colonyLatLngBounds(width: number, height: number): [[number, num
   return [
     [-height, 0],
     [0, width],
+  ];
+}
+
+// A single world (x, y) point as a Leaflet LatLng tuple, same lat=-y,lng=x convention as
+// colonyLatLngBounds above. docs/plans/28.md's mapBackdropLabels.ts uses this for markers
+// far outside the colony's own bounds — still the same flip, not a new one.
+export function colonyLatLng(x: number, y: number): [number, number] {
+  return [-y, x];
+}
+
+// Any world-space axis-aligned rectangle as Leaflet bounds — the general form
+// colonyLatLngBounds above is the width/height-from-origin special case of. docs/plans/28.md
+// uses this for the backdrop raster's own (off-centre, rotated-corners) world bounding box.
+export function worldRectLatLngBounds(
+  minX: number,
+  minY: number,
+  maxX: number,
+  maxY: number,
+): [[number, number], [number, number]] {
+  return [
+    [-maxY, minX],
+    [-minY, maxX],
+  ];
+}
+
+// colonyLatLngBounds widened by `padding` around the same centre — docs/plans/28.md: a
+// colony with a synthetic backdrop fits to this instead, so its default view shows real
+// surrounding context rather than the colony alone filling the whole screen.
+export function paddedColonyLatLngBounds(
+  width: number,
+  height: number,
+  padding: number,
+): [[number, number], [number, number]] {
+  const cx = width / 2;
+  const cy = height / 2;
+  const hw = (width / 2) * padding;
+  const hh = (height / 2) * padding;
+  return [
+    [-(cy + hh), cx - hw],
+    [-(cy - hh), cx + hw],
   ];
 }
 

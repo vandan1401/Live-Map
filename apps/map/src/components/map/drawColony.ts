@@ -6,6 +6,8 @@ import { drawPlotDimensions, type DimensionConfig } from "./drawDimensions.ts";
 import type { PlotDimensions } from "./usePlotDimensions.ts";
 import { roundedPlotPath } from "./plotPath.ts";
 import { fillDecor, pathFor } from "./drawDecor.ts";
+import { drawMapBackdrop } from "./drawBackdrop.ts";
+import type { MapBackdropTransform } from "./mapBackdropTransform.ts";
 
 // The painter. Ordered exactly as the SVG's paint order was, because SVG has no z-index
 // and neither does canvas — draw order IS the stacking, which is the one thing this
@@ -43,6 +45,14 @@ export interface DrawState {
   /** svg_ids of plots whose own geometry is a real corner cut — never corner-rounded
    * cosmetically on top of that (owner ask, 2026-08-22); see plotPathFor() below. */
   cornerPlots: ReadonlySet<string>;
+  /** docs/plans/28.md, D-036: this colony's synthetic-aerial backdrop, or null for the
+   * overwhelming majority of colonies that don't have one (mapBackdrops.ts). */
+  backdrop: {
+    image: CanvasImageSource;
+    transform: MapBackdropTransform;
+    imageWidth: number;
+    imageHeight: number;
+  } | null;
 }
 
 // A corner plot's own boundary already carries its real angled/cut corner (that shape is
@@ -91,6 +101,13 @@ export function drawColony(
   // fill simply follows the viewport, so ground never runs out however far you pan.
   ctx.fillStyle = state.grass ?? theme.groundBase;
   ctx.fillRect(bounds.minX, bounds.minY, bounds.maxX - bounds.minX, bounds.maxY - bounds.minY);
+
+  // docs/plans/28.md, D-036: one colony's synthetic-aerial backdrop, layered over the flat/
+  // tiled ground and under every road/plot fillDecor draws next — a no-op for every colony
+  // without one (state.backdrop is null).
+  if (state.backdrop) {
+    drawMapBackdrop(ctx, state.backdrop.image, state.backdrop.transform, state.backdrop.imageWidth, state.backdrop.imageHeight);
+  }
 
   fillDecor(ctx, model, theme, state);
 
