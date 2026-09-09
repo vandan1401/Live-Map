@@ -64,7 +64,7 @@ export function PublicColonyView({ client, token }: Props) {
   const selectedPlot = found?.plots.find((plot) => plot.svg_id === selectedId) ?? null;
   // docs/plans/28.md, D-036: null for every colony without a mapBackdrop.json entry —
   // decides whether the vignette/attribution below render at all.
-  const backdrop = resolveMapBackdrop(found?.colony.id ?? null);
+  const backdrop = resolveMapBackdrop(found?.colony.id ?? null, "public");
   const dimensions = selectedPlot
     ? { plotId: selectedPlot.svg_id, lengthFt: selectedPlot.length_ft, breadthFt: selectedPlot.breadth_ft }
     : null;

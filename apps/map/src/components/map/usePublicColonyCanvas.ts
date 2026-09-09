@@ -9,10 +9,9 @@ import { createColonyCanvasLayer, type ColonyCanvasLayer } from "./colonyCanvasL
 import { resolveClickedPlot } from "./plotPicker.ts";
 import type { PlotDimensions } from "./usePlotDimensions.ts";
 import { useFlyToSelectedPlot } from "./useFlyToSelectedPlot.ts";
-import { colonyLatLngBounds, paddedColonyLatLngBounds, leafletViewState, ZOOM_DETAIL_MARGIN } from "./view.ts";
+import { colonyLatLngBounds, leafletViewState, ZOOM_DETAIL_MARGIN } from "./view.ts";
 import { loadGrass } from "./loadGrass.ts";
-import { resolveMapBackdrop } from "./mapBackdrops.ts";
-import { attachMapBackdrop, applyBackdropMinZoom, BACKDROP_FIT_PADDING, BACKDROP_PLACEHOLDER_MIN_ZOOM } from "./useMapBackdrop.ts";
+import { attachMapBackdrop, applyBackdropMinZoom, resolveBackdropFit } from "./useMapBackdrop.ts";
 import type { MapBackdropController } from "./useMapBackdrop.ts";
 
 // The public link's counterpart to useColonyCanvas.ts (owner ask, 2026-09-01: "exactly copy
@@ -96,14 +95,11 @@ export function usePublicColonyCanvas(args: Args): void {
     applyStatusColorOverrides(colonyId ?? undefined);
     const theme = resolveColonyTheme();
     const dimensionConfig = resolvePresentationConfig(colonyId ?? undefined).dimension;
-    const backdrop = resolveMapBackdrop(colonyId);
-    const bounds = backdrop
-      ? paddedColonyLatLngBounds(model.width, model.height, BACKDROP_FIT_PADDING)
-      : colonyLatLngBounds(model.width, model.height);
+    const { backdrop, bounds, minZoom } = resolveBackdropFit(colonyId, "public", model);
 
     const map = L.map(el, {
       crs: L.CRS.Simple,
-      minZoom: backdrop ? BACKDROP_PLACEHOLDER_MIN_ZOOM : -2, // fit() -> applyBackdropMinZoom refines
+      minZoom, // fit() -> applyBackdropMinZoom refines when there's a backdrop
       maxZoom: 4,
       zoomSnap: 0.1,
       attributionControl: false,

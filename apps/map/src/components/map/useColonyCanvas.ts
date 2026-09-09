@@ -14,12 +14,13 @@ import { usePlotDimensions, type PlotDimensions } from "./usePlotDimensions.ts";
 import { useFlyToSelectedPlot } from "./useFlyToSelectedPlot.ts";
 import { colonyLatLngBounds, leafletViewState, ZOOM_DETAIL_MARGIN } from "./view.ts";
 import { loadGrass } from "./loadGrass.ts";
-import { fetchCornerPlotIds } from "../../lib/db/plots.ts";
+import { useCornerPlots } from "./useCornerPlots.ts";
+import { attachMapBackdrop, applyBackdropMinZoom, resolveBackdropFit } from "./useMapBackdrop.ts";
+import type { MapBackdropController } from "./useMapBackdrop.ts";
 
 // Leaflet init, the canvas layer, attachSync's subscription, picking and the transition
-// clock — the canvas equivalent of useColonyMapMount.ts + useSelectedPlotOverlay.ts, which
-// this replaces (docs/plans/18.md). ColonyMap.tsx owns the refs and React state; this hook
-// only writes into them and into the layer.
+// clock (docs/plans/18.md). ColonyMap.tsx owns the refs and React state; this hook only
+// writes into them and into the layer.
 
 interface Args {
   containerRef: RefObject<HTMLDivElement | null>;
@@ -35,6 +36,8 @@ interface Args {
   onSelect: (svgId: string | null) => void;
   setOffline: (offline: boolean) => void;
   setFreshnessLabel: (label: string) => void;
+  // docs/plans/28.md Backlog #1: absent/null means the backdrop update no-ops.
+  backdropVignetteRef?: RefObject<HTMLDivElement | null>;
 }
 
 export interface CanvasMapHandle {
@@ -55,16 +58,17 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
     selectedId,
     activeStatuses,
     onSelect,
+    backdropVignetteRef,
   } = args;
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<ColonyCanvasLayer | null>(null);
   const modelRef = useRef<ColonyModel | null>(null);
   const statusesRef = useRef<Record<string, string>>({});
   const transitionsRef = useRef(new StatusTransitions());
-  const fitZoomRef = useRef(0);
+  const fitZoomRef = useRef(0); // tight colony-only zoom — showPlotLabels' own threshold
+  const defaultZoomRef = useRef(0); // ACTUAL fit() target (padded for a backdrop colony)
+  const backdropRef = useRef<MapBackdropController | null>(null); // null: no backdrop entry
   const dimensionsRef = useRef<PlotDimensions | null>(null);
-  // is_corner never changes after import (tier-2.md's "Derived fields" rule), so this is
-  // one plain fetch at mount, not a realtime subscription like statusesRef.
   const cornerPlotsRef = useRef<ReadonlySet<string>>(new Set());
   const [orphanCount, setOrphanCount] = useState(0);
 
@@ -91,14 +95,13 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
       transitions: transitionsRef.current.progress(performance.now()),
       dimensions: dimensionsRef.current,
       cornerPlots: cornerPlotsRef.current,
-      backdrop: null, // docs/plans/28.md: public-link-only (Non-goals)
+      backdrop: null, // placeholder — the real value lives on the layer, like grass/road above
     });
+    backdropRef.current?.update(); // refreshed on every push, not just 'zoomend'
   };
 
-  // Starts the repaint loop for a 400ms status fade. The loop itself is owned by the
-  // mount effect below, so its frame id is effect-local and the teardown cancels the value
-  // that was actually scheduled — reading a ref in a cleanup gives you whatever it holds
-  // when React runs it, which is a different thing and a real source of leaked frames.
+  // Starts the repaint loop for a 400ms status fade. Owned by the mount effect below, so
+  // its frame id is effect-local (a ref read in cleanup gives whatever it holds then).
   const kickRef = useRef<() => void>(() => {});
   const applyLocalStatus = (svgId: string, status: string) => {
     statusesRef.current = { ...statusesRef.current, [svgId]: status };
@@ -119,18 +122,20 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
     applyStatusColorOverrides(colonyId);
     const theme = resolveColonyTheme();
     const dimensionConfig = resolvePresentationConfig(colonyId).dimension;
-    const bounds = colonyLatLngBounds(model.width, model.height);
-
+    // docs/plans/28.md Backlog #1 — shared with usePublicColonyCanvas.ts.
+    const { backdrop, bounds, minZoom } = resolveBackdropFit(colonyId, "admin", model);
     const map = L.map(el, {
       crs: L.CRS.Simple,
-      minZoom: -2,
+      minZoom, // fitBounds below -> applyBackdropMinZoom refines when there's a backdrop
       maxZoom: 4,
       zoomSnap: 0.1,
       attributionControl: false,
     });
     mapRef.current = map;
     map.fitBounds(bounds);
-    fitZoomRef.current = map.getBoundsZoom(bounds);
+    defaultZoomRef.current = map.getBoundsZoom(bounds);
+    fitZoomRef.current = map.getBoundsZoom(colonyLatLngBounds(model.width, model.height));
+    if (backdrop) applyBackdropMinZoom(map, backdrop);
 
     let cancelled = false;
 
@@ -169,18 +174,10 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
       });
       layer.addTo(map);
       layerRef.current = layer;
+      // Deferred to here since it needs the real layer instance (layer.setBackdrop).
+      backdropRef.current = attachMapBackdrop(map, layer, backdrop, () => defaultZoomRef.current, backdropVignetteRef?.current ?? null);
       pushState.current();
     });
-
-    void fetchCornerPlotIds(client, colonyId)
-      .then((ids) => {
-        if (cancelled) return;
-        cornerPlotsRef.current = ids;
-        pushState.current();
-      })
-      .catch((error: unknown) => {
-        console.error("failed to load corner plot ids:", error);
-      });
 
     // The layer redraws itself on move/zoom; only this knows whether labels are allowed at
     // the new zoom, so the detail threshold is re-evaluated here.
@@ -228,13 +225,15 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
       detachSync();
       map.off("zoomend", onZoom);
       map.off("click", onClick);
+      backdropRef.current?.destroy();
+      backdropRef.current = null;
       layerRef.current = null;
       mapRef.current = null;
       modelRef.current = null;
       map.remove();
     };
 
-  }, [client, colonyId, colonySvg, containerRef, onSelect, args.setOffline, args.setFreshnessLabel]);
+  }, [client, colonyId, colonySvg, containerRef, onSelect, args.setOffline, args.setFreshnessLabel, backdropVignetteRef]);
 
   // Selection and legend filter both repaint, without remounting the map.
   useEffect(() => {
@@ -244,6 +243,7 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
   useFlyToSelectedPlot(mapRef, modelRef, layerRef, selectedId, selectZoomRefWidthPx, selectZoomRefHeightPx);
 
   usePlotDimensions(client, colonyId, selectedId, dimensionsRef, useCallback(() => pushState.current(), []));
+  useCornerPlots(client, colonyId, cornerPlotsRef, useCallback(() => pushState.current(), []));
 
   return { applyStatus: (svgId, status) => applyRef.current(svgId, status), orphanCount };
 }

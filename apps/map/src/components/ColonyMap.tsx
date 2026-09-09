@@ -10,6 +10,7 @@ import { PlotTableView } from "../features/plot-table/PlotTableView.tsx";
 import { FreshnessIndicator } from "./FreshnessIndicator.tsx";
 import { StatusLegend } from "./StatusLegend.tsx";
 import { useColonyCanvas } from "./map/useColonyCanvas.ts";
+import { resolveMapBackdrop } from "./map/mapBackdrops.ts";
 
 interface Props {
   // From App.tsx's single app-lifetime client (docs/plans/09.md) — no longer created
@@ -47,6 +48,9 @@ export function ColonyMap({
   onBack,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  // docs/plans/28.md Backlog #1: read by useColonyCanvas.ts to fade this out on zoom;
+  // unused whenever backdrop below is null (the element then never even renders).
+  const backdropVignetteRef = useRef<HTMLDivElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Sync/freshness state (M5, spec/05) — attachSync (lib/sync/) owns the subscription,
   // the tick, and the reconnect logic; this component just renders what it reports and
@@ -63,6 +67,9 @@ export function ColonyMap({
 
   // docs/plans/27.md — per-colony status display names, resolved once per colonyId.
   const { statusLabels } = resolvePresentationConfig(colonyId);
+  // docs/plans/28.md Backlog #1: null for every colony without an enabledOnAdmin backdrop
+  // entry — decides whether the vignette/attribution below render at all.
+  const backdrop = resolveMapBackdrop(colonyId, "admin");
 
   // Leaflet (pan/zoom only, D-009), the canvas layer, attachSync's subscription, picking
   // and the 400ms status fade all live in useColonyCanvas.ts — the canvas renderer that
@@ -80,6 +87,7 @@ export function ColonyMap({
     onSelect: useCallback((svgId: string | null) => setSelectedId(svgId), []),
     setOffline,
     setFreshnessLabel,
+    backdropVignetteRef,
   });
 
   // Called by PlotDetailSheet after a successful write (M4) — repaints one plot without
@@ -113,6 +121,7 @@ export function ColonyMap({
   return (
     <div className="colony-map-container">
       <div ref={containerRef} className="h-full w-full" />
+      {backdrop && <div ref={backdropVignetteRef} className="colony-map-backdrop-vignette" aria-hidden="true" />}
       <button type="button" className="colony-back-button" onClick={onBack}>
         ← Colonies
       </button>
@@ -122,6 +131,7 @@ export function ColonyMap({
         <span className="colony-compass-arrow">▲</span>
         <span>N</span>
       </div>
+      {backdrop && <p className="colony-map-backdrop-attribution">{backdrop.data.attribution}</p>}
       <PlotSearch client={client} colonyId={colonyId} onSelect={setSelectedId} />
       <div className="colony-bottom-toolbar">
         <StatusLegend

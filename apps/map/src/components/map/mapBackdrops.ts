@@ -25,6 +25,13 @@ export interface MapBackdropData {
    * 2026-09-09) -- per colony, not a shared constant, since different source imagery needs
    * different darkening for its own plot colours to pop. See drawBackdrop.ts. */
   darkenAlpha: number;
+  /** Independent on/off switches per surface (owner ask, 2026-09-09, alongside wiring the
+   * backdrop into the admin map for the first time -- see Backlog #1 in PROGRESS.md): a
+   * colony can have a backdrop asset ready without it being live on either surface yet, and
+   * the admin map's own chrome (compass/search/toolbar/PlotDetailSheet) is dense enough that
+   * the owner may want it off there even once it's live on the public link, or vice versa. */
+  enabledOnAdmin: boolean;
+  enabledOnPublic: boolean;
 }
 
 export interface MapBackdrop {
@@ -38,10 +45,14 @@ const BACKDROPS: Record<string, string> = {
   bharatkshetra: bharatkshetraBackdropUrl,
 };
 
-export function resolveMapBackdrop(colonyId: string | null): MapBackdrop | null {
+export type MapBackdropSurface = "admin" | "public";
+
+export function resolveMapBackdrop(colonyId: string | null, surface: MapBackdropSurface): MapBackdrop | null {
   if (!colonyId) return null;
   const url = BACKDROPS[colonyId];
   const data = DATA[colonyId];
   if (!url || !data) return null;
+  const enabled = surface === "admin" ? data.enabledOnAdmin : data.enabledOnPublic;
+  if (!enabled) return null;
   return { url, data };
 }

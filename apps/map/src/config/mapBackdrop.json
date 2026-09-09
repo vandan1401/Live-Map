@@ -4,6 +4,8 @@
     "imageWidth": 1798,
     "imageHeight": 875,
     "darkenAlpha": 0.65,
+    "enabledOnAdmin": true,
+    "enabledOnPublic": true,
     "attribution": "Backdrop and place/road labels contain information from OpenStreetMap © OpenStreetMap contributors (ODbL)",
     "labels": [
       { "text": "Bibdod", "kind": "place", "worldX": -1294.73, "worldY": -162.70 },

@@ -22,6 +22,8 @@ const BACKDROP: MapBackdrop = {
     imageWidth: 1440,
     imageHeight: 960,
     darkenAlpha: 0.65,
+    enabledOnAdmin: true,
+    enabledOnPublic: true,
     attribution: "",
     labels: [],
   },

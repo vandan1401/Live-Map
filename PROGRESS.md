@@ -2,6 +2,36 @@
 
 ## Current
 
+- **Admin-map backdrop parity shipped, plus a per-surface on/off switch (Tier 3,
+  2026-09-09, closes Backlog #1 below).** Owner ask, same day as the darken-config entry
+  below: `useColonyCanvas.ts` (the authenticated map) now runs the same backdrop pipeline
+  as the public link — padded fit, raster-derived minZoom/maxBounds, zoom-fade vignette,
+  ODbL attribution — instead of always passing `backdrop: null`. `resolveMapBackdrop()`
+  (`mapBackdrops.ts`) now takes a `"admin" | "public"` surface argument and gates on two
+  new independent JSON fields, `enabledOnAdmin`/`enabledOnPublic` (owner's own follow-up ask
+  mid-session: "give 2 variables one says backdrop on or off on admin and one says on or
+  off in public") — both `true` for `bharatkshetra` today. The bounds/minZoom derivation
+  that used to live only in `usePublicColonyCanvas.ts` is now `resolveBackdropFit()`
+  (`useMapBackdrop.ts`), shared by both hooks, so neither duplicates the padded-vs-tight
+  branching. `useColonyCanvas.ts` also lost its inline corner-plot fetch to a new
+  `useCornerPlots.ts` (same split-out-for-invariant-7 shape as `usePlotDimensions.ts`) —
+  needed once the backdrop wiring pushed it over the 250-line cap. Admin's attribution box
+  sits top-right (`top: 3rem`) rather than the public link's top-left, since
+  `.colony-freshness-indicator` already owns that corner on the admin map; it shares
+  coordinates with the DEV-only orphan-count badge, which never ships to production.
+  **Verified:** `mingw32-make gate` (typecheck, lint, full test suite, production build,
+  `tools/pipeline` verify+golden, contract check) — clean except 4 pre-existing failures
+  already on record below (the `anon`-grant-drift pattern: `expected 'P0001'/undefined to
+  be '42501'`), none touching anything in this diff. 8/8 backdrop-specific tests pass,
+  including a new `mapBackdropSurface.test.ts` (mocked fixture — the real config has no
+  `enabledOn*: false` colony yet to exercise that branch against). Signed into the local
+  dev server (`demo`/`demo-pass-123`, credentials found in the `db-reseed` Makefile target,
+  not previously documented here) and opened Shree Vatika Phase 2 (no backdrop entry) —
+  renders exactly as before, no console errors, confirming no regression on the no-backdrop
+  path. **Not verified live:** the backdrop actually rendering on the admin map itself,
+  since `bharatkshetra` isn't seeded in the local DB (past sessions seeded it temporarily
+  through the real upload flow, then removed it) — owner can check it against the deployed
+  site, or ask for a temporary local reseed.
 - **Backdrop raster darkened so plot fills pop, darken amount now per-colony JSON config
   (Tier 3, 2026-09-09).** Owner ask, follow-up to the backdrop work below: the synthetic-
   aerial backdrop competed visually with the colony's own status colours. `drawMapBackdrop`
@@ -3169,15 +3199,12 @@ Four asks from the owner (2026-09-09, after seeing Bharatkshetra's backdrop live
 docs/plans/28.md's work. Explicitly not to be started until called out one at a time —
 effort estimates below are for planning, not a commitment to build in this order.
 
-1. **Backdrop on the admin (authenticated) map too, not just the public link.** Small–Medium.
-   `resolveMapBackdrop`/`attachMapBackdrop`/`drawMapBackdrop` are already colony-agnostic
-   pure functions, proven in `usePublicColonyCanvas.ts`. `useColonyCanvas.ts` currently
-   passes `backdrop: null` unconditionally (plan 28's explicit non-goal). Wiring it in is
-   mostly mirroring the public hook's pattern — the real work is the vignette/attribution/
-   labels not colliding with the admin map's *other* chrome (compass, freshness indicator,
-   plot panel, toolbar) that the public link doesn't have. Tier 3 (`components/map`,
-   `styles`) — no `/plan` required by CLAUDE.md's risk table, though an abbreviated plan doc
-   may be worth it given plan 28's own precedent.
+1. ~~**Backdrop on the admin (authenticated) map too, not just the public link.**~~ **Done
+   2026-09-09** — see `## Current`'s "Admin-map backdrop parity" entry above. Shipped with
+   an added per-surface on/off switch (`enabledOnAdmin`/`enabledOnPublic` in
+   `mapBackdrop.json`) the owner asked for in the same session. Live rendering on the admin
+   map itself is still unverified (no local `bharatkshetra` seed) — see that entry's own
+   Verified line.
 2. **More zoomed-in on load.** Trivial in isolation — `BACKDROP_FIT_PADDING` (currently
    `4.5`, `useMapBackdrop.ts`) tuned down. Not independent of #3: if load becomes a fly-in
    animation, "how zoomed in on load" is really "where the animation lands," decided
@@ -4242,3 +4269,21 @@ effort estimates below are for planning, not a commitment to build in this order
   not a fixed regression signal (recorded in docs/plans/28.md §5). Both commits pushed to
   `origin/master` for real (`git log` confirms `54b0c1d` and `f6f3ea3` both on `origin/
   master`); Cloudflare deploy of the first confirmed live via the dashboard screenshot.
+
+### 2026-09-09 — Admin-map backdrop parity + per-surface on/off switch (Tier 3, Backlog #1)
+- Done: `useColonyCanvas.ts` now runs the same backdrop pipeline the public link uses
+  (padded fit, derived minZoom/maxBounds, zoom-fade vignette, ODbL attribution), gated by
+  two new independent JSON flags (`enabledOnAdmin`/`enabledOnPublic`, both `true` for
+  `bharatkshetra`). Shared the bounds/minZoom derivation into `resolveBackdropFit()`
+  (`useMapBackdrop.ts`) rather than duplicating it, and split corner-plot fetching into
+  `useCornerPlots.ts` to stay under invariant 7's 250-line cap.
+- Next: owner to confirm the admin backdrop actually renders correctly against
+  `bharatkshetra` (not verified live — see `## Current`'s entry). `## Backlog` items 2-6
+  remain not started, unchanged by this session.
+- Surprises: none — this was mechanically mirroring `usePublicColonyCanvas.ts`'s already-
+  proven pattern, per the Backlog entry's own effort estimate.
+- Verified: `mingw32-make gate` clean except the 4 pre-existing `anon`-grant-drift failures
+  already on record (`## Deferred`, "Local Supabase stack's default privilege grants...");
+  none touch this diff. 8/8 backdrop-specific tests pass. Live-browser regression check
+  only (Shree Vatika Phase 2, no backdrop entry) — the backdrop-on-admin rendering itself
+  is unverified, no local `bharatkshetra` seed available this session.

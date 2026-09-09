@@ -171,3 +171,36 @@
   padding: 0.35rem 0.6rem;
   border-radius: 0.25rem;
 }
+
+/* docs/plans/28.md Backlog #1, 2026-09-09: admin-map backdrop parity with the public link
+ * (public-colony.css's .public-colony-backdrop-vignette/-attribution). useColonyCanvas.ts's
+ * attachMapBackdrop() writes this element's opacity directly on every zoom change. */
+.colony-map-backdrop-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 900; /* above Leaflet's own panes (max 600), below every chrome element (1000+) */
+  pointer-events: none;
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  mask-image: radial-gradient(ellipse at center, transparent 45%, black 90%);
+  -webkit-mask-image: radial-gradient(ellipse at center, transparent 45%, black 90%);
+}
+
+/* ODbL attribution, same real obligation as the public link's. top-right, not top-left —
+ * .colony-freshness-indicator already owns top-left (top: 3rem); shares its coordinates
+ * with .colony-dev-click-badge above, which is DEV-only and never ships to production. */
+.colony-map-backdrop-attribution {
+  position: absolute;
+  top: 3rem;
+  right: 0.75rem;
+  max-width: 12rem;
+  z-index: 1000;
+  margin: 0;
+  font-size: 0.65rem;
+  color: var(--colony-site-boundary);
+  background: rgba(255, 255, 255, 0.7);
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.25rem;
+  pointer-events: none;
+  text-align: right;
+}

@@ -1,10 +1,11 @@
 import type L from "leaflet";
 import type { ColonyCanvasLayer } from "./colonyCanvasLayer.ts";
-import type { MapBackdrop } from "./mapBackdrops.ts";
+import type { ColonyModel } from "./colonyModel.ts";
+import { resolveMapBackdrop, type MapBackdrop, type MapBackdropSurface } from "./mapBackdrops.ts";
 import { loadMapBackdropImage } from "./loadMapBackdrop.ts";
 import { createBackdropLabelLayer } from "./mapBackdropLabels.ts";
 import { backdropCoveredWorldBounds } from "./mapBackdropTransform.ts";
-import { worldRectLatLngBounds } from "./view.ts";
+import { colonyLatLngBounds, paddedColonyLatLngBounds, worldRectLatLngBounds } from "./view.ts";
 
 // docs/plans/28.md, D-036: one colony's synthetic-aerial backdrop -- resolution, the async
 // image load, the place/road label markers, and the edge-vignette fade all live here so
@@ -58,6 +59,28 @@ export const BACKDROP_FIT_PADDING = 4.5;
 // setMinZoom itself never moves the camera except to correct an out-of-range current zoom,
 // so lowering it here first is safe.
 export const BACKDROP_PLACEHOLDER_MIN_ZOOM = -20;
+
+export interface BackdropFit {
+  backdrop: MapBackdrop | null;
+  bounds: [[number, number], [number, number]];
+  minZoom: number;
+}
+
+// Shared by useColonyCanvas.ts and usePublicColonyCanvas.ts's mount effects — resolves the
+// backdrop once and derives the L.map() constructor args that depend on whether one exists
+// (padded bounds + the generous placeholder minZoom vs. the plain tight-fit ones), so
+// neither hook duplicates this branching (both were independently at risk of invariant 7's
+// 250-line cap once admin gained backdrop parity, 2026-09-09).
+export function resolveBackdropFit(colonyId: string | null, surface: MapBackdropSurface, model: ColonyModel): BackdropFit {
+  const backdrop = resolveMapBackdrop(colonyId, surface);
+  return {
+    backdrop,
+    bounds: backdrop
+      ? paddedColonyLatLngBounds(model.width, model.height, BACKDROP_FIT_PADDING)
+      : colonyLatLngBounds(model.width, model.height),
+    minZoom: backdrop ? BACKDROP_PLACEHOLDER_MIN_ZOOM : -2,
+  };
+}
 
 export function applyBackdropMinZoom(map: L.Map, backdrop: MapBackdrop): void {
   const { transform, imageWidth, imageHeight } = backdrop.data;
