@@ -21,6 +21,10 @@ export interface MapBackdropData {
   imageHeight: number;
   attribution: string;
   labels: MapBackdropLabel[];
+  /** 0..1 solid-black alpha painted over the raster before plots draw on top (owner,
+   * 2026-09-09) -- per colony, not a shared constant, since different source imagery needs
+   * different darkening for its own plot colours to pop. See drawBackdrop.ts. */
+  darkenAlpha: number;
 }
 
 export interface MapBackdrop {

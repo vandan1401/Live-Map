@@ -119,6 +119,7 @@ export function attachMapBackdrop(
       transform: backdrop.data.transform,
       imageWidth: backdrop.data.imageWidth,
       imageHeight: backdrop.data.imageHeight,
+      darkenAlpha: backdrop.data.darkenAlpha,
     });
   });
 

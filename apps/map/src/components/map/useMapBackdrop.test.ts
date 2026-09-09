@@ -21,6 +21,7 @@ const BACKDROP: MapBackdrop = {
     transform: { x: 731.25, y: 345.0, scale: 0.0703125, rotateDeg: 2.5 },
     imageWidth: 1440,
     imageHeight: 960,
+    darkenAlpha: 0.65,
     attribution: "",
     labels: [],
   },

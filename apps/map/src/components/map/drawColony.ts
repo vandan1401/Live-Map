@@ -52,6 +52,7 @@ export interface DrawState {
     transform: MapBackdropTransform;
     imageWidth: number;
     imageHeight: number;
+    darkenAlpha: number;
   } | null;
 }
 
@@ -106,7 +107,14 @@ export function drawColony(
   // tiled ground and under every road/plot fillDecor draws next — a no-op for every colony
   // without one (state.backdrop is null).
   if (state.backdrop) {
-    drawMapBackdrop(ctx, state.backdrop.image, state.backdrop.transform, state.backdrop.imageWidth, state.backdrop.imageHeight);
+    drawMapBackdrop(
+      ctx,
+      state.backdrop.image,
+      state.backdrop.transform,
+      state.backdrop.imageWidth,
+      state.backdrop.imageHeight,
+      state.backdrop.darkenAlpha,
+    );
   }
 
   fillDecor(ctx, model, theme, state);

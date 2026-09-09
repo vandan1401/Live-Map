@@ -13,14 +13,15 @@ import { backdropPixelToWorld, type MapBackdropTransform } from "./mapBackdropTr
 // Owner, 2026-09-09: darken the raster so the colony's own plot fills (drawn opaque on top,
 // drawColony.ts) pop against it. Solid fillRect alpha, not a filter (tier-3.md's no-SVG/
 // canvas-filter rule) -- one extra fill of the same footprint costs nothing per frame.
-const BACKDROP_DARKEN_ALPHA = 0.65;
-
+// darkenAlpha is per-colony config (mapBackdrops.ts's MapBackdropData), not a shared
+// constant, since different source imagery needs different darkening.
 export function drawMapBackdrop(
   ctx: CanvasRenderingContext2D,
   image: CanvasImageSource | null,
   transform: MapBackdropTransform | null,
   imageWidth: number,
   imageHeight: number,
+  darkenAlpha: number,
 ): void {
   if (!image || !transform) return;
   const [originX, originY] = backdropPixelToWorld(transform, 0, 0);
@@ -32,7 +33,7 @@ export function drawMapBackdrop(
   // Darken pass shares the exact same transform/footprint as the image above, so it can
   // never drift out of alignment with the raster it's tinting.
   ctx.fillStyle = "#000000";
-  ctx.globalAlpha = BACKDROP_DARKEN_ALPHA;
+  ctx.globalAlpha = darkenAlpha;
   ctx.fillRect(0, 0, imageWidth, imageHeight);
   ctx.globalAlpha = 1;
   ctx.restore();

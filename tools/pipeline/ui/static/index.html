@@ -15,10 +15,21 @@
 
   <main class="pu-main">
     <section class="pu-card">
+      <h2>0. DWG &rarr; DXF (done in AutoCAD)</h2>
+      <p class="pu-hint">This page can't do this step &mdash; normalise the layers per
+        <code>docs/cad-layer-standard.md</code>, run <code>CV-MERGE</code> /
+        <code>CV-HIDETEXT</code>, then <code>DXFOUT</code>.</p>
+      <label class="pu-checkbox">
+        <input id="dwg-dxf-done" type="checkbox" /> Done &mdash; I have a working DXF ready to
+        upload
+      </label>
+    </section>
+
+    <section class="pu-card">
       <h2>1. Upload the working DXF</h2>
       <p class="pu-hint">Exported from AutoCAD after <code>CV-MERGE</code> /
         <code>CV-HIDETEXT</code>, per <code>tools/cad-lisp/README.md</code>.</p>
-      <input id="dxf-upload" type="file" accept=".dxf" />
+      <input id="dxf-upload" type="file" accept=".dxf" disabled />
       <p id="current-file" class="pu-current" hidden>Working file:
         <code id="current-file-name"></code></p>
     </section>

@@ -2,6 +2,29 @@
 
 ## Current
 
+- **Backdrop raster darkened so plot fills pop, darken amount now per-colony JSON config
+  (Tier 3, 2026-09-09).** Owner ask, follow-up to the backdrop work below: the synthetic-
+  aerial backdrop competed visually with the colony's own status colours. `drawMapBackdrop`
+  (`drawBackdrop.ts`) now fills the raster's own footprint with solid black at
+  `darkenAlpha` immediately after `drawImage`, inside the same transform block, so it can
+  never drift out of alignment. First landed as a hardcoded `0.65` constant (commit
+  `5cc9f27`), then moved into `mapBackdrop.json`'s per-colony config (`darkenAlpha: 0.65`
+  for `bharatkshetra`) at the owner's ask, since different source imagery will need
+  different darkening — `MapBackdropData` now requires the field, no code-side default.
+  Verified live twice (before and after the config move) via browser automation against a
+  temporarily-seeded local `bharatkshetra` colony, screenshots sent to the owner; local
+  seed data removed after each check, nothing persisted to the local DB.
+  Same session, unrelated area: `tools/pipeline/ui/`'s upload page gained a step-0
+  checklist card ("Done — I have a working DXF ready to upload") gating the upload input,
+  per owner ask — a plain acknowledgment checkbox, not any automation of the DWG→DXF
+  AutoCAD step (D-118 stays manual). Still not walked through live by the owner (same
+  `make ui` gap as before, see Deferred).
+  **Surprise this session:** local Docker's Kong/PostgREST containers reported "Up" and
+  "healthy" but were actually wedged — TCP connected, empty HTTP replies, `OPTIONS`
+  preflights 503ing. `mingw32-make db-up`/`supabase start` alone did NOT fix it (they no-op
+  on containers Docker already considers running); a plain `docker restart` on
+  `supabase_kong_colony-map` (and once also `supabase_rest_colony-map`) did. Worth knowing
+  for next time `pnpm dev` hangs on "Loading…" even though `docker ps` looks fine.
 - **Bharatkshetra public link: synthetic-aerial backdrop + real OSM place/road labels
   shipped and live (Tier 2/3, docs/plans/28.md, 2026-09-08/09).** Closes out the multi-day
   `map-integration-exploration` prototype work — Bharatkshetra's real colony now renders,
@@ -1118,6 +1141,27 @@
   feature-labels yet, so this is latent, not live).
 
 ## Log
+
+### 2026-09-09 — Backdrop darken pass + per-colony config, pipeline-UI checklist step (Tier 3)
+
+- Done: `drawMapBackdrop` darkens the backdrop raster (solid black `fillRect`, same
+  transform block as the image) so plot fills read clearly against it; `darkenAlpha` moved
+  from a hardcoded constant into `mapBackdrop.json`'s per-colony config. `tools/pipeline/
+  ui/`'s upload page gained a step-0 "DWG→DXF done" checkbox gating the upload input.
+- Next: owner looks at the darken amount live and says whether `0.65` is right or wants a
+  different number per colony; owner still needs to walk `make ui`'s real flow once
+  (pre-existing gap, not new this session).
+- Surprises: local Docker's Kong/PostgREST reported healthy while actually wedged (TCP
+  connects, empty HTTP replies) — `docker restart` on the container fixed it where
+  `supabase start` did not. Worth remembering next time local dev hangs on load with no
+  console error.
+- Verified: `pnpm typecheck`/`pnpm lint`/`pnpm build` clean; `tools/pipeline` `verify`/
+  `golden`/`contract` all clean (ruff/mypy/129 passed 1 skipped, golden 1 passed, contract
+  4 passed); `pnpm test -- --run` has 4 pre-existing failures (RLS/anon-grant drift,
+  `src/lib/auth/rls.test.ts` + `createColonyFromManifest.test.ts`) and 1 flaky
+  (`subscribePlots.test.ts`, contention under full parallelism) — confirmed identical on
+  clean `HEAD` (stashed this session's diff and reran the same files) before continuing, so
+  none of this session's changes caused them; both are already tracked in Deferred.
 
 ### 2026-09-03 — JSON-configurable presentation layer (docs/plans/27.md, Tier 2/3)
 
@@ -3194,6 +3238,22 @@ effort estimates below are for planning, not a commitment to build in this order
    citation earlier in this backlog's originating conversation). Not urgent — revisit
    alongside colony #2's backdrop generation or a future Bharatkshetra texture redo, not on
    its own.
+6. **Backdrop image + alignment should be uploadable, not a code change.** Medium. Raised
+   2026-09-09 in the same conversation as the backlog above. Today the alignment half is
+   already JSON — `apps/map/src/config/mapBackdrop.json`'s `transform: {x, y, scale,
+   rotateDeg}` per colony (`mapBackdropTransform.ts`) — but it's checked-in, and the raster
+   itself is a hardcoded static import (`mapBackdrops.ts`'s `BACKDROPS: Record<string,
+   string>`, one `import ... from "../../assets/backdrops/<id>.jpg"` line per colony). Adding
+   or re-aligning any colony's backdrop today means editing source and redeploying — there is
+   no upload path at all, let alone one exposed to the owner in-app. Real work: (a) move the
+   JPEG out of a Vite static import into something fetchable at runtime (Supabase Storage is
+   the natural fit — no photo-storage path exists anywhere else in this repo yet, so this
+   would be the first real use of one), (b) let `x`/`y`/`scale` (and optionally `rotateDeg`)
+   be adjusted post-upload rather than hand-tuned in the offline stitching tool
+   (`experiments/map-texture-poc/stitch.html`) — an in-app numeric nudge or drag-to-align UI,
+   not necessarily a full redo of the offline tool. Touches
+   `apps/map/src/features/colony-upload/**` (Tier 1) if the upload path is added to the
+   existing upload screen, so this needs its own `/plan` + `/review` — not a quick follow-up.
 
 ## Log
 

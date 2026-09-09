@@ -109,6 +109,9 @@ async function runExport() {
 }
 
 function init() {
+  document.getElementById("dwg-dxf-done").addEventListener("change", (e) => {
+    document.getElementById("dxf-upload").disabled = !e.target.checked;
+  });
   document.getElementById("dxf-upload").addEventListener("change", (e) => {
     const file = e.target.files[0];
     if (file) uploadFile(file);
