@@ -19,15 +19,19 @@
   docs/plans/27.md/D-034's "per-colony override of homeHeading" non-goal, written when
   there was only one org — multi-tenant (M16) has since shipped, so a per-org heading is
   no longer a hypothetical.
-  **Verified:** `cd apps/map && pnpm typecheck && pnpm lint && pnpm build` all clean;
-  `npx vitest run --no-file-parallelism` 264/269 passing — the 5 failures are the
-  pre-existing, already-documented anon-privilege-grant RLS drift and realtime-flake
-  pattern (see Deferred), none touching this diff; the two new/changed test files
+  **Verified:** `mingw32-make gate` — pipeline contract 4/4 clean; `apps/map` typecheck/
+  lint clean; `pnpm test -- --run` 265/269 (4 failures, both runs this session — the
+  pre-existing, already-documented anon-privilege-grant RLS drift, see Deferred, none
+  touching this diff); `gate`'s own recipe stops on that pre-existing test failure before
+  reaching its build step, so `pnpm build` was run separately, clean, same >500kB
+  chunk-size warning as every prior build. The two new/changed test files
   (`organizations.test.ts`, `ColonyPicker.test.tsx`) both fully pass in isolation (11/11).
-  **Not run:** `make gate` (pipeline half untouched by this diff, not re-verified this
-  session) and the owner's own manual check of the real deployed app.
+  Committed `7fac9a2`, pushed to `origin/master` — Cloudflare's Git-integration auto-deploy
+  (D-026) should ship it.
   **Next:** owner should confirm each group's admin-portal org name now renders correctly
-  after their next login.
+  on the live site after their next login (an already-open session won't pick it up until
+  it refetches or they sign in again). Separately, the anon-privilege-grant RLS drift
+  blocking a clean `make gate` run is still open — see Deferred.
 
 - **Loading splash, tighter backdrop zoom, and a live status-visibility toggle on both the
   admin map and the public link — shipped 2026-09-10 (Tier 3), pushed and live.** One
@@ -1242,6 +1246,24 @@
   feature-labels yet, so this is latent, not live).
 
 ## Log
+
+### 2026-09-10 — Home-screen heading reads the real org name, not the shared config default (Tier 2)
+
+- Done: `fetchMyOrganization(client)` (`lib/db/organizations.ts`) plus `useOrgName(client,
+  session)` (`lib/colony/useOrgName.ts`) fetch the signed-in user's own org row via
+  existing RLS; `ColonyPicker` takes a new required `orgName` prop and uses it as the
+  heading, falling back to `presentation.json`'s `homeHeading` only while loading/on
+  failure. `isStandaloneDisplay()` moved to `pwa/installInstructionsSeen.ts` to keep
+  `App.tsx` under the 250-line cap. Committed `7fac9a2`, pushed to `origin/master`.
+- Next: owner confirms the real org name renders live after next login; the anon-grant RLS
+  drift below is still the one thing keeping `make gate` from a clean pass.
+- Surprises: `App.tsx` was already sitting exactly at the 250-line cap before this
+  session's diff — any net addition at all needed an offsetting extraction, not just a
+  "add a line or two" change.
+- Verified: `mingw32-make gate` — pipeline contract 4/4; apps/map typecheck/lint clean;
+  `pnpm test -- --run` 265/269 (4 pre-existing anon-grant-drift failures, unrelated);
+  `pnpm build` (run separately, gate stops before it on the pre-existing test failure)
+  clean. `organizations.test.ts`/`ColonyPicker.test.tsx` 11/11 in isolation.
 
 ### 2026-09-09 — Backdrop darken pass + per-colony config, pipeline-UI checklist step (Tier 3)
 

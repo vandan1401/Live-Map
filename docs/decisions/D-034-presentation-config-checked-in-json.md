@@ -73,6 +73,15 @@ way to do that by accident.
   (e.g. only `noOwnerTokens`) nothing, since the granularity is per top-level key, not
   per-file.
 
+## Superseded in part
+
+`homeHeading` itself is no longer sourced from this file's `default` block as the primary
+value — see D-040 (2026-09-10). Multi-tenant orgs (D-030) shipped after this decision was
+written, so "there is currently one org" no longer holds; the heading now reads
+`organizations.name` at sign-in, falling back to this file's `default.homeHeading` only
+while that fetch is loading or on failure. Every other mechanism this decision describes —
+`noOwnerTokens`, `statusLabels`, `statusColors`, `dimension` — is unaffected.
+
 ## Consequences
 
 - Changing a colony's presentation setting is a code change (edit `presentation.json`,

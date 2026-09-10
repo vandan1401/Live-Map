@@ -50,6 +50,7 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-037 | Google Maps/Earth imagery stays out of scope for backdrop generation, even via screenshot + AI-regeneration — checked against Google's own Geo Guidelines, not just re-asserted | accepted |
 | D-038 | Public-link status-visibility toggle is enforced client-side only, not inside `get_public_colony()` | accepted |
 | D-039 | Admin map's status toggle is always offered (ungated by config) and defaults off | accepted |
+| D-040 | Home-screen heading is read from `organizations.name` at sign-in, not `presentation.json`'s single `default.homeHeading`; supersedes D-034's per-org-heading non-goal, written before multi-tenant (M16) shipped | accepted |
 
 ## tools/pipeline
 
