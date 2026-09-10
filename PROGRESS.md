@@ -2,91 +2,50 @@
 
 ## Current
 
-- **Public-link status feature redesigned into a live toggle button, on both admin and
-  public surfaces (Tier 3, 2026-09-10, same day as — and superseding the interaction model
-  of — the entry directly below).** Owner's own words, paraphrased: a real toggle button
-  that shows/hides status when clicked, on **both** the admin map and the public link, not
-  a static config-only on/off. Two design forks confirmed with the owner first via
-  AskUserQuestion before building:
-  1. **Admin map:** `StatusToggle.tsx` always renders in `ColonyMap.tsx`'s bottom toolbar,
-     ungated by any config — ordinary family members are trusted, no per-colony setup
-     needed. **Defaults off** (confirmed explicitly, not assumed) — every admin, every time
-     they open a colony, now sees all plots as "available" until they tap the toggle on.
-     This is a real behaviour change from every session before this one, where the admin
-     map always showed live status immediately; the owner chose this deliberately over
-     defaulting on, so it is not a mistake if a family member reports "the map shows
-     nothing booked" right after this ships — that's the new resting state.
-  2. **Public link:** whether the toggle is offered at all stays config-gated per colony
-     (`config/publicLink.json`, public-link-only — the admin gate above is never
-     config-driven, confirmed the same round). `publicLinkConfig.ts`'s
-     `resolvePublicLinkStatusToggle(colonyId)` replaces the first cut's
-     `resolvePublicLinkShowStatus` — renamed because the semantics inverted: the JSON no
-     longer says "show status yes/no", it says "offer the toggle yes/no", and absent/false
-     now means **no toggle, permanently "available"** (default flipped `true` → `false`
-     from the first cut, see below) rather than "always show real status". `bharatkshetra`
-     is the one colony with `statusToggle: true` in the checked-in config, so it is the only
-     public link with a visible toggle today — every other/future colony's public link shows
+- **Loading splash, tighter backdrop zoom, and a live status-visibility toggle on both the
+  admin map and the public link — shipped 2026-09-10 (Tier 3), pushed and live.** One
+  session, built in two cuts (history below is collapsed here; see `## Log` for the
+  blow-by-blow if needed):
+  1. `LoadingScreen.tsx` + `styles/loading-screen.css` — branded spinner/heading overlay
+     (brand mark `#863bff`) replacing every blank `return null`/plain "Loading…" screen
+     during an initial fetch (`App.tsx`'s session-check and colony-list fetch,
+     `PublicColonyView.tsx`'s `get_public_colony()` fetch). This is the branded-splash half
+     of the spacer.land-referenced Backlog #3 below — the camera fly-in animation itself
+     (the "biggest item") is still not started, needs a fresh reference-timing capture the
+     owner hasn't completed.
+  2. `BACKDROP_FIT_PADDING` (`useMapBackdrop.ts`) lowered 4.5 → 2.5, closing Backlog #2 as a
+     static value. Only affects a colony with a `mapBackdrop.json` entry (today, only
+     `bharatkshetra`). **Not independent of #3** — if the fly-in animation ships later, "how
+     zoomed in on load" becomes "where the animation lands," may need revisiting then.
+  3. **A live `StatusToggle.tsx` button, not a static config flag** (redesigned mid-session
+     after the owner clarified the ask — the first cut, a config-only always-on/always-off
+     split, is superseded). **Admin map** (`ColonyMap.tsx`): always renders the toggle,
+     ungated by config, **defaults off** — every family member, every colony open, now sees
+     all plots as "available" until they tap "Show status." Confirmed explicitly via
+     AskUserQuestion, not assumed — **this is the one real behaviour change here**: the
+     admin map used to always show live status immediately. **Public link**
+     (`PublicColonyView.tsx`): whether the toggle is offered at all stays config-gated per
+     colony, public-link-only (`config/publicLink.json`, `publicLinkConfig.ts`'s
+     `resolvePublicLinkStatusToggle`, default `false` = no toggle, permanently
+     "available"). `bharatkshetra` is the only colony with `statusToggle: true` today, so
+     the only public link with a visible toggle; every other/future colony shows
      "available" for every plot with no way to reveal it until its own entry is added.
-  3. New shared pure helper `applyStatusVisibility(statuses, visible)`
-     (`shared/plotStatusVisibility.ts`, unit-tested) — both `useColonyCanvas.ts`'s
-     `pushState` (admin) and `PublicColonyView.tsx` (public) call this rather than each
-     re-deriving the `"available"` substitution inline, so the two surfaces can never drift
-     on what "hidden" renders as.
-  **Still client-side only** (unchanged decision from the entry below) —
-  `get_public_colony()` returns real status regardless of the toggle's position.
-  **Verified:** `cd apps/map && pnpm typecheck` (clean), `pnpm lint` (clean), `pnpm build`
-  (clean), `pnpm test -- --run` — 263/267 passing, the same 4 pre-existing anon-grant-drift
-  RLS failures already on record below, none touching this diff (the `subscribePlots`
-  realtime flake did not reproduce this run). New `plotStatusVisibility.test.ts` (3 tests)
-  passes; `publicLinkConfig.test.ts`/`publicLinkConfigOverride.test.ts` updated for the
-  renamed function and flipped default. **Not verified live yet** — this redesign has not
-  been pushed/deployed as of this entry; see `## Next`.
-- **Branded loading splash, tighter default backdrop zoom, and a per-colony public-link
-  status-visibility toggle (Tier 3, 2026-09-10, partially closes Backlog #2/#3 below, new
-  feature not previously in Backlog) — first cut, since redesigned by the entry above.**
-  Three owner asks in one session:
-  1. `LoadingScreen.tsx` + `styles/loading-screen.css` — a branded spinner/heading overlay
-     (brand mark `#863bff`, matching `.colony-picker-heading`) replacing every blank
-     `return null`/plain "Loading…" screen during an initial fetch: `App.tsx`'s
-     session-check and colony-list fetch, and `PublicColonyView.tsx`'s
-     `get_public_colony()` fetch. This is the branded-splash half of the spacer.land-
-     referenced Backlog #3 below — the camera fly-in animation itself (the "biggest item")
-     is still not started; see that entry for why (needs a fresh reference-timing capture
-     the owner hasn't completed).
-  2. `BACKDROP_FIT_PADDING` (`useMapBackdrop.ts`) lowered 4.5 → 2.5, closing Backlog #2's
-     "more zoomed-in on load" as a static value. Only affects a colony with a
-     `mapBackdrop.json` entry (today, only `bharatkshetra`) — every other colony's fit was
-     already the tight, un-padded `colonyLatLngBounds` and is unchanged. **Not independent
-     of #3** per that entry's own note — if the fly-in animation ships later, "how zoomed
-     in on load" becomes "where the animation lands" and this constant may be revisited
-     then, not tuned twice.
-  3. New feature, owner ask verbatim (paraphrased): a public-link toggle for whether real
-     plot status shows at all — some colonies are shared before the family wants booking
-     status visible to outsiders. `config/publicLink.json` + `publicLinkConfig.ts`'s
-     `resolvePublicLinkShowStatus(colonyId)`, same checked-in-JSON per-colony-override
-     shape as `mapBackdrop.json`/`resolveMapBackdrop` (D-034's precedent) — absent entry
-     defaults to `true` (today's behaviour, unchanged for every colony). When `false`,
-     `PublicColonyView.tsx` forces every plot's status to `"available"` (the same colour
-     every plot shows before any sale) before it ever reaches `usePublicColonyCanvas.ts`.
-     **Decided alone, confirmed with the owner first via AskUserQuestion:** enforcement is
-     client-side only, not inside `get_public_colony()` — the owner explicitly chose this
-     over the server-side option, so a technical visitor inspecting network traffic can
-     still see the real status even when the toggle is off; only the rendered map hides it.
-     If that trade-off changes, enforcing it in the RPC is the Tier-1 follow-up (a
-     migration, needs `/plan` + `/review`).
-  **Verified:** `cd apps/map && pnpm typecheck` (clean), `pnpm lint` (`oxlint`, clean),
-  `pnpm build` (clean, same pre-existing >500kB chunk-size warning as every prior build),
-  `pnpm test` — 259/264 passing, the same 5 pre-existing failures already on record below
-  (4 anon-grant-drift `'P0001'`/`undefined` vs `'42501'` RLS assertions, plus one
-  `subscribePlots.test.ts` realtime-integration timeout against local Docker Supabase) —
-  none touching this diff; the 2 new `publicLinkConfig`/`publicLinkConfigOverride` test
-  files pass (4 tests). Pushed `577ea99` → `origin/master`, Cloudflare's Git-integration
-  auto-deploy (D-026) shipped it. **Owner confirmed live, 2026-09-10:** bharatkshetra's
-  public link (`showStatus: false` in `publicLink.json`, set for this test) showed every
-  plot's status as unbooked, as designed — then turned back on (`publicLink.json` reverted
-  to `{}`, back to the default `true`) and repushed the same day; real status is live on
-  bharatkshetra's public link again. **Still not verified live:** the loading splash's
-  look and the tightened backdrop zoom framing — owner hasn't reported on either yet.
+     Both toggles share one pure helper, `applyStatusVisibility(statuses, visible)`
+     (`shared/plotStatusVisibility.ts`), so "hidden" renders identically on both surfaces.
+     **Still client-side only** — `get_public_colony()` returns real status regardless of
+     either toggle's position; a technical public-link visitor inspecting network traffic
+     can still see it. If that trade-off changes, enforcing it inside the RPC is the
+     Tier-1 follow-up (a migration, needs `/plan` + `/review`).
+  **Verified:** `mingw32-make gate` — `tools/pipeline` contract+verify clean;
+  `cd apps/map && pnpm typecheck`/`pnpm lint`/`pnpm build` all clean (same pre-existing
+  >500kB chunk-size warning as every prior build); `pnpm test -- --run` 263/267 passing,
+  the same 4 pre-existing anon-grant-drift RLS failures already on record below, none
+  touching this diff. Pushed `577ea99` (first cut) then `7db6286` (redesign) →
+  `origin/master`; Cloudflare's Git-integration auto-deploy (D-026) shipped both. **Owner
+  confirmed live** for the first cut's config-only toggle (bharatkshetra showed unbooked
+  with `showStatus: false`, then reverted). **Not yet confirmed live** for the redesigned
+  interactive toggle, the loading splash's look, or the tightened backdrop zoom framing —
+  next session (or the owner) should check all three against the real deployed site.
 - **Admin-map backdrop parity shipped, plus a per-surface on/off switch (Tier 3,
   2026-09-09, closes Backlog #1 below).** Owner ask, same day as the darken-config entry
   below: `useColonyCanvas.ts` (the authenticated map) now runs the same backdrop pipeline
@@ -4376,3 +4335,31 @@ effort estimates below are for planning, not a commitment to build in this order
   none touch this diff. 8/8 backdrop-specific tests pass. Live-browser regression check
   only (Shree Vatika Phase 2, no backdrop entry) — the backdrop-on-admin rendering itself
   is unverified, no local `bharatkshetra` seed available this session.
+
+### 2026-09-10 — Loading splash, tighter backdrop zoom, live status toggle (Tier 3)
+- Done: `LoadingScreen.tsx` (branded splash, replaces blank/plain "Loading…" states in
+  `App.tsx`/`PublicColonyView.tsx`); `BACKDROP_FIT_PADDING` 4.5 → 2.5; a `StatusToggle.tsx`
+  button always on the admin map (ungated, defaults off) and config-gated per colony on the
+  public link (`config/publicLink.json`, `publicLinkConfig.ts`, `bharatkshetra` only today) —
+  both default off, both share `applyStatusVisibility()` (`shared/plotStatusVisibility.ts`).
+  Built in two cuts same day: shipped a config-only always-on/off toggle first (`577ea99`),
+  then the owner clarified they wanted a real live button on both surfaces, so it was
+  redesigned (`7db6286`) — see `## Current` for the final shape only.
+- Next: owner (or next session) to open the real deployed site and confirm the splash looks
+  right, the tightened backdrop zoom framing reads well, and the redesigned toggle actually
+  shows/hides status correctly on both the admin map and bharatkshetra's public link — none
+  of the three have been eyeballed live yet. The fly-in animation half of Backlog #3 is
+  still not started.
+- Surprises: the status-visibility feature's shape changed mid-session after the first cut
+  already shipped and was owner-confirmed live — a reminder that "confirmed working" for a
+  first cut doesn't mean the interaction model itself was settled, only that cut. Two files
+  (`App.tsx`, `useColonyCanvas.ts`) sit exactly at or one edit away from invariant 7's
+  250-line cap — several edits needed a same-turn trim (shrinking a comment, merging two
+  import lines from the same module) just to land under it.
+- Verified: `mingw32-make gate` — `tools/pipeline` contract+verify clean; `cd apps/map &&
+  pnpm typecheck`/`pnpm lint`/`pnpm build` clean; `pnpm test -- --run` 263/267, same 4
+  pre-existing anon-grant-drift RLS failures on record, none touching this diff. Both
+  commits pushed to `origin/master`, Cloudflare auto-deploy (D-026) triggered on each push.
+  Owner confirmed the first cut live (bharatkshetra's public link showed unbooked with the
+  toggle off, then reverted); the redesigned interactive toggle itself is not yet confirmed
+  live by anyone.

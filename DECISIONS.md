@@ -48,6 +48,8 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-035 | Click-to-focus zoom interpolates the real camera and redraws every frame; never animates a CSS transform on a frozen raster snapshot of the canvas | accepted |
 | D-036 | A synthetic, manually-aligned aerial-style backdrop (composited with real OSM vector data) is a narrow, named exception to the "no satellite/aerial imagery" rule — per-colony opt-in only, real/licensed imagery of a real place stays banned | accepted |
 | D-037 | Google Maps/Earth imagery stays out of scope for backdrop generation, even via screenshot + AI-regeneration — checked against Google's own Geo Guidelines, not just re-asserted | accepted |
+| D-038 | Public-link status-visibility toggle is enforced client-side only, not inside `get_public_colony()` | accepted |
+| D-039 | Admin map's status toggle is always offered (ungated by config) and defaults off | accepted |
 
 ## tools/pipeline
 
