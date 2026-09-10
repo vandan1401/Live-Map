@@ -31,7 +31,13 @@ describe("ColonyPicker", () => {
     const onSelect = vi.fn();
 
     render(
-      <ColonyPicker colonies={colonies} onSelect={onSelect} onUpload={vi.fn()} onLogout={vi.fn()} />,
+      <ColonyPicker
+        colonies={colonies}
+        orgName={null}
+        onSelect={onSelect}
+        onUpload={vi.fn()}
+        onLogout={vi.fn()}
+      />,
     );
 
     expect(screen.getByText("Nimantran Group Colonies")).toBeTruthy();
@@ -43,7 +49,15 @@ describe("ColonyPicker", () => {
   });
 
   it("shows an empty-state message when there are no colonies", () => {
-    render(<ColonyPicker colonies={[]} onSelect={vi.fn()} onUpload={vi.fn()} onLogout={vi.fn()} />);
+    render(
+      <ColonyPicker
+        colonies={[]}
+        orgName={null}
+        onSelect={vi.fn()}
+        onUpload={vi.fn()}
+        onLogout={vi.fn()}
+      />,
+    );
 
     expect(screen.getByText("Nimantran Group Colonies")).toBeTruthy();
     expect(screen.getByText("No colonies yet.")).toBeTruthy();
@@ -54,6 +68,7 @@ describe("ColonyPicker", () => {
     render(
       <ColonyPicker
         colonies={[colonyRow({})]}
+        orgName={null}
         onSelect={vi.fn()}
         onUpload={onUpload}
         onLogout={vi.fn()}
@@ -69,6 +84,7 @@ describe("ColonyPicker", () => {
     render(
       <ColonyPicker
         colonies={[colonyRow({})]}
+        orgName={null}
         onSelect={vi.fn()}
         onUpload={vi.fn()}
         onLogout={onLogout}
@@ -83,6 +99,7 @@ describe("ColonyPicker", () => {
     render(
       <ColonyPicker
         colonies={[colonyRow({})]}
+        orgName={null}
         onSelect={vi.fn()}
         onUpload={vi.fn()}
         onLogout={vi.fn()}
@@ -97,6 +114,7 @@ describe("ColonyPicker", () => {
     render(
       <ColonyPicker
         colonies={[colonyRow({})]}
+        orgName={null}
         onSelect={vi.fn()}
         onUpload={vi.fn()}
         onLogout={vi.fn()}
@@ -106,10 +124,26 @@ describe("ColonyPicker", () => {
     expect(screen.queryByText(/last synced/)).toBeNull();
   });
 
+  it("shows the group's real name instead of the default when orgName is set", () => {
+    render(
+      <ColonyPicker
+        colonies={[colonyRow({})]}
+        orgName="MG Group Colonies"
+        onSelect={vi.fn()}
+        onUpload={vi.fn()}
+        onLogout={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("MG Group Colonies")).toBeTruthy();
+    expect(screen.queryByText("Nimantran Group Colonies")).toBeNull();
+  });
+
   it("shows the freshness label alongside the empty state (/review finding #3)", () => {
     render(
       <ColonyPicker
         colonies={[]}
+        orgName={null}
         onSelect={vi.fn()}
         onUpload={vi.fn()}
         onLogout={vi.fn()}

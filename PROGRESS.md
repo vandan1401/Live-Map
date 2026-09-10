@@ -2,6 +2,33 @@
 
 ## Current
 
+- **Home-screen heading now shows each group's real name from the admin portal, not the
+  shared `presentation.json` default (2026-09-10, Tier 2).** Owner ask: every group's
+  post-login home screen ("Nimantran Group Colonies") showed the same hardcoded string
+  regardless of which org signed in — renaming an org via the admin portal (`organizations
+  .name`) had no visible effect anywhere in the app. Added `fetchMyOrganization(client)`
+  (`lib/db/organizations.ts`) — relies on the existing `organizations_authenticated_select`
+  RLS policy (M16) to scope a plain select to the caller's own org row, no new policy
+  needed. `useOrgName(client, session)` (`lib/colony/useOrgName.ts`) owns the fetch/state;
+  `App.tsx` passes the result to `ColonyPicker` as a new required `orgName: string | null`
+  prop, which uses it as the heading, falling back to `presentation.json`'s `homeHeading`
+  only while loading or on fetch failure. `useOrgName` was split into its own file (not
+  inlined in `App.tsx`) purely to keep `App.tsx` under invariant 7's 250-line cap — it was
+  already at 250 lines before this change; `isStandaloneDisplay()` also moved to
+  `pwa/installInstructionsSeen.ts` for the same reason. Supersedes part of
+  docs/plans/27.md/D-034's "per-colony override of homeHeading" non-goal, written when
+  there was only one org — multi-tenant (M16) has since shipped, so a per-org heading is
+  no longer a hypothetical.
+  **Verified:** `cd apps/map && pnpm typecheck && pnpm lint && pnpm build` all clean;
+  `npx vitest run --no-file-parallelism` 264/269 passing — the 5 failures are the
+  pre-existing, already-documented anon-privilege-grant RLS drift and realtime-flake
+  pattern (see Deferred), none touching this diff; the two new/changed test files
+  (`organizations.test.ts`, `ColonyPicker.test.tsx`) both fully pass in isolation (11/11).
+  **Not run:** `make gate` (pipeline half untouched by this diff, not re-verified this
+  session) and the owner's own manual check of the real deployed app.
+  **Next:** owner should confirm each group's admin-portal org name now renders correctly
+  after their next login.
+
 - **Loading splash, tighter backdrop zoom, and a live status-visibility toggle on both the
   admin map and the public link — shipped 2026-09-10 (Tier 3), pushed and live.** One
   session, built in two cuts (history below is collapsed here; see `## Log` for the

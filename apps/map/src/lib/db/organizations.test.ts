@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { fetchOrganizations, insertOrganization } from "./organizations.ts";
+import { fetchMyOrganization, fetchOrganizations, insertOrganization } from "./organizations.ts";
 import { fetchColoniesByOrg, insertColony } from "./colonies.ts";
-import { createScratchOrg, serviceRoleClient } from "../auth/testHelpers.ts";
+import { createScratchOrg, createScratchUser, serviceRoleClient } from "../auth/testHelpers.ts";
 
 // docs/plans/23.md phase 3: the admin portal's org read/create surface, live against the
 // real local Docker Supabase — no mocks, this repo's convention throughout.
@@ -15,6 +15,22 @@ describe("organizations", () => {
 
     const all = await fetchOrganizations(admin);
     expect(all.some((org) => org.id === created.id && org.name === name)).toBe(true);
+  });
+});
+
+describe("fetchMyOrganization", () => {
+  it("returns the signed-in user's own org, scoped by RLS, and its real name", async () => {
+    const admin = serviceRoleClient();
+    const name = `org-mine-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const org = await insertOrganization(admin, name);
+    const otherOrgId = await createScratchOrg();
+    const user = await createScratchUser("Test User", org.id);
+
+    const mine = await fetchMyOrganization(user.client);
+
+    expect(mine?.id).toBe(org.id);
+    expect(mine?.name).toBe(name);
+    expect(mine?.id).not.toBe(otherOrgId);
   });
 });
 

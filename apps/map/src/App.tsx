@@ -7,22 +7,15 @@ import { ColonyUploadScreen } from "./features/colony-upload/ColonyUploadScreen"
 import { LoginScreen } from "./features/auth/LoginScreen";
 import { PublicColonyView } from "./features/public-colony/PublicColonyView";
 import { InstallInstructions } from "./features/pwa-install/InstallInstructions";
-import { hasSeenInstallInstructions } from "./pwa/installInstructionsSeen";
+import { hasSeenInstallInstructions, isStandaloneDisplay } from "./pwa/installInstructionsSeen";
 import { getDisplayName, signOut } from "./lib/auth/session";
 import { getBrowserDbClient } from "./lib/db/browserClient";
 import { loadVerifiedColonies } from "./lib/colony/listColonies";
+import { useOrgName } from "./lib/colony/useOrgName";
 import { parsePublicToken } from "./lib/colony/publicLinkUrl";
 import { isSnapshotExpired, loadColonyList, saveColonyList } from "./pwa/offlineCache";
 import { formatFreshnessLabel } from "./lib/sync/freshness";
 import type { ColonyRow } from "./lib/db/types";
-
-// A home-screen install is already the thing this screen is teaching the user to do
-// (/review finding #2) — showing it again on the installed app's first launch (a fresh
-// context with no shared localStorage from Safari on iOS) would ask an already-installed
-// user to install again.
-function isStandaloneDisplay(): boolean {
-  return window.matchMedia("(display-mode: standalone)").matches;
-}
 
 // Mirrors attachSync.ts's FRESHNESS_TICK_MS — the offline colony-list label needs the
 // same "advance every so often without a wasteful re-render loop" tick (/review finding
@@ -144,6 +137,8 @@ function App() {
     return () => window.removeEventListener("online", fetchColonies);
   }, [client, session, fetchColonies]);
 
+  const orgName = useOrgName(client, session);
+
   useEffect(() => {
     if (colonyListSavedAt === null) return;
     const interval = setInterval(() => setFreshnessNow(new Date()), COLONY_LIST_FRESHNESS_TICK_MS);
@@ -221,6 +216,7 @@ function App() {
     return (
       <ColonyPicker
         colonies={colonies}
+        orgName={orgName}
         onSelect={setSelectedColonyId}
         onUpload={() => setShowUpload(true)}
         onLogout={() => void signOut(client)}
