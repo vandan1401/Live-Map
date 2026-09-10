@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { ColonyMap } from "./components/ColonyMap";
+import { LoadingScreen } from "./components/LoadingScreen";
 import { ColonyPicker } from "./features/colony-picker/ColonyPicker";
 import { ColonyUploadScreen } from "./features/colony-upload/ColonyUploadScreen";
 import { LoginScreen } from "./features/auth/LoginScreen";
@@ -162,9 +163,9 @@ function App() {
   const publicToken = parsePublicToken(window.location.hash);
   if (publicToken) return <PublicColonyView client={client} token={publicToken} />;
 
-  // undefined = still checking for an existing session — render nothing rather than
-  // flash the login screen for a page about to restore a valid one.
-  if (session === undefined) return null;
+  // undefined = still checking for an existing session — a branded splash rather than
+  // flashing the login screen for a page about to restore a valid one.
+  if (session === undefined) return <LoadingScreen />;
 
   if (session === null) {
     return <LoginScreen client={client} />;
@@ -196,7 +197,7 @@ function App() {
     );
   }
 
-  if (!colonies) return null;
+  if (!colonies) return <LoadingScreen />;
 
   if (showUpload) {
     return (

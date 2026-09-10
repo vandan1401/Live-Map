@@ -35,7 +35,15 @@ const VIGNETTE_FADE_RANGE = Math.log2(1.6);
 // real app's fit target (usePublicColonyCanvas.ts), so the vignette below (fully opaque at
 // this default, fading out on zoom-in toward the tight colony view) has zoom range to work
 // with, and a visitor can actually pan/zoom out toward the real villages the labels name.
-export const BACKDROP_FIT_PADDING = 4.5;
+// Lowered 4.5 -> 2.5 (owner ask, 2026-09-10, "tighter default zoom" -- PROGRESS.md Backlog
+// #2): still shows real surrounding context (this is the whole point of the padded fit
+// over a tight colonyLatLngBounds), just less of it. Only affects a colony with a
+// mapBackdrop.json entry (today, bharatkshetra) -- every other colony's default fit was
+// already the tight, un-padded colonyLatLngBounds and is unchanged. Needs the owner's own
+// eyes on a real device (CLAUDE.md: Claude has no browser to verify a visual calibration
+// like this against) -- not independent of the still-deferred fly-in animation (#3), where
+// "how zoomed in on load" becomes "where the animation lands" instead of a static value.
+export const BACKDROP_FIT_PADDING = 2.5;
 
 // usePublicColonyCanvas.ts's minZoom for a backdrop colony is NOT a fixed constant -- this
 // derives it from the raster's own world extent via map.setMinZoom(), once the real

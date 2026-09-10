@@ -3,6 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadPublicColony } from "../../lib/colony/publicColony.ts";
 import { usePublicColonyCanvas } from "../../components/map/usePublicColonyCanvas.ts";
 import { resolveMapBackdrop } from "../../components/map/mapBackdrops.ts";
+import { resolvePublicLinkShowStatus } from "../../lib/colony/publicLinkConfig.ts";
+import { LoadingScreen } from "../../components/LoadingScreen.tsx";
 import type { PublicColonyResult } from "../../lib/db/types.ts";
 import { formatPlotLabel } from "../../shared/format.ts";
 
@@ -59,8 +61,13 @@ export function PublicColonyView({ client, token }: Props) {
   const found: FoundResult | null =
     result !== "loading" && result !== "error" && result.found ? result : null;
 
+  // Owner ask, 2026-09-10: some colonies keep real booking status off the public link
+  // entirely — every plot renders the "available" colour it would show before any sale,
+  // gated per colony in config/publicLink.json (publicLinkConfig.ts). Client-side only, by
+  // owner's own choice: get_public_colony() still returns the real status either way.
+  const showStatus = resolvePublicLinkShowStatus(found?.colony.id ?? null);
   const statuses: Record<string, string> = {};
-  for (const plot of found?.plots ?? []) statuses[plot.svg_id] = plot.status;
+  for (const plot of found?.plots ?? []) statuses[plot.svg_id] = showStatus ? plot.status : "available";
   const selectedPlot = found?.plots.find((plot) => plot.svg_id === selectedId) ?? null;
   // docs/plans/28.md, D-036: null for every colony without a mapBackdrop.json entry —
   // decides whether the vignette/attribution below render at all.
@@ -83,11 +90,7 @@ export function PublicColonyView({ client, token }: Props) {
   });
 
   if (result === "loading") {
-    return (
-      <div className="public-colony-overlay">
-        <p className="public-colony-message">Loading…</p>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   // A transport/network failure is a different state from get_public_colony() actually

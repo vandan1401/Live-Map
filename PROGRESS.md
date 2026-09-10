@@ -2,6 +2,48 @@
 
 ## Current
 
+- **Branded loading splash, tighter default backdrop zoom, and a per-colony public-link
+  status-visibility toggle (Tier 3, 2026-09-10, partially closes Backlog #2/#3 below, new
+  feature not previously in Backlog).** Three owner asks in one session:
+  1. `LoadingScreen.tsx` + `styles/loading-screen.css` — a branded spinner/heading overlay
+     (brand mark `#863bff`, matching `.colony-picker-heading`) replacing every blank
+     `return null`/plain "Loading…" screen during an initial fetch: `App.tsx`'s
+     session-check and colony-list fetch, and `PublicColonyView.tsx`'s
+     `get_public_colony()` fetch. This is the branded-splash half of the spacer.land-
+     referenced Backlog #3 below — the camera fly-in animation itself (the "biggest item")
+     is still not started; see that entry for why (needs a fresh reference-timing capture
+     the owner hasn't completed).
+  2. `BACKDROP_FIT_PADDING` (`useMapBackdrop.ts`) lowered 4.5 → 2.5, closing Backlog #2's
+     "more zoomed-in on load" as a static value. Only affects a colony with a
+     `mapBackdrop.json` entry (today, only `bharatkshetra`) — every other colony's fit was
+     already the tight, un-padded `colonyLatLngBounds` and is unchanged. **Not independent
+     of #3** per that entry's own note — if the fly-in animation ships later, "how zoomed
+     in on load" becomes "where the animation lands" and this constant may be revisited
+     then, not tuned twice.
+  3. New feature, owner ask verbatim (paraphrased): a public-link toggle for whether real
+     plot status shows at all — some colonies are shared before the family wants booking
+     status visible to outsiders. `config/publicLink.json` + `publicLinkConfig.ts`'s
+     `resolvePublicLinkShowStatus(colonyId)`, same checked-in-JSON per-colony-override
+     shape as `mapBackdrop.json`/`resolveMapBackdrop` (D-034's precedent) — absent entry
+     defaults to `true` (today's behaviour, unchanged for every colony). When `false`,
+     `PublicColonyView.tsx` forces every plot's status to `"available"` (the same colour
+     every plot shows before any sale) before it ever reaches `usePublicColonyCanvas.ts`.
+     **Decided alone, confirmed with the owner first via AskUserQuestion:** enforcement is
+     client-side only, not inside `get_public_colony()` — the owner explicitly chose this
+     over the server-side option, so a technical visitor inspecting network traffic can
+     still see the real status even when the toggle is off; only the rendered map hides it.
+     If that trade-off changes, enforcing it in the RPC is the Tier-1 follow-up (a
+     migration, needs `/plan` + `/review`).
+  **Verified:** `cd apps/map && pnpm typecheck` (clean), `pnpm lint` (`oxlint`, clean),
+  `pnpm build` (clean, same pre-existing >500kB chunk-size warning as every prior build),
+  `pnpm test` — 259/264 passing, the same 5 pre-existing failures already on record below
+  (4 anon-grant-drift `'P0001'`/`undefined` vs `'42501'` RLS assertions, plus one
+  `subscribePlots.test.ts` realtime-integration timeout against local Docker Supabase) —
+  none touching this diff; the 2 new `publicLinkConfig`/`publicLinkConfigOverride` test
+  files pass (4 tests). **Not verified live** — no browser available to Claude Code; the
+  owner should open the app and the public link to confirm the splash renders correctly,
+  the tightened backdrop zoom looks right on `bharatkshetra`, and (once a colony's
+  `publicLink.json` entry is set to `showStatus: false`) that plots render as unbooked.
 - **Admin-map backdrop parity shipped, plus a per-surface on/off switch (Tier 3,
   2026-09-09, closes Backlog #1 below).** Owner ask, same day as the darken-config entry
   below: `useColonyCanvas.ts` (the authenticated map) now runs the same backdrop pipeline
@@ -3205,12 +3247,16 @@ effort estimates below are for planning, not a commitment to build in this order
    `mapBackdrop.json`) the owner asked for in the same session. Live rendering on the admin
    map itself is still unverified (no local `bharatkshetra` seed) — see that entry's own
    Verified line.
-2. **More zoomed-in on load.** Trivial in isolation — `BACKDROP_FIT_PADDING` (currently
-   `4.5`, `useMapBackdrop.ts`) tuned down. Not independent of #3: if load becomes a fly-in
-   animation, "how zoomed in on load" is really "where the animation lands," decided
-   together with #3, not a separate constant tweak.
+2. **More zoomed-in on load. Closed 2026-09-10 as a static value** — `BACKDROP_FIT_PADDING`
+   (`useMapBackdrop.ts`) lowered `4.5` → `2.5`, see `## Current` above. Not verified live
+   (no browser). Still not independent of #3: if load becomes a fly-in animation, "how
+   zoomed in on load" is really "where the animation lands" and this constant may need
+   revisiting then, not as a second isolated tweak.
 3. **A Google-Earth/spacer.land-style zoom-in animation on load — the biggest item.**
-   Medium–Large. The camera-interpolation engine already exists and is proven
+   Medium–Large. **The branded-splash half (a loading screen shown while data fetches) is
+   done, 2026-09-10 — `LoadingScreen.tsx`, see `## Current` above.** The camera fly-in
+   animation itself — the actual "wide shot → fly into the colony" motion — is still not
+   started; that's the part still described below. The camera-interpolation engine already exists and is proven
    (`canvasFlyTo.ts`'s `runFlyTo`/`FlyToHost`, built for click-to-focus zoom — took a full
    rewrite and three failed patch attempts before landing on real per-frame interpolation,
    see the 2026-09-08/09 log entries below). Reusing it for a load-time "wide establishing
