@@ -188,6 +188,27 @@
   padding: 0.4rem 0.9rem;
 }
 
+/* StatusToggle.tsx — same pill shape as .colony-share-trigger, plus a colour-coded
+ * .is-active state (brand purple, #863bff) so its own on/off is readable at a glance —
+ * the label text carries the meaning too, colour is reinforcement, not the only signal. */
+.status-toggle-button {
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid var(--colony-glass-border);
+  border-radius: 999px;
+  background: var(--colony-glass-bg-strong);
+  backdrop-filter: blur(var(--colony-glass-blur));
+  -webkit-backdrop-filter: blur(var(--colony-glass-blur));
+  padding: 0.4rem 0.9rem;
+  color: var(--colony-site-boundary);
+}
+
+.status-toggle-button.is-active {
+  background: #863bff;
+  border-color: #863bff;
+  color: #fff;
+}
+
 .colony-share-overlay {
   position: fixed;
   inset: 0;

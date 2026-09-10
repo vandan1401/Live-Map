@@ -2,9 +2,49 @@
 
 ## Current
 
+- **Public-link status feature redesigned into a live toggle button, on both admin and
+  public surfaces (Tier 3, 2026-09-10, same day as — and superseding the interaction model
+  of — the entry directly below).** Owner's own words, paraphrased: a real toggle button
+  that shows/hides status when clicked, on **both** the admin map and the public link, not
+  a static config-only on/off. Two design forks confirmed with the owner first via
+  AskUserQuestion before building:
+  1. **Admin map:** `StatusToggle.tsx` always renders in `ColonyMap.tsx`'s bottom toolbar,
+     ungated by any config — ordinary family members are trusted, no per-colony setup
+     needed. **Defaults off** (confirmed explicitly, not assumed) — every admin, every time
+     they open a colony, now sees all plots as "available" until they tap the toggle on.
+     This is a real behaviour change from every session before this one, where the admin
+     map always showed live status immediately; the owner chose this deliberately over
+     defaulting on, so it is not a mistake if a family member reports "the map shows
+     nothing booked" right after this ships — that's the new resting state.
+  2. **Public link:** whether the toggle is offered at all stays config-gated per colony
+     (`config/publicLink.json`, public-link-only — the admin gate above is never
+     config-driven, confirmed the same round). `publicLinkConfig.ts`'s
+     `resolvePublicLinkStatusToggle(colonyId)` replaces the first cut's
+     `resolvePublicLinkShowStatus` — renamed because the semantics inverted: the JSON no
+     longer says "show status yes/no", it says "offer the toggle yes/no", and absent/false
+     now means **no toggle, permanently "available"** (default flipped `true` → `false`
+     from the first cut, see below) rather than "always show real status". `bharatkshetra`
+     is the one colony with `statusToggle: true` in the checked-in config, so it is the only
+     public link with a visible toggle today — every other/future colony's public link shows
+     "available" for every plot with no way to reveal it until its own entry is added.
+  3. New shared pure helper `applyStatusVisibility(statuses, visible)`
+     (`shared/plotStatusVisibility.ts`, unit-tested) — both `useColonyCanvas.ts`'s
+     `pushState` (admin) and `PublicColonyView.tsx` (public) call this rather than each
+     re-deriving the `"available"` substitution inline, so the two surfaces can never drift
+     on what "hidden" renders as.
+  **Still client-side only** (unchanged decision from the entry below) —
+  `get_public_colony()` returns real status regardless of the toggle's position.
+  **Verified:** `cd apps/map && pnpm typecheck` (clean), `pnpm lint` (clean), `pnpm build`
+  (clean), `pnpm test -- --run` — 263/267 passing, the same 4 pre-existing anon-grant-drift
+  RLS failures already on record below, none touching this diff (the `subscribePlots`
+  realtime flake did not reproduce this run). New `plotStatusVisibility.test.ts` (3 tests)
+  passes; `publicLinkConfig.test.ts`/`publicLinkConfigOverride.test.ts` updated for the
+  renamed function and flipped default. **Not verified live yet** — this redesign has not
+  been pushed/deployed as of this entry; see `## Next`.
 - **Branded loading splash, tighter default backdrop zoom, and a per-colony public-link
   status-visibility toggle (Tier 3, 2026-09-10, partially closes Backlog #2/#3 below, new
-  feature not previously in Backlog).** Three owner asks in one session:
+  feature not previously in Backlog) — first cut, since redesigned by the entry above.**
+  Three owner asks in one session:
   1. `LoadingScreen.tsx` + `styles/loading-screen.css` — a branded spinner/heading overlay
      (brand mark `#863bff`, matching `.colony-picker-heading`) replacing every blank
      `return null`/plain "Loading…" screen during an initial fetch: `App.tsx`'s

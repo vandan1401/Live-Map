@@ -4,19 +4,21 @@ import { describe, expect, it, vi } from "vitest";
 // (hoisted to the top of the whole file regardless of describe-block placement, same
 // isolation reasoning as mapBackdropSurface.test.ts), and that file's other tests need the
 // real checked-in publicLink.json (asserting the un-configured default). The real config
-// has no showStatus: false colony yet, so that branch needs a fixture, not shipped data.
+// today has bharatkshetra's statusToggle: true (see publicLink.json) but no colony
+// exercising the false/absent branch as an explicit override, so this fixture covers both
+// directions.
 vi.mock("../../config/publicLink.json", () => ({
-  default: { "test-colony": { showStatus: false } },
+  default: { "test-colony": { statusToggle: true } },
 }));
 
-const { resolvePublicLinkShowStatus } = await import("./publicLinkConfig.ts");
+const { resolvePublicLinkStatusToggle } = await import("./publicLinkConfig.ts");
 
-describe("resolvePublicLinkShowStatus — override", () => {
-  it("respects an explicit showStatus: false override", () => {
-    expect(resolvePublicLinkShowStatus("test-colony")).toBe(false);
+describe("resolvePublicLinkStatusToggle — override", () => {
+  it("respects an explicit statusToggle: true override", () => {
+    expect(resolvePublicLinkStatusToggle("test-colony")).toBe(true);
   });
 
-  it("still defaults to true for a colony not in the override config", () => {
-    expect(resolvePublicLinkShowStatus("shree-vatika-2")).toBe(true);
+  it("still defaults to false for a colony not in the override config", () => {
+    expect(resolvePublicLinkStatusToggle("shree-vatika-2")).toBe(false);
   });
 });

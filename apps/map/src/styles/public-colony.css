@@ -179,6 +179,19 @@
   pointer-events: none;
 }
 
+/* StatusToggle.tsx, shown only when config/publicLink.json offers it for this colony
+ * (PublicColonyView.tsx). Bottom-right mirrors .colony-bottom-toolbar's own corner on the
+ * admin map (map-toolbar.css) -- unoccupied here since the public page has no legend/share/
+ * table-view toolbar. Covered by .public-colony-plot-panel (fixed, z-index 1200) whenever a
+ * plot is selected, same trade-off .public-colony-backdrop-attribution's own comment
+ * accepted for its corner. */
+.public-colony-status-toggle-wrap {
+  position: absolute;
+  right: 0.75rem;
+  bottom: 0.75rem;
+  z-index: 1000;
+}
+
 /* mapBackdropLabels.ts's L.divIcon markup — real place/road names, visible whenever
  * panned/zoomed into view (no fade effect). Informational only, never interactive
  * (docs/plans/28.md §2.7) -- interactive: false on the Leaflet marker only stops event

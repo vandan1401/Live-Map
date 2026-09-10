@@ -9,6 +9,7 @@ import { ShareSummary } from "../features/share-summary/ShareSummary.tsx";
 import { PlotTableView } from "../features/plot-table/PlotTableView.tsx";
 import { FreshnessIndicator } from "./FreshnessIndicator.tsx";
 import { StatusLegend } from "./StatusLegend.tsx";
+import { StatusToggle } from "./StatusToggle.tsx";
 import { useColonyCanvas } from "./map/useColonyCanvas.ts";
 import { resolveMapBackdrop } from "./map/mapBackdrops.ts";
 
@@ -64,6 +65,10 @@ export function ColonyMap({
   // of the map's own container div, so Leaflet's mount effect (below, keyed to
   // containerRef) never tears down and reinitialises when this toggles.
   const [tableViewOpen, setTableViewOpen] = useState(false);
+  // Owner ask, 2026-09-10: status hidden by default even on the admin map — StatusToggle
+  // reveals it, confirmed via AskUserQuestion (same off-by-default behaviour as the public
+  // link, unlike the config-gated toggle there — this one is always offered here).
+  const [showStatus, setShowStatus] = useState(false);
 
   // docs/plans/27.md — per-colony status display names, resolved once per colonyId.
   const { statusLabels } = resolvePresentationConfig(colonyId);
@@ -84,6 +89,7 @@ export function ColonyMap({
     selectZoomRefHeightPx,
     selectedId,
     activeStatuses,
+    showStatus,
     onSelect: useCallback((svgId: string | null) => setSelectedId(svgId), []),
     setOffline,
     setFreshnessLabel,
@@ -134,6 +140,7 @@ export function ColonyMap({
       {backdrop && <p className="colony-map-backdrop-attribution">{backdrop.data.attribution}</p>}
       <PlotSearch client={client} colonyId={colonyId} onSelect={setSelectedId} />
       <div className="colony-bottom-toolbar">
+        <StatusToggle active={showStatus} onToggle={() => setShowStatus((prev) => !prev)} />
         <StatusLegend
           active={activeStatuses}
           onToggle={handleToggleStatusFilter}

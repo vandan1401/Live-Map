@@ -15,8 +15,8 @@ import { useFlyToSelectedPlot } from "./useFlyToSelectedPlot.ts";
 import { colonyLatLngBounds, leafletViewState, ZOOM_DETAIL_MARGIN } from "./view.ts";
 import { loadGrass } from "./loadGrass.ts";
 import { useCornerPlots } from "./useCornerPlots.ts";
-import { attachMapBackdrop, applyBackdropMinZoom, resolveBackdropFit } from "./useMapBackdrop.ts";
-import type { MapBackdropController } from "./useMapBackdrop.ts";
+import { attachMapBackdrop, applyBackdropMinZoom, resolveBackdropFit, type MapBackdropController } from "./useMapBackdrop.ts";
+import { applyStatusVisibility } from "../../shared/plotStatusVisibility.ts";
 
 // Leaflet init, the canvas layer, attachSync's subscription, picking and the transition
 // clock (docs/plans/18.md). ColonyMap.tsx owns the refs and React state; this hook only
@@ -33,6 +33,7 @@ interface Args {
   selectZoomRefHeightPx: number | null;
   selectedId: string | null;
   activeStatuses: ReadonlySet<string>;
+  showStatus: boolean; // StatusToggle.tsx, ColonyMap.tsx
   onSelect: (svgId: string | null) => void;
   setOffline: (offline: boolean) => void;
   setFreshnessLabel: (label: string) => void;
@@ -57,6 +58,7 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
     selectZoomRefHeightPx,
     selectedId,
     activeStatuses,
+    showStatus,
     onSelect,
     backdropVignetteRef,
   } = args;
@@ -74,8 +76,8 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
 
   // Latest selection/filter without re-running the mount effect — the map must survive a
   // selection the same way it already survives the table-view overlay opening.
-  const viewStateRef = useRef({ selectedId, activeStatuses });
-  viewStateRef.current = { selectedId, activeStatuses };
+  const viewStateRef = useRef({ selectedId, activeStatuses, showStatus });
+  viewStateRef.current = { selectedId, activeStatuses, showStatus };
 
   // Callbacks live in refs so the mount effect can depend only on the colony, not on every
   // render's fresh closures.
@@ -85,7 +87,7 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
     const map = mapRef.current;
     if (!layer || !map) return;
     layer.setDrawState({
-      statuses: statusesRef.current,
+      statuses: applyStatusVisibility(statusesRef.current, viewStateRef.current.showStatus),
       selectedId: viewStateRef.current.selectedId,
       activeStatuses: viewStateRef.current.activeStatuses,
       showPlotLabels: map.getZoom() >= fitZoomRef.current - ZOOM_DETAIL_MARGIN,
@@ -232,13 +234,12 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
       modelRef.current = null;
       map.remove();
     };
-
   }, [client, colonyId, colonySvg, containerRef, onSelect, args.setOffline, args.setFreshnessLabel, backdropVignetteRef]);
 
-  // Selection and legend filter both repaint, without remounting the map.
+  // Selection, legend filter, and the status toggle all repaint, without remounting the map.
   useEffect(() => {
     pushState.current();
-  }, [selectedId, activeStatuses]);
+  }, [selectedId, activeStatuses, showStatus]);
 
   useFlyToSelectedPlot(mapRef, modelRef, layerRef, selectedId, selectZoomRefWidthPx, selectZoomRefHeightPx);
 

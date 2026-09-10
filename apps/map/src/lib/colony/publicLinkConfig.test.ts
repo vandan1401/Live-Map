@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { resolvePublicLinkShowStatus } from "./publicLinkConfig.ts";
+import { resolvePublicLinkStatusToggle } from "./publicLinkConfig.ts";
 
-describe("resolvePublicLinkShowStatus", () => {
-  it("defaults to true for a colony with no config entry", () => {
-    expect(resolvePublicLinkShowStatus("shree-vatika-2")).toBe(true);
+describe("resolvePublicLinkStatusToggle", () => {
+  it("defaults to false (no toggle offered) for a colony with no config entry", () => {
+    expect(resolvePublicLinkStatusToggle("shree-vatika-2")).toBe(false);
   });
 
-  it("defaults to true for a null colonyId", () => {
-    expect(resolvePublicLinkShowStatus(null)).toBe(true);
+  it("defaults to false for a null colonyId", () => {
+    expect(resolvePublicLinkStatusToggle(null)).toBe(false);
   });
 });

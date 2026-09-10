@@ -3,10 +3,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadPublicColony } from "../../lib/colony/publicColony.ts";
 import { usePublicColonyCanvas } from "../../components/map/usePublicColonyCanvas.ts";
 import { resolveMapBackdrop } from "../../components/map/mapBackdrops.ts";
-import { resolvePublicLinkShowStatus } from "../../lib/colony/publicLinkConfig.ts";
+import { resolvePublicLinkStatusToggle } from "../../lib/colony/publicLinkConfig.ts";
 import { LoadingScreen } from "../../components/LoadingScreen.tsx";
+import { StatusToggle } from "../../components/StatusToggle.tsx";
 import type { PublicColonyResult } from "../../lib/db/types.ts";
 import { formatPlotLabel } from "../../shared/format.ts";
+import { applyStatusVisibility } from "../../shared/plotStatusVisibility.ts";
 
 interface Props {
   client: SupabaseClient;
@@ -41,6 +43,9 @@ export function PublicColonyView({ client, token }: Props) {
   // (colonies.ts), and this retry counter is what lets the resulting error state recover
   // in-app rather than needing that reload).
   const [retryCount, setRetryCount] = useState(0);
+  // Owner ask, 2026-09-10: the toggle itself always starts off, even on a colony where it's
+  // offered — see publicLinkConfig.ts for the per-colony gate on whether it's offered at all.
+  const [statusRevealed, setStatusRevealed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,13 +66,15 @@ export function PublicColonyView({ client, token }: Props) {
   const found: FoundResult | null =
     result !== "loading" && result !== "error" && result.found ? result : null;
 
-  // Owner ask, 2026-09-10: some colonies keep real booking status off the public link
-  // entirely — every plot renders the "available" colour it would show before any sale,
-  // gated per colony in config/publicLink.json (publicLinkConfig.ts). Client-side only, by
-  // owner's own choice: get_public_colony() still returns the real status either way.
-  const showStatus = resolvePublicLinkShowStatus(found?.colony.id ?? null);
-  const statuses: Record<string, string> = {};
-  for (const plot of found?.plots ?? []) statuses[plot.svg_id] = showStatus ? plot.status : "available";
+  // Owner ask, 2026-09-10: whether this colony's public link offers a status toggle at all
+  // (config/publicLink.json, publicLinkConfig.ts) — StatusToggle only renders when true.
+  // Either way the toggle (and every plot) starts hidden; toggleOffered just decides whether
+  // a visitor *can* reveal it during their own visit. Client-side only, by owner's own
+  // choice: get_public_colony() still returns the real status regardless.
+  const toggleOffered = resolvePublicLinkStatusToggle(found?.colony.id ?? null);
+  const rawStatuses: Record<string, string> = {};
+  for (const plot of found?.plots ?? []) rawStatuses[plot.svg_id] = plot.status;
+  const statuses = applyStatusVisibility(rawStatuses, toggleOffered && statusRevealed);
   const selectedPlot = found?.plots.find((plot) => plot.svg_id === selectedId) ?? null;
   // docs/plans/28.md, D-036: null for every colony without a mapBackdrop.json entry —
   // decides whether the vignette/attribution below render at all.
@@ -139,6 +146,11 @@ export function PublicColonyView({ client, token }: Props) {
         </div>
         {backdrop && (
           <p className="public-colony-backdrop-attribution">{backdrop.data.attribution}</p>
+        )}
+        {toggleOffered && (
+          <div className="public-colony-status-toggle-wrap">
+            <StatusToggle active={statusRevealed} onToggle={() => setStatusRevealed((prev) => !prev)} />
+          </div>
         )}
       </div>
       {selectedPlot && (
