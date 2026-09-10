@@ -40,10 +40,13 @@
   (4 anon-grant-drift `'P0001'`/`undefined` vs `'42501'` RLS assertions, plus one
   `subscribePlots.test.ts` realtime-integration timeout against local Docker Supabase) —
   none touching this diff; the 2 new `publicLinkConfig`/`publicLinkConfigOverride` test
-  files pass (4 tests). **Not verified live** — no browser available to Claude Code; the
-  owner should open the app and the public link to confirm the splash renders correctly,
-  the tightened backdrop zoom looks right on `bharatkshetra`, and (once a colony's
-  `publicLink.json` entry is set to `showStatus: false`) that plots render as unbooked.
+  files pass (4 tests). Pushed `577ea99` → `origin/master`, Cloudflare's Git-integration
+  auto-deploy (D-026) shipped it. **Owner confirmed live, 2026-09-10:** bharatkshetra's
+  public link (`showStatus: false` in `publicLink.json`, set for this test) showed every
+  plot's status as unbooked, as designed — then turned back on (`publicLink.json` reverted
+  to `{}`, back to the default `true`) and repushed the same day; real status is live on
+  bharatkshetra's public link again. **Still not verified live:** the loading splash's
+  look and the tightened backdrop zoom framing — owner hasn't reported on either yet.
 - **Admin-map backdrop parity shipped, plus a per-surface on/off switch (Tier 3,
   2026-09-09, closes Backlog #1 below).** Owner ask, same day as the darken-config entry
   below: `useColonyCanvas.ts` (the authenticated map) now runs the same backdrop pipeline
