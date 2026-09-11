@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { ColonyMap } from "./components/ColonyMap";
 import { LoadingScreen } from "./components/LoadingScreen";
+import { MapLoadingScreen } from "./components/MapLoadingScreen";
 import { ColonyPicker } from "./features/colony-picker/ColonyPicker";
 import { ColonyUploadScreen } from "./features/colony-upload/ColonyUploadScreen";
 import { LoginScreen } from "./features/auth/LoginScreen";
@@ -10,17 +11,11 @@ import { InstallInstructions } from "./features/pwa-install/InstallInstructions"
 import { hasSeenInstallInstructions, isStandaloneDisplay } from "./pwa/installInstructionsSeen";
 import { getDisplayName, signOut } from "./lib/auth/session";
 import { getBrowserDbClient } from "./lib/db/browserClient";
-import { loadVerifiedColonies } from "./lib/colony/listColonies";
 import { useOrgName } from "./lib/colony/useOrgName";
+import { useColonyList } from "./lib/colony/useColonyList";
+import { useColonyOpenSplash } from "./lib/colony/useColonyOpenSplash";
 import { parsePublicToken } from "./lib/colony/publicLinkUrl";
-import { isSnapshotExpired, loadColonyList, saveColonyList } from "./pwa/offlineCache";
 import { formatFreshnessLabel } from "./lib/sync/freshness";
-import type { ColonyRow } from "./lib/db/types";
-
-// Mirrors attachSync.ts's FRESHNESS_TICK_MS — the offline colony-list label needs the
-// same "advance every so often without a wasteful re-render loop" tick (/review finding
-// #1: this label was frozen at its first-paint value before).
-const COLONY_LIST_FRESHNESS_TICK_MS = 15_000;
 
 function App() {
   // Created once, for the whole app lifetime (docs/plans/09.md) — lifted out of
@@ -44,22 +39,12 @@ function App() {
   const [showInstallInstructions, setShowInstallInstructions] = useState(
     () => !hasSeenInstallInstructions() && !isStandaloneDisplay(),
   );
-  const [colonies, setColonies] = useState<ColonyRow[] | null>(null);
   // docs/plans/11.md, D-025 — the colony-upload overlay, opened from ColonyPicker's
   // "Upload a colony" button, same sibling-overlay pattern as showInstallInstructions.
   const [showUpload, setShowUpload] = useState(false);
-  // Separate from `colonies === []` on purpose — a fetch failure (DB down, missing env
-  // vars) must not read as "the family owns no colonies" (/review finding: this is the
-  // same no-data-vs-no-results confusion PlotSearch.tsx and ColonyMap.tsx already had to
-  // fix once each).
-  const [loadError, setLoadError] = useState(false);
   const [selectedColonyId, setSelectedColonyId] = useState<string | null>(null);
-  // Set only when `colonies` came from the offline cache — drives the freshness label
-  // ColonyPicker renders (/review finding #3). null means "this is live data".
-  const [colonyListSavedAt, setColonyListSavedAt] = useState<string | null>(null);
-  // Ticked while colonyListSavedAt is set, purely to force the freshness label to
-  // re-render as its age advances (/review finding #1) — not read anywhere else.
-  const [freshnessNow, setFreshnessNow] = useState(() => new Date());
+  const { openToken, showSplash, mapZooming, bumpOpen, finishSplash, startMapZoom } =
+    useColonyOpenSplash();
 
   useEffect(() => {
     if (!client) {
@@ -76,74 +61,11 @@ function App() {
     return () => subscription.subscription.unsubscribe();
   }, [client]);
 
-  // Lifted out of the loading effect (docs/plans/11.md) so ColonyUploadScreen's onClose
-  // can trigger the same refetch a reconnect does, rather than duplicating this logic —
-  // a freshly uploaded colony must appear in the picker without a manual reload.
-  const fetchColonies = useCallback(() => {
-    if (!client) return;
-    loadVerifiedColonies(client)
-      .then((loaded) => {
-        setColonies(loaded);
-        setColonyListSavedAt(null);
-        // /review finding #1 (second pass): the reconnect refetch above only means
-        // anything if a prior failure's setLoadError(true) gets cleared here — without
-        // this, a first-ever offline open with no snapshot stays stuck on the error
-        // screen forever, even once the network is back and this call has succeeded.
-        setLoadError(false);
-        saveColonyList(loaded).catch((error: unknown) => {
-          console.error("offline colony list save failed:", error);
-        });
-      })
-      .catch((error: unknown) => {
-        console.error("failed to load colony list:", error);
-        // Offline reads (D-008, spec/07): a cold, offline open must show the
-        // last-known colony list rather than the "check your connection" error —
-        // that message is for a real online failure, not an expected offline state.
-        if (!navigator.onLine) {
-          loadColonyList()
-            .then((snapshot) => {
-              if (!snapshot) {
-                setLoadError(true);
-                return;
-              }
-              // Cache TTL (docs/plans/09.md, spec/08 criterion 5): data older than 24h
-              // is never rendered — forces re-auth by signing the (possibly revoked)
-              // session out rather than trusting stale data indefinitely.
-              if (isSnapshotExpired(snapshot.savedAt, new Date())) {
-                void signOut(client);
-                setLoadError(true);
-                return;
-              }
-              setColonies(snapshot.colonies);
-              setColonyListSavedAt(snapshot.savedAt);
-              setLoadError(false);
-            })
-            .catch(() => setLoadError(true));
-          return;
-        }
-        setLoadError(true);
-      });
-  }, [client]);
-
-  useEffect(() => {
-    if (!client || !session) return;
-
-    fetchColonies();
-
-    // Reconnect handling, same shape as attachSync.ts's (spec/05): a cached list must
-    // not sit there silently once the network is back — refetch and drop back to live
-    // data the moment "online" fires (/review finding #1).
-    window.addEventListener("online", fetchColonies);
-    return () => window.removeEventListener("online", fetchColonies);
-  }, [client, session, fetchColonies]);
-
+  const { colonies, loadError, colonyListSavedAt, freshnessNow, fetchColonies } = useColonyList(
+    client,
+    session,
+  );
   const orgName = useOrgName(client, session);
-
-  useEffect(() => {
-    if (colonyListSavedAt === null) return;
-    const interval = setInterval(() => setFreshnessNow(new Date()), COLONY_LIST_FRESHNESS_TICK_MS);
-    return () => clearInterval(interval);
-  }, [colonyListSavedAt]);
 
   if (!client) {
     return (
@@ -217,7 +139,10 @@ function App() {
       <ColonyPicker
         colonies={colonies}
         orgName={orgName}
-        onSelect={setSelectedColonyId}
+        onSelect={(id) => {
+          setSelectedColonyId(id);
+          bumpOpen();
+        }}
         onUpload={() => setShowUpload(true)}
         onLogout={() => void signOut(client)}
         freshnessLabel={freshnessLabel}
@@ -231,15 +156,30 @@ function App() {
   const selectedColony = colonies.find((colony) => colony.id === selectedColonyId)!;
 
   return (
-    <ColonyMap
-      client={client}
-      actor={actor}
-      colonyId={selectedColonyId}
-      colonySvg={selectedColony.svg}
-      selectZoomRefWidthPx={selectedColony.select_zoom_ref_width_px ?? null}
-      selectZoomRefHeightPx={selectedColony.select_zoom_ref_height_px ?? null}
-      onBack={() => setSelectedColonyId(null)}
-    />
+    <>
+      <ColonyMap
+        client={client}
+        actor={actor}
+        colonyId={selectedColonyId}
+        colonySvg={selectedColony.svg}
+        selectZoomRefWidthPx={selectedColony.select_zoom_ref_width_px ?? null}
+        selectZoomRefHeightPx={selectedColony.select_zoom_ref_height_px ?? null}
+        onBack={() => setSelectedColonyId(null)}
+        zoomingIn={mapZooming}
+      />
+      {showSplash && (
+        // Mounted on top of the already-rendering ColonyMap above (data's already local, no
+        // fetch to wait on) so the fixed-duration zoom always lands on a ready map.
+        <MapLoadingScreen
+          key={openToken}
+          colonyName={selectedColony.name}
+          colonyId={selectedColonyId}
+          ready
+          onZoomStart={startMapZoom}
+          onFinish={finishSplash}
+        />
+      )}
+    </>
   );
 }
 

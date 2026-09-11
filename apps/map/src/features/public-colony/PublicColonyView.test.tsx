@@ -71,12 +71,16 @@ function stubNotFoundClient(): SupabaseClient {
 // pickPlotAt) to colonyModel.test.ts's own direct unit tests, which this view's click
 // handler calls unchanged.
 describe("PublicColonyView", () => {
-  it("shows a loading message before the RPC resolves", () => {
+  it("shows the branded splash, not a bare page, before the RPC resolves", () => {
+    // MapLoadingScreen (owner ask, 2026-09-10) replaced the plain "Loading…" text this test
+    // used to check for — it now covers every initial fetch, this one included. "Opening
+    // colony" is the one line on it that doesn't depend on the colony name having arrived
+    // yet (colonyName is still null here, rendered as "…").
     const client = {
       rpc: vi.fn(() => rpcBuilder(new Promise(() => {}))),
     } as unknown as SupabaseClient;
     render(<PublicColonyView client={client} token="tok" />);
-    expect(screen.getByText("Loading…")).toBeInTheDocument();
+    expect(screen.getByText("Opening colony")).toBeInTheDocument();
   });
 
   it("shows a connection-error message when the RPC call itself fails", async () => {
@@ -118,7 +122,11 @@ describe("PublicColonyView", () => {
     const retryButton = await screen.findByText("Try again");
     fireEvent.click(retryButton);
 
-    expect(await screen.findByText("Test Colony")).toBeInTheDocument();
+    // getByText("Test Colony") is ambiguous now: MapLoadingScreen (owner ask, 2026-09-10)
+    // renders the same colony name a second time on its own card, and its own timers never
+    // fire in this test, so it's still mounted alongside the real page underneath. Scoping
+    // to the level-1 heading targets the real page's <h1>, not the splash's <h2>.
+    expect(await screen.findByRole("heading", { name: "Test Colony", level: 1 })).toBeInTheDocument();
     expect(rpc).toHaveBeenCalledTimes(2);
   });
 
@@ -131,7 +139,10 @@ describe("PublicColonyView", () => {
     ]);
     render(<PublicColonyView client={client} token="tok" />);
 
-    expect(await screen.findByText("Test Colony")).toBeInTheDocument();
+    // See the retry test's own comment above — MapLoadingScreen renders the colony name a
+    // second time and stays mounted for the life of this test, so this has to target the
+    // real page's <h1> specifically, not just any element with this text.
+    expect(await screen.findByRole("heading", { name: "Test Colony", level: 1 })).toBeInTheDocument();
     expect(screen.getByText("Indicative layout — not to scale")).toBeInTheDocument();
     expect(screen.getByText("N")).toBeInTheDocument(); // compass
     expect(screen.queryByText("A-01")).toBeNull();
