@@ -51,6 +51,7 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-038 | Public-link status-visibility toggle is enforced client-side only, not inside `get_public_colony()` | accepted |
 | D-039 | Admin map's status toggle is always offered (ungated by config) and defaults off | accepted |
 | D-040 | Home-screen heading is read from `organizations.name` at sign-in, not `presentation.json`'s single `default.homeHeading`; supersedes D-034's per-org-heading non-goal, written before multi-tenant (M16) shipped | accepted |
+| D-041 | Colony-open zoom-in interpolates the real camera (D-035's click-to-focus engine, reused), not a CSS transform on the canvas — and a flight's own `zoomend` events must be guarded out of any caller's per-frame state recompute, not just the layer's own redraw scheduling | accepted |
 
 ## tools/pipeline
 

@@ -2,6 +2,66 @@
 
 ## Current
 
+- **Colony-open zoom-in moved off a CSS transform onto a real Leaflet zoom, and the fps cost
+  that surfaced along the way is fixed too (2026-09-11, Tier 2/3, pushed and manually
+  deployed — see Next).** The zoom feature itself shipped 2026-09-10 (below) as
+  `.colony-map-zoom-in`, a CSS `transform: scale()` on the Leaflet container — and broke
+  production the next session: since the canvas is viewport-sized, not colony-sized
+  (D-027), it already fills the screen with real content at rest; visually shrinking that
+  via CSS just moved where its edges landed, leaving nothing real in whatever area sat
+  beyond the shrunk box. Owner: "the area which would be visible in final frame is rendered
+  only... the outer area needs to be rendered also." A flat-colour patch, then a
+  seamless-mirrored-texture patch (reusing `canvasPatterns.ts`'s own tiling), each fixed the
+  *look* without fixing the *mechanism* — both fully reverted once the owner proposed the
+  real fix: start the map at its own most-zoomed-out view and animate up from there. That
+  reuses D-035's click-to-focus flight engine (`canvasFlyTo.ts::runFlyTo`/
+  `startCanvasFlyTo`, now parameterised) rather than re-deriving the same lesson a second
+  time — new `runOpenZoom`/`ColonyCanvasLayer.openZoomTo`/`useColonyOpenZoom.ts` (split out
+  for invariant 7), full writeup in D-041. The longer duration (4.5s vs. click-to-focus's
+  400ms) then surfaced a real, previously-invisible cost: a flight's own `zoomend` events
+  fire every single animation frame (not just once), and `useColonyCanvas.ts`'s `onZoom`
+  was doing a full `pushState()` — a real recompute, not a no-op — on every one of them, on
+  top of the redraw the flight already triggers directly. Fixed with
+  `ColonyCanvasLayer.isFlying()`, checked before either hook's `onZoom` calls `pushState`.
+  Also fixed in the same session, found while chasing what the owner reported live as "the
+  map looks like a static image, nothing clickable": `MapLoadingScreen.tsx`'s fade-out
+  effect listed its own `fading` state in its own dependency array — `setFading(true)`
+  re-ran the very effect that had just scheduled `onFinish`, whose cleanup cancelled that
+  timeout before it could fire, every single time, on every colony open. The splash never
+  unmounted; invisible (`opacity: 0`) but still `position: fixed` with no
+  `pointer-events: none`, it silently ate every click on the page underneath it forever.
+  Fixed with a ref guard instead of the self-referencing state, plus memoizing
+  `onZoomStart`/`onFinish` (`useColonyOpenSplash.ts`, `PublicColonyView.tsx`) so neither
+  effect re-runs on an unrelated parent re-render. A genuine `matchMedia` crash under jsdom
+  and three `PublicColonyView.test.tsx` tests that still expected the plain "Loading…" text
+  this splash replaced were fixed along the way (`make gate` was the thing that caught
+  both). `colonyClickHandler.ts` deduplicated an identical click-to-pick-a-plot copy
+  `useColonyCanvas.ts`/`usePublicColonyCanvas.ts` had each been carrying, found while
+  trimming the former back under the 250-line cap.
+  **Verified:** `mingw32-make gate` clean except the 4 pre-existing anon-grant-drift RLS
+  failures on record (below) and one `subscribePlots.test.ts` realtime timeout confirmed
+  flaky (passes clean in isolation, unrelated code) — none touch this diff.
+  typecheck/lint/build clean throughout, re-run fresh at wrap time. Every touched file
+  re-checked under invariant 7's cap. The click-blocking bug's fix was confirmed live —
+  reproduced the frozen splash on a real dev-server session, fixed, reproduced the fix
+  working end to end (search, plot select, detail sheet, no freeze). The real-zoom
+  animation's own trigger wiring was confirmed via live instrumentation
+  (`_flyToActive`/`_flyToId` flip at exactly the moment the splash's zoom-start fires); its
+  frame-by-frame *motion* could not be watched from this session — the browser-automation
+  tab never reports `document.hidden: false`, and Chrome suspends `requestAnimationFrame`
+  for a tab it doesn't consider focused, so the flight's own tick loop never advances there
+  regardless of what the code does. Pushed `98dcaac` (real-zoom) then `4043fc4` (fps fix) to
+  `origin/master`. Cloudflare's Git-integration auto-deploy (D-026) did **not** visibly
+  trigger on either push this session, for reasons unknown from here — `npx wrangler deploy`
+  was run manually instead once `98dcaac` was live-testing-ready, reading straight from a
+  fresh local build.
+  **Next:** owner is confirming both from the live deployment now — plot clicks, search, and
+  specifically the colony-open zoom's smoothness and correctness are all still owner-
+  pending, not confirmed by this session. Separately, worth a closer look next session:
+  Cloudflare's auto-deploy not firing on push is either a real, newly-broken integration or
+  a one-off — if it recurs, that's worth its own investigation rather than routinely falling
+  back to a manual `wrangler deploy`.
+
 - **Home-screen heading now shows each group's real name from the admin portal, not the
   shared `presentation.json` default (2026-09-10, Tier 2).** Owner ask: every group's
   post-login home screen ("Nimantran Group Colonies") showed the same hardcoded string
@@ -3285,6 +3345,20 @@ on a real phone. Not verified by anyone: the five visual behaviours in `## Curre
 - Whether their real PDFs are vector or raster is unknown. If raster, M17's fallback stops
   being last and becomes urgent. `make inspect` on one real file settles it.
 - How a new colony reaches production once exported is undecided. M6 imports by script.
+- **Cloudflare's Git-integration auto-deploy (D-026) did not visibly trigger on either of
+  this session's two pushes to `origin/master` (2026-09-11)** — worked (or at least wasn't
+  investigated) on every prior push this project's history has on record. Worked around
+  with a manual `npx wrangler deploy` from a fresh local build both times, not diagnosed.
+  If it recurs, check the Cloudflare dashboard's own deploy log/webhook config rather than
+  assuming another one-off — D-026 chose Git-integration specifically over the wrangler CLI,
+  and routinely falling back to manual deploys quietly defeats that choice.
+- **The colony-open zoom's real-camera animation (D-041) has never been watched frame-by-
+  frame from a Claude session** — only its trigger wiring was confirmed (live
+  instrumentation of `_flyToActive`/`_flyToId`). The browser-automation tooling's tab never
+  reports `document.hidden: false`, and Chrome suspends `requestAnimationFrame` for a tab it
+  doesn't consider focused, so the flight's own tick loop cannot be observed to advance
+  regardless of what the code does. A future session hitting the same wall should not
+  re-diagnose it as a code bug before checking `document.hidden` first.
 
 ## Backlog — owner-requested, not started
 
@@ -4412,3 +4486,28 @@ effort estimates below are for planning, not a commitment to build in this order
   Owner confirmed the first cut live (bharatkshetra's public link showed unbooked with the
   toggle off, then reverted); the redesigned interactive toggle itself is not yet confirmed
   live by anyone.
+
+### 2026-09-11 — Colony-open zoom moved to a real camera, its fps cost fixed, a production click-blocker fixed (D-041, Tier 2/3)
+- Done: replaced `.colony-map-zoom-in`'s CSS transform with `useColonyOpenZoom.ts` driving
+  a real Leaflet zoom via D-035's flight engine (`canvasFlyTo.ts::runOpenZoom`), after the
+  CSS version broke production the way D-041 explains; added `ColonyCanvasLayer.isFlying()`
+  once the longer flight duration exposed `zoomend`-per-frame as a real fps cost; fixed
+  `MapLoadingScreen.tsx`'s self-referencing-effect bug that silently blocked every click on
+  the live site after the original 2026-09-10 splash shipped; deduplicated
+  `colonyClickHandler.ts`; fixed a `matchMedia` jsdom crash and three stale
+  `PublicColonyView.test.tsx` expectations `make gate` caught along the way.
+- Next: owner confirming live now (deployed via manual `npx wrangler deploy` — Cloudflare's
+  auto-deploy did not visibly trigger on either push this session, worth a look if it
+  recurs). The real-zoom animation's frame-by-frame motion was never watched from this
+  session — only its trigger wiring was — see `## Current` for why.
+- Surprises: the actual root cause of "static image, nothing clickable" in production
+  wasn't caching, StrictMode, or a testing artifact (all investigated and reasonably ruled
+  out along the way) — it was a fully deterministic React bug, 100% reproducible on every
+  colony open, that happened to look environment-dependent while being chased. Reusing a
+  proven animation engine for an 11x-longer duration than it was ever run at before
+  surfaced a real inefficiency (redundant per-frame state recompute) that had apparently
+  been latent, unnoticed, since the engine first shipped.
+- Verified: `mingw32-make gate` clean except the 4 pre-existing anon-grant-drift RLS
+  failures and one confirmed-flaky `subscribePlots.test.ts` timeout (passes in isolation).
+  typecheck/lint/build clean, re-run fresh at wrap time. Pushed `98dcaac` then `4043fc4` to
+  `origin/master`; live confirmation still owner-pending.
