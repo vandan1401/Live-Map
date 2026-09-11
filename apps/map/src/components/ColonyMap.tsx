@@ -1,9 +1,8 @@
-import { useCallback, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AnimatePresence } from "framer-motion";
 import type { PlotStatus } from "../lib/db/types.ts";
 import { resolvePresentationConfig } from "../lib/colony/presentationConfig.ts";
-import { MAP_OPEN_ZOOM_MS, MAP_OPEN_ZOOM_EASE } from "../lib/colony/mapOpenZoomTiming.ts";
 import { PlotDetailSheet } from "../features/plot-detail/PlotDetailSheet.tsx";
 import { PlotSearch } from "../features/search/PlotSearch.tsx";
 import { ShareSummary } from "../features/share-summary/ShareSummary.tsx";
@@ -38,10 +37,6 @@ interface Props {
   // Returns to the colony picker (owner feedback, 2026-08-15 iPhone session: opening a
   // colony was previously one-way). App.tsx owns selectedColonyId and clears it here.
   onBack: () => void;
-  // From App.tsx's useColonyOpenSplash (owner ask, 2026-09-10): true once
-  // MapLoadingScreen's own zoom has started, so the map underneath zooms in at the same
-  // pace instead of just sitting static behind the loading screen's growing hole.
-  zoomingIn: boolean;
 }
 
 export function ColonyMap({
@@ -52,7 +47,6 @@ export function ColonyMap({
   selectZoomRefWidthPx,
   selectZoomRefHeightPx,
   onBack,
-  zoomingIn,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   // docs/plans/28.md Backlog #1: read by useColonyCanvas.ts to fade this out on zoom;
@@ -132,13 +126,7 @@ export function ColonyMap({
 
   return (
     <div className="colony-map-container">
-      <div
-        ref={containerRef}
-        className={`h-full w-full colony-map-zoom-in${zoomingIn ? " colony-map-zoom-in--zoom" : ""}`}
-        style={
-          { "--zoom-ms": `${MAP_OPEN_ZOOM_MS}ms`, "--zoom-ease": MAP_OPEN_ZOOM_EASE } as CSSProperties
-        }
-      />
+      <div ref={containerRef} className="h-full w-full" />
       {backdrop && <div ref={backdropVignetteRef} className="colony-map-backdrop-vignette" aria-hidden="true" />}
       <button type="button" className="colony-back-button" onClick={onBack}>
         ← Colonies
