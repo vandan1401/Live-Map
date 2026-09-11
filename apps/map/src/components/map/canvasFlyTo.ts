@@ -1,6 +1,8 @@
 import L from "leaflet";
+import { MAP_OPEN_ZOOM_MS, MAP_OPEN_ZOOM_EASE_POINTS } from "../../lib/colony/mapOpenZoomTiming.ts";
 
-const DURATION_MS = 400; // owner ask, 2026-09-04
+const FLY_TO_DURATION_MS = 400; // owner ask, 2026-09-04 — click-to-focus-a-plot's own pace
+const FLY_TO_EASE_POINTS: [number, number, number, number] = [0, 0, 0.4, 1]; // owner ask, same day
 
 // Rebuilt from scratch (2026-09-04) after three attempts at animating a CSS transform on a
 // frozen raster snapshot of the old view all failed for different reasons (a real Leaflet
@@ -33,17 +35,15 @@ function cubicBezierEase(t: number, x1: number, y1: number, x2: number, y2: numb
   return 3 * (1 - u) * (1 - u) * u * y1 + 3 * (1 - u) * u * u * y2 + u * u * u;
 }
 
-const ease = (t: number) => cubicBezierEase(t, 0, 0, 0.4, 1);
-
-// The bits of ColonyCanvasLayer's internal state runFlyTo needs, named rather than passed
-// as `this: LayerInternals` so this file doesn't depend on colonyCanvasLayer.ts's own
-// private interface (invariant 7's 250-line cap moved this extraction here, /review
-// 2026-09-08 — colonyCanvasLayer.ts's flyTo() is now a thin adapter over this).
+// The bits of ColonyCanvasLayer's internal state runFlyTo/runOpenZoom need, named rather
+// than passed as `this: LayerInternals` so this file doesn't depend on colonyCanvasLayer.ts's
+// own private interface (invariant 7's 250-line cap moved this extraction here, /review
+// 2026-09-08 — colonyCanvasLayer.ts's flyTo()/openZoomTo() are thin adapters over this).
 export interface FlyToHost {
   map: L.Map | null;
   renderedCenter: L.LatLng | null;
   renderedZoom: number;
-  // Live accessors, not snapshot values -- isCancelled below must see a LATER flyTo call's
+  // Live accessors, not snapshot values -- isCancelled below must see a LATER flight's
   // bump, not the id captured when this call started (that was the whole point of bumping
   // it on the actual layer instance in the first place).
   getFlyToId(): number;
@@ -53,10 +53,17 @@ export interface FlyToHost {
   render(): void;
 }
 
-// Click-to-focus zoom. Bumps flyToId itself so a superseded flight's rAF loop (isCancelled,
-// below) stops on its next tick instead of fighting a newer one over the same setView/
-// redraw every frame — same reasoning colonyCanvasLayer.ts's own comment used to carry.
-export function runFlyTo(host: FlyToHost, center: L.LatLng, zoom: number): void {
+// Shared by runFlyTo and runOpenZoom below — both are "animate the real camera to here over
+// this duration, with this easing" and differ only in which duration/curve and which caller
+// triggers them. One flight-bookkeeping implementation (flyToId bump, isCancelled, the
+// onFrame/onComplete wiring into the host) rather than two copies that could drift.
+function runCameraAnimation(
+  host: FlyToHost,
+  center: L.LatLng,
+  zoom: number,
+  durationMs: number,
+  easePoints: [number, number, number, number],
+): void {
   const map = host.map;
   if (!map) return;
   const fromCenter = host.renderedCenter ?? map.getCenter();
@@ -73,6 +80,8 @@ export function runFlyTo(host: FlyToHost, center: L.LatLng, zoom: number): void 
     fromZoom,
     center,
     zoom,
+    durationMs,
+    easePoints,
     () => host.getFlyToId() !== myId,
     () => {
       host.resize();
@@ -82,19 +91,38 @@ export function runFlyTo(host: FlyToHost, center: L.LatLng, zoom: number): void 
   );
 }
 
+// Click-to-focus zoom (owner ask, 2026-09-04). Bumps flyToId itself so a superseded flight's
+// rAF loop (isCancelled, below) stops on its next tick instead of fighting a newer one over
+// the same setView/redraw every frame.
+export function runFlyTo(host: FlyToHost, center: L.LatLng, zoom: number): void {
+  runCameraAnimation(host, center, zoom, FLY_TO_DURATION_MS, FLY_TO_EASE_POINTS);
+}
+
+// The colony-open zoom-in (owner ask, 2026-09-10; moved here from a CSS transform
+// 2026-09-11 — see mapOpenZoomTiming.ts's own comment on MAP_OPEN_ZOOM_EASE_POINTS for why).
+// Called once the caller has already parked the map at a deliberately zoomed-out starting
+// view (same centre, far lower zoom) — this just animates from wherever the map already is
+// up to the colony's normal fit view, same flight machinery as runFlyTo above.
+export function runOpenZoom(host: FlyToHost, center: L.LatLng, zoom: number): void {
+  runCameraAnimation(host, center, zoom, MAP_OPEN_ZOOM_MS, MAP_OPEN_ZOOM_EASE_POINTS);
+}
+
 export function startCanvasFlyTo(
   map: L.Map,
   fromCenter: L.LatLng,
   fromZoom: number,
   toCenter: L.LatLng,
   toZoom: number,
-  // Checked at the top of every frame -- a second flyTo starting mid-flight must stop THIS
+  durationMs: number,
+  easePoints: [number, number, number, number],
+  // Checked at the top of every frame -- a second flight starting mid-flight must stop THIS
   // loop, not just let its own loop run alongside it. Two independent rAF loops both calling
   // setView every frame would fight each other for the whole overlap.
   isCancelled: () => boolean,
   onFrame: () => void,
   onComplete: () => void,
 ): void {
+  const ease = (t: number) => cubicBezierEase(t, ...easePoints);
   // Interpolating lat/lng directly would curve or speed up unevenly once projected; doing
   // it in one fixed-zoom's projected pixel space keeps the pan visually straight-line.
   const fromPoint = map.project(fromCenter, 0);
@@ -104,7 +132,7 @@ export function startCanvasFlyTo(
   function tick(now: number) {
     if (isCancelled()) return;
     const elapsed = now - start;
-    const t = Math.min(1, elapsed / DURATION_MS);
+    const t = Math.min(1, elapsed / durationMs);
     const e = ease(t);
     const zoom = fromZoom + (toZoom - fromZoom) * e;
     const point = fromPoint.add(toPoint.subtract(fromPoint).multiplyBy(e));

@@ -16,4 +16,14 @@ export const MAP_OPEN_ZOOM_MS = 4500; // the zoom itself — owner ask, slower t
 // which reads as *faster*, not slower, because there's no visible motion left to be slow.
 // This curve keeps both control points off the axes (x1=0.33, x2=0.6) and y1<=y2<1
 // (monotonic, no dip) so the back third of the zoom still has real, visible motion.
-export const MAP_OPEN_ZOOM_EASE = "cubic-bezier(0.33, 0.6, 0.6, 0.9)";
+//
+// Exported as the raw 4 numbers, not just a CSS string, since 2026-09-11: the real map's
+// zoom-in moved from a CSS transform (canvasFlyTo.ts's runFlyTo/startCanvasFlyTo drives the
+// actual Leaflet zoom level now, same engine the click-to-focus-a-plot animation already
+// used) to a JS-side cubic-bezier evaluated per frame — canvasFlyTo.ts needs the numbers,
+// not a string meant for `transition-timing-function`. MAP_OPEN_ZOOM_EASE (the CSS string)
+// stays derived from the same numbers, still used by MapLoadingScreen.tsx's own splash
+// overlay animation, which is a real CSS transition and unaffected by this change — only
+// what happens to the *map underneath* the splash moved off CSS.
+export const MAP_OPEN_ZOOM_EASE_POINTS: [number, number, number, number] = [0.33, 0.6, 0.6, 0.9];
+export const MAP_OPEN_ZOOM_EASE = `cubic-bezier(${MAP_OPEN_ZOOM_EASE_POINTS.join(", ")})`;

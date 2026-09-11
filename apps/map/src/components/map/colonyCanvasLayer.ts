@@ -5,7 +5,7 @@ import { buildGrassPattern, buildRoadEdgePattern, buildRoadPattern } from "./can
 import { drawColony, type DrawState } from "./drawColony.ts";
 import type { DimensionConfig } from "./drawDimensions.ts";
 import { leafletViewState } from "./view.ts";
-import { runFlyTo } from "./canvasFlyTo.ts";
+import { runFlyTo, runOpenZoom } from "./canvasFlyTo.ts";
 
 type BackdropState = DrawState["backdrop"];
 
@@ -26,8 +26,9 @@ export interface ColonyCanvasLayer extends L.Layer {
   setDrawState(state: DrawState): void;
   redraw(): void;
   getCanvas(): HTMLCanvasElement | null;
-  // useFlyToSelectedPlot.ts's click-to-focus zoom — see canvasFlyTo.ts for the approach.
+  // Click-to-focus (useFlyToSelectedPlot.ts) and colony-open (useColonyOpenZoom.ts) zooms.
   flyTo(center: L.LatLng, zoom: number): void;
+  openZoomTo(center: L.LatLng, zoom: number): void;
   // usePublicColonyCanvas.ts (owner ask, 2026-09-01: public link loaded too slowly): lets a
   // caller that constructed with grassImage: null (paint immediately, flat ground colour)
   // swap the real texture in once its network fetch decodes. useColonyCanvas.ts still
@@ -216,30 +217,29 @@ const Layer = L.Layer.extend({
     );
   },
 
-  // Click-to-focus zoom — runFlyTo (canvasFlyTo.ts) owns the interpolation/rAF loop and why
-  // it redraws the real camera every frame instead of a CSS transform on a snapshot; this
-  // is just the adapter onto this layer's own private fields.
+  // runFlyTo (canvasFlyTo.ts) owns the interpolation/rAF loop; flyToHost below adapts it.
   flyTo(this: LayerInternals, center: L.LatLng, zoom: number) {
-    runFlyTo(
-      {
-        map: this._map,
-        renderedCenter: this._renderedCenter,
-        renderedZoom: this._renderedZoom,
-        getFlyToId: () => this._flyToId,
-        setFlyToId: (id) => {
-          this._flyToId = id;
-        },
-        setFlyToActive: (active) => {
-          this._flyToActive = active;
-        },
-        resize: () => this._resize(),
-        render: () => this._render(),
-      },
-      center,
-      zoom,
-    );
+    runFlyTo(flyToHost(this), center, zoom);
+  },
+
+  // Same adapter, runOpenZoom's own duration/easing.
+  openZoomTo(this: LayerInternals, center: L.LatLng, zoom: number) {
+    runOpenZoom(flyToHost(this), center, zoom);
   },
 });
+
+function flyToHost(internals: LayerInternals) { // flyTo/openZoomTo's shared adapter
+  return {
+    map: internals._map,
+    renderedCenter: internals._renderedCenter,
+    renderedZoom: internals._renderedZoom,
+    getFlyToId: () => internals._flyToId,
+    setFlyToId: (id: number) => void (internals._flyToId = id),
+    setFlyToActive: (active: boolean) => void (internals._flyToActive = active),
+    resize: () => internals._resize(),
+    render: () => internals._render(),
+  };
+}
 
 // The one unavoidable cast: L.Layer.extend() returns an untyped constructor. Confined to
 // this line so nothing downstream sees it.

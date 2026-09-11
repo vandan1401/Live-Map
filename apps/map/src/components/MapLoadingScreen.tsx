@@ -46,6 +46,16 @@ export function MapLoadingScreen({ colonyName, colonyId, ready, onZoomStart, onF
   const [zooming, setZooming] = useState(false);
   const [zoomDone, setZoomDone] = useState(false);
   const [fading, setFading] = useState(false);
+  // Guards the fade-start effect below against running twice — a ref, not `fading` itself,
+  // because `fading` used to BE that effect's own dependency: setFading(true) changed it,
+  // which re-ran the very effect that just set it, whose cleanup cancelled the onFinish
+  // timeout it had just scheduled, and whose second pass then saw fading===true and quit
+  // before rescheduling one. onFinish never fired, the overlay never unmounted, and — since
+  // it's position:fixed covering the viewport with no pointer-events:none — it sat there
+  // invisible (opacity 0 from --fading) eating every click forever. Deterministic, on every
+  // single colony open, confirmed live 2026-09-11. A ref sidesteps this because writing to
+  // it doesn't trigger a re-render, so the effect has nothing of its own left to react to.
+  const fadeStartedRef = useRef(false);
   // Read once — a mid-animation prefers-reduced-motion flip is not worth tracking. The
   // `matchMedia` guard isn't optional here the way the `window` one might look — jsdom (the
   // test environment PublicColonyView.test.tsx mounts this into) doesn't implement
@@ -83,7 +93,8 @@ export function MapLoadingScreen({ colonyName, colonyId, ready, onZoomStart, onF
   }, [reducedMotion, onZoomStart]);
 
   useEffect(() => {
-    if (!zoomDone || !ready || fading) return;
+    if (!zoomDone || !ready || fadeStartedRef.current) return;
+    fadeStartedRef.current = true;
     setFading(true);
     // FADE_MS is not a visible beat of the animation — the zoom has already fully revealed
     // the real map underneath by the time this fires. It exists only in case the two never
@@ -92,7 +103,7 @@ export function MapLoadingScreen({ colonyName, colonyId, ready, onZoomStart, onF
     // papers over that without reading as a second, separate transition.
     const finish = setTimeout(onFinish, reducedMotion ? 0 : FADE_MS);
     return () => clearTimeout(finish);
-  }, [zoomDone, ready, fading, onFinish, reducedMotion]);
+  }, [zoomDone, ready, onFinish, reducedMotion]);
 
   return (
     <div

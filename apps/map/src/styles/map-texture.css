@@ -16,7 +16,10 @@
   inset: 0;
   /* Shows for the one frame before the canvas first paints, and behind it if a browser
    * refuses a 2D context altogether. Close to the photo's own tone so that never reads as
-   * a broken map. */
+   * a broken map. (Briefly also stood in for a bigger area — 2026-09-11's colony-open zoom
+   * used to shrink the canvas via a CSS transform, exposing this container for the whole
+   * animation, not just one frame; that transform is gone (useColonyOpenZoom.ts drives a
+   * real Leaflet zoom instead), so this is back to its original one-frame job.) */
   background: var(--colony-ground-base);
 }
 

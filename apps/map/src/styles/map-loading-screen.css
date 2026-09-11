@@ -120,26 +120,15 @@
   transform: scale(150);
 }
 
-/* The real map's own matching zoom-in (ColonyMap.tsx, PublicColonyView.tsx — see
- * mapOpenZoomTiming.ts) — owner ask, 2026-09-10: the map underneath should visibly zoom in
- * at the same pace the loading screen zooms out, landing on its normal view exactly as the
- * loading screen finishes revealing it. Applied to the Leaflet container itself, not a
- * wrapper around the surrounding UI chrome (search, toolbar, back button) — those stay
- * normal-sized and usable the instant they're revealed rather than visibly growing into
- * place, which read as broken rather than intentional. A CSS transform doesn't touch layout
- * geometry, so Leaflet's own size measurements (which read layout, not paint) are unaffected
- * by this — it's purely visual. Same MAP_OPEN_ZOOM_MS/EASE as .map-loading-scene--zoom,
- * passed in via the same --zoom-ms/--zoom-ease custom properties so the two can never drift
- * out of step; transform-origin matches .map-loading-scene's own 50% 36% anchor. */
-.colony-map-zoom-in {
-  transform-origin: 50% 36%;
-  transform: scale(0.3);
-  transition: transform var(--zoom-ms, 4500ms) var(--zoom-ease, ease-out);
-}
-
-.colony-map-zoom-in--zoom {
-  transform: scale(1);
-}
+/* The real map's own matching zoom-in used to live here as a CSS transform on the Leaflet
+ * container (ColonyMap.tsx/PublicColonyView.tsx) — owner ask, 2026-09-10. Moved onto a real
+ * Leaflet zoom instead, 2026-09-11 (useColonyCanvas.ts/usePublicColonyCanvas.ts's mount
+ * effects + useColonyOpenZoom.ts): a CSS transform only ever scaled the already-rendered
+ * canvas visually, so whatever area was exposed around the shrunk box during the animation
+ * showed nothing real underneath it, however that gap was papered over. Driving the actual
+ * zoom means the canvas renders real content, at the real current zoom, filling the
+ * viewport, at every frame — no separate area to explain. .map-loading-scene above (the
+ * splash's own decorative overlay) is unaffected; only the map underneath it moved. */
 
 .map-loading-topbar {
   position: absolute;

@@ -8,11 +8,12 @@ import { resolveColonyTheme } from "./colonyTheme.ts";
 import { applyStatusColorOverrides } from "./applyPresentationColors.ts";
 import { resolvePresentationConfig } from "../../lib/colony/presentationConfig.ts";
 import { createColonyCanvasLayer, type ColonyCanvasLayer } from "./colonyCanvasLayer.ts";
-import { resolveClickedPlot } from "./plotPicker.ts";
+import { createColonyClickHandler } from "./colonyClickHandler.ts";
 import { StatusTransitions } from "./statusTransitions.ts";
 import { usePlotDimensions, type PlotDimensions } from "./usePlotDimensions.ts";
 import { useFlyToSelectedPlot } from "./useFlyToSelectedPlot.ts";
-import { colonyLatLngBounds, leafletViewState, ZOOM_DETAIL_MARGIN } from "./view.ts";
+import { useColonyOpenZoom } from "./useColonyOpenZoom.ts";
+import { colonyLatLngBounds, ZOOM_DETAIL_MARGIN } from "./view.ts";
 import { loadGrass } from "./loadGrass.ts";
 import { useCornerPlots } from "./useCornerPlots.ts";
 import { attachMapBackdrop, applyBackdropMinZoom, resolveBackdropFit, type MapBackdropController } from "./useMapBackdrop.ts";
@@ -34,6 +35,7 @@ interface Args {
   selectedId: string | null;
   activeStatuses: ReadonlySet<string>;
   showStatus: boolean; // StatusToggle.tsx, ColonyMap.tsx
+  zoomingIn: boolean; // App.tsx's useColonyOpenSplash mapZooming — see useColonyOpenZoom.ts
   onSelect: (svgId: string | null) => void;
   setOffline: (offline: boolean) => void;
   setFreshnessLabel: (label: string) => void;
@@ -59,6 +61,7 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
     selectedId,
     activeStatuses,
     showStatus,
+    zoomingIn,
     onSelect,
     backdropVignetteRef,
   } = args;
@@ -137,7 +140,11 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
     map.fitBounds(bounds);
     defaultZoomRef.current = map.getBoundsZoom(bounds);
     fitZoomRef.current = map.getBoundsZoom(colonyLatLngBounds(model.width, model.height));
-    if (backdrop) applyBackdropMinZoom(map, backdrop);
+    if (backdrop) applyBackdropMinZoom(map, backdrop); // must run before reading minZoom below
+    // Parks the map zoomed all the way out at the same centre, hidden behind
+    // MapLoadingScreen's splash — see useColonyOpenZoom.ts for why and for the animation
+    // back up to this fit view.
+    map.setView(map.getCenter(), map.getMinZoom(), { animate: false });
 
     let cancelled = false;
 
@@ -186,24 +193,7 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
     const onZoom = () => pushState.current();
     map.on("zoomend", onZoom);
 
-    // Picking by geometry. React's delegated onClick used to do this through the DOM;
-    // there is no DOM to hit any more, so the pick is explicit.
-    const onClick = (e: L.LeafletMouseEvent) => {
-      const currentModel = modelRef.current;
-      if (!currentModel) return;
-      const size = map.getSize();
-      const center = map.getCenter();
-      const view = leafletViewState(map.getZoomScale(map.getZoom(), 0), center.lat, center.lng);
-      const plot = resolveClickedPlot(
-        currentModel,
-        view,
-        { width: size.x, height: size.y },
-        e.containerPoint.x,
-        e.containerPoint.y,
-      );
-      // Tapping the map rather than a plot dismisses the sheet (spec/03).
-      onSelect(plot ? plot.id : null);
-    };
+    const onClick = createColonyClickHandler(map, modelRef, onSelect);
     map.on("click", onClick);
 
     const detachSync = attachSync(client, colonyId, {
@@ -242,6 +232,7 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
   }, [selectedId, activeStatuses, showStatus]);
 
   useFlyToSelectedPlot(mapRef, modelRef, layerRef, selectedId, selectZoomRefWidthPx, selectZoomRefHeightPx);
+  useColonyOpenZoom(mapRef, layerRef, defaultZoomRef, zoomingIn);
 
   usePlotDimensions(client, colonyId, selectedId, dimensionsRef, useCallback(() => pushState.current(), []));
   useCornerPlots(client, colonyId, cornerPlotsRef, useCallback(() => pushState.current(), []));

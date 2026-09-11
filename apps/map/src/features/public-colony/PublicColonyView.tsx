@@ -1,10 +1,9 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadPublicColony } from "../../lib/colony/publicColony.ts";
 import { usePublicColonyCanvas } from "../../components/map/usePublicColonyCanvas.ts";
 import { resolveMapBackdrop } from "../../components/map/mapBackdrops.ts";
 import { resolvePublicLinkStatusToggle } from "../../lib/colony/publicLinkConfig.ts";
-import { MAP_OPEN_ZOOM_MS, MAP_OPEN_ZOOM_EASE } from "../../lib/colony/mapOpenZoomTiming.ts";
 import { MapLoadingScreen } from "../../components/MapLoadingScreen.tsx";
 import { StatusToggle } from "../../components/StatusToggle.tsx";
 import type { PublicColonyResult } from "../../lib/db/types.ts";
@@ -52,9 +51,19 @@ export function PublicColonyView({ client, token }: Props) {
   // instantly revealing a map the splash never got to zoom into.
   const [splashDone, setSplashDone] = useState(false);
   // Mirrors App.tsx's useColonyOpenSplash mapZooming (owner ask, 2026-09-10) — true once
-  // MapLoadingScreen's own zoom has started, so the real map underneath zooms in at the
-  // same pace instead of sitting static behind the loading screen's growing hole.
+  // MapLoadingScreen's own zoom has started; threaded straight through to
+  // usePublicColonyCanvas.ts, which drives the map's own real Leaflet zoom-in on the same
+  // tick (useColonyOpenZoom.ts, moved off a CSS transform 2026-09-11).
   const [mapZooming, setMapZooming] = useState(false);
+  // Stable identity across every re-render this component has for any other reason (the
+  // RPC resolving, a status toggle, a plot selection...) — these are MapLoadingScreen's
+  // onZoomStart/onFinish props, which sit in that component's own effect dependency
+  // arrays. A fresh inline closure here on every render re-runs those effects at the wrong
+  // moment; this was the actual cause of a live incident (2026-09-11) where the splash
+  // never unmounted and silently blocked every click on the page underneath it forever —
+  // see MapLoadingScreen.tsx's own fix for the other half of that bug.
+  const handleZoomStart = useCallback(() => setMapZooming(true), []);
+  const handleSplashFinish = useCallback(() => setSplashDone(true), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,6 +110,7 @@ export function PublicColonyView({ client, token }: Props) {
     statuses,
     selectedId,
     dimensions,
+    zoomingIn: mapZooming,
     onSelect: useCallback((svgId: string | null) => setSelectedId(svgId), []),
     selectZoomRefWidthPx: found?.colony.select_zoom_ref_width_px ?? null,
     selectZoomRefHeightPx: found?.colony.select_zoom_ref_height_px ?? null,
@@ -150,13 +160,7 @@ export function PublicColonyView({ client, token }: Props) {
           <h1 className="public-colony-title">{found?.colony.name ?? ""}</h1>
         </header>
         <div className="public-colony-map-wrap">
-          <div
-            ref={containerRef}
-            className={`colony-map-container colony-map-zoom-in${mapZooming ? " colony-map-zoom-in--zoom" : ""}`}
-            style={
-              { "--zoom-ms": `${MAP_OPEN_ZOOM_MS}ms`, "--zoom-ease": MAP_OPEN_ZOOM_EASE } as CSSProperties
-            }
-          />
+          <div ref={containerRef} className="colony-map-container" />
           {backdrop && (
             <div ref={backdropVignetteRef} className="public-colony-backdrop-vignette" aria-hidden="true" />
           )}
@@ -207,8 +211,8 @@ export function PublicColonyView({ client, token }: Props) {
           colonyName={found?.colony.name ?? null}
           colonyId={found?.colony.id ?? null}
           ready={!!found}
-          onZoomStart={() => setMapZooming(true)}
-          onFinish={() => setSplashDone(true)}
+          onZoomStart={handleZoomStart}
+          onFinish={handleSplashFinish}
         />
       )}
     </>
