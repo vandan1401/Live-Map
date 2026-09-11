@@ -18,12 +18,14 @@ export const MAP_OPEN_ZOOM_MS = 4500; // the zoom itself — owner ask, slower t
 // (monotonic, no dip) so the back third of the zoom still has real, visible motion.
 //
 // Exported as the raw 4 numbers, not just a CSS string, since 2026-09-11: the real map's
-// zoom-in moved from a CSS transform (canvasFlyTo.ts's runFlyTo/startCanvasFlyTo drives the
-// actual Leaflet zoom level now, same engine the click-to-focus-a-plot animation already
-// used) to a JS-side cubic-bezier evaluated per frame — canvasFlyTo.ts needs the numbers,
-// not a string meant for `transition-timing-function`. MAP_OPEN_ZOOM_EASE (the CSS string)
-// stays derived from the same numbers, still used by MapLoadingScreen.tsx's own splash
-// overlay animation, which is a real CSS transition and unaffected by this change — only
-// what happens to the *map underneath* the splash moved off CSS.
+// zoom-in moved from a CSS transform to a JS-side cubic-bezier evaluated per frame — the
+// consumer needs the numbers, not a string meant for `transition-timing-function`. That
+// consumer was canvasFlyTo.ts's runOpenZoom (2026-09-11) until 2026-09-12, when it moved
+// again to canvasOpenZoomSnapshot.ts's runOpenZoomSnapshot (own file — a frozen-destination-
+// snapshot technique, not the live-redraw-every-frame one canvasFlyTo.ts's runFlyTo still
+// uses for click-to-focus) — same easing curve either way, only the mechanism changed.
+// MAP_OPEN_ZOOM_EASE (the CSS string) stays derived from the same numbers, still used by
+// MapLoadingScreen.tsx's own splash overlay animation, a real CSS transition unaffected by
+// either change — only what happens to the *map underneath* the splash has ever moved.
 export const MAP_OPEN_ZOOM_EASE_POINTS: [number, number, number, number] = [0.33, 0.6, 0.6, 0.9];
 export const MAP_OPEN_ZOOM_EASE = `cubic-bezier(${MAP_OPEN_ZOOM_EASE_POINTS.join(", ")})`;
