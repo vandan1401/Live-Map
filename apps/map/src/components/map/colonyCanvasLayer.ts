@@ -29,6 +29,7 @@ export interface ColonyCanvasLayer extends L.Layer {
   // Click-to-focus (useFlyToSelectedPlot.ts) and colony-open (useColonyOpenZoom.ts) zooms.
   flyTo(center: L.LatLng, zoom: number): void;
   openZoomTo(center: L.LatLng, zoom: number): void;
+  isFlying(): boolean; // useColonyCanvas.ts's onZoom explains why
   // usePublicColonyCanvas.ts (owner ask, 2026-09-01: public link loaded too slowly): lets a
   // caller that constructed with grassImage: null (paint immediately, flat ground colour)
   // swap the real texture in once its network fetch decodes. useColonyCanvas.ts still
@@ -217,15 +218,14 @@ const Layer = L.Layer.extend({
     );
   },
 
-  // runFlyTo (canvasFlyTo.ts) owns the interpolation/rAF loop; flyToHost below adapts it.
-  flyTo(this: LayerInternals, center: L.LatLng, zoom: number) {
+  flyTo(this: LayerInternals, center: L.LatLng, zoom: number) { // runFlyTo owns the rAF loop
     runFlyTo(flyToHost(this), center, zoom);
   },
 
-  // Same adapter, runOpenZoom's own duration/easing.
-  openZoomTo(this: LayerInternals, center: L.LatLng, zoom: number) {
+  openZoomTo(this: LayerInternals, center: L.LatLng, zoom: number) { // same adapter, runOpenZoom's own pace
     runOpenZoom(flyToHost(this), center, zoom);
   },
+  isFlying(this: LayerInternals) { return this._flyToActive; },
 });
 
 function flyToHost(internals: LayerInternals) { // flyTo/openZoomTo's shared adapter

@@ -189,8 +189,16 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
     });
 
     // The layer redraws itself on move/zoom; only this knows whether labels are allowed at
-    // the new zoom, so the detail threshold is re-evaluated here.
-    const onZoom = () => pushState.current();
+    // the new zoom, so the detail threshold is re-evaluated here. Skipped mid-flight
+    // (useColonyOpenZoom.ts's openZoomTo, useFlyToSelectedPlot.ts's flyTo): a non-animated
+    // setView fires 'zoomend' on every single rAF frame of a flight, so without this guard
+    // pushState — a real recompute over every plot's status, not a cheap no-op — ran on
+    // every frame in addition to the redraw the flight already triggers directly. Confirmed
+    // as a real, sustained fps cost during the 4.5s colony-open zoom, not just theoretical
+    // (the click-to-focus flyTo's own 400ms was too short for the same waste to be visible).
+    const onZoom = () => {
+      if (!layerRef.current?.isFlying()) pushState.current();
+    };
     map.on("zoomend", onZoom);
 
     const onClick = createColonyClickHandler(map, modelRef, onSelect);

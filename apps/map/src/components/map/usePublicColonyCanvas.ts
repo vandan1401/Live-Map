@@ -196,7 +196,11 @@ export function usePublicColonyCanvas(args: Args): void {
     if (resizeObserver) resizeObserver.observe(el);
     else fit();
 
-    const onZoom = () => pushState.current();
+    // Skipped mid-flight — see useColonyCanvas.ts's own onZoom for why (a real, confirmed
+    // fps cost during the colony-open zoom, not just a theoretical one).
+    const onZoom = () => {
+      if (!layerRef.current?.isFlying()) pushState.current();
+    };
     map.on("zoomend", onZoom);
 
     const onClick = createColonyClickHandler(map, modelRef, onSelect);
