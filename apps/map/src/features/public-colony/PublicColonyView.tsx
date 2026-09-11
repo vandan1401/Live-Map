@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadPublicColony } from "../../lib/colony/publicColony.ts";
 import { usePublicColonyCanvas } from "../../components/map/usePublicColonyCanvas.ts";
 import { resolveMapBackdrop } from "../../components/map/mapBackdrops.ts";
 import { resolvePublicLinkStatusToggle } from "../../lib/colony/publicLinkConfig.ts";
-import { LoadingScreen } from "../../components/LoadingScreen.tsx";
+import { MAP_OPEN_ZOOM_MS, MAP_OPEN_ZOOM_EASE } from "../../lib/colony/mapOpenZoomTiming.ts";
+import { MapLoadingScreen } from "../../components/MapLoadingScreen.tsx";
 import { StatusToggle } from "../../components/StatusToggle.tsx";
 import type { PublicColonyResult } from "../../lib/db/types.ts";
 import { formatPlotLabel } from "../../shared/format.ts";
@@ -46,11 +47,21 @@ export function PublicColonyView({ client, token }: Props) {
   // Owner ask, 2026-09-10: the toggle itself always starts off, even on a colony where it's
   // offered — see publicLinkConfig.ts for the per-colony gate on whether it's offered at all.
   const [statusRevealed, setStatusRevealed] = useState(false);
+  // MapLoadingScreen's zoom-in splash (owner ask, 2026-09-10) — reset alongside `result`
+  // on every token/retry so reopening (or retrying) replays the animation instead of
+  // instantly revealing a map the splash never got to zoom into.
+  const [splashDone, setSplashDone] = useState(false);
+  // Mirrors App.tsx's useColonyOpenSplash mapZooming (owner ask, 2026-09-10) — true once
+  // MapLoadingScreen's own zoom has started, so the real map underneath zooms in at the
+  // same pace instead of sitting static behind the loading screen's growing hole.
+  const [mapZooming, setMapZooming] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setResult("loading");
     setSelectedId(null);
+    setSplashDone(false);
+    setMapZooming(false);
     loadPublicColony(client, token)
       .then((loaded) => {
         if (!cancelled) setResult(loaded);
@@ -96,10 +107,6 @@ export function PublicColonyView({ client, token }: Props) {
     backdropVignetteRef,
   });
 
-  if (result === "loading") {
-    return <LoadingScreen />;
-  }
-
   // A transport/network failure is a different state from get_public_colony() actually
   // resolving the token — it reveals nothing about whether the token names a real colony,
   // so unlike the found:false branch below, it does not need to share that message (a
@@ -122,8 +129,10 @@ export function PublicColonyView({ client, token }: Props) {
   // Wrong token, revoked/regenerated token, and an unverified colony are all shown the same
   // way on purpose — see get_public_colony()'s own comment (docs/plans/22.md §3): a
   // distinguishable message would let a caller confirm a guessed uuid belongs to a real
-  // colony without ever seeing its data.
-  if (!found) {
+  // colony without ever seeing its data. Guarded on `result !== "loading"` (not just
+  // `!found`) — `found` is equally null while still loading, and that case falls through to
+  // the real page below instead, rendered under the splash.
+  if (result !== "loading" && !found) {
     return (
       <div className="public-colony-overlay">
         <p className="public-colony-message">This link is invalid or has been revoked.</p>
@@ -132,54 +141,76 @@ export function PublicColonyView({ client, token }: Props) {
   }
 
   return (
-    <div className="public-colony-page">
-      <header className="public-colony-header">
-        <h1 className="public-colony-title">{found.colony.name}</h1>
-      </header>
-      <div className="public-colony-map-wrap">
-        <div ref={containerRef} className="colony-map-container" />
-        {backdrop && <div ref={backdropVignetteRef} className="public-colony-backdrop-vignette" aria-hidden="true" />}
-        <p className="colony-scale-note">Indicative layout — not to scale</p>
-        <div className="colony-compass" aria-hidden="true">
-          <span className="colony-compass-arrow">▲</span>
-          <span>N</span>
+    <>
+      {/* Always mounted, loading or not — usePublicColonyCanvas above already no-ops until
+          svg/colonyId are real, so there is a real page (if an empty one) under the splash
+          from the first paint, not a placeholder it has to swap out from under itself. */}
+      <div className="public-colony-page">
+        <header className="public-colony-header">
+          <h1 className="public-colony-title">{found?.colony.name ?? ""}</h1>
+        </header>
+        <div className="public-colony-map-wrap">
+          <div
+            ref={containerRef}
+            className={`colony-map-container colony-map-zoom-in${mapZooming ? " colony-map-zoom-in--zoom" : ""}`}
+            style={
+              { "--zoom-ms": `${MAP_OPEN_ZOOM_MS}ms`, "--zoom-ease": MAP_OPEN_ZOOM_EASE } as CSSProperties
+            }
+          />
+          {backdrop && (
+            <div ref={backdropVignetteRef} className="public-colony-backdrop-vignette" aria-hidden="true" />
+          )}
+          <p className="colony-scale-note">Indicative layout — not to scale</p>
+          <div className="colony-compass" aria-hidden="true">
+            <span className="colony-compass-arrow">▲</span>
+            <span>N</span>
+          </div>
+          {backdrop && (
+            <p className="public-colony-backdrop-attribution">{backdrop.data.attribution}</p>
+          )}
+          {toggleOffered && (
+            <div className="public-colony-status-toggle-wrap">
+              <StatusToggle active={statusRevealed} onToggle={() => setStatusRevealed((prev) => !prev)} />
+            </div>
+          )}
         </div>
-        {backdrop && (
-          <p className="public-colony-backdrop-attribution">{backdrop.data.attribution}</p>
-        )}
-        {toggleOffered && (
-          <div className="public-colony-status-toggle-wrap">
-            <StatusToggle active={statusRevealed} onToggle={() => setStatusRevealed((prev) => !prev)} />
+        {selectedPlot && (
+          <div className="public-colony-plot-panel">
+            <button
+              type="button"
+              className="public-colony-plot-panel-close"
+              onClick={() => setSelectedId(null)}
+              aria-label="Close"
+            >
+              ×
+            </button>
+            <h2 className="public-colony-plot-panel-heading">{formatPlotLabel(selectedPlot)}</h2>
+            <dl className="public-colony-plot-panel-fields">
+              <div>
+                <dt>Length</dt>
+                <dd>{selectedPlot.length_ft} ft</dd>
+              </div>
+              <div>
+                <dt>Breadth</dt>
+                <dd>{selectedPlot.breadth_ft} ft</dd>
+              </div>
+              <div>
+                <dt>Area</dt>
+                <dd>{selectedPlot.area_sqft} sq ft</dd>
+              </div>
+            </dl>
           </div>
         )}
       </div>
-      {selectedPlot && (
-        <div className="public-colony-plot-panel">
-          <button
-            type="button"
-            className="public-colony-plot-panel-close"
-            onClick={() => setSelectedId(null)}
-            aria-label="Close"
-          >
-            ×
-          </button>
-          <h2 className="public-colony-plot-panel-heading">{formatPlotLabel(selectedPlot)}</h2>
-          <dl className="public-colony-plot-panel-fields">
-            <div>
-              <dt>Length</dt>
-              <dd>{selectedPlot.length_ft} ft</dd>
-            </div>
-            <div>
-              <dt>Breadth</dt>
-              <dd>{selectedPlot.breadth_ft} ft</dd>
-            </div>
-            <div>
-              <dt>Area</dt>
-              <dd>{selectedPlot.area_sqft} sq ft</dd>
-            </div>
-          </dl>
-        </div>
+      {(result === "loading" || !splashDone) && (
+        <MapLoadingScreen
+          colonyName={found?.colony.name ?? null}
+          colonyId={found?.colony.id ?? null}
+          ready={!!found}
+          onZoomStart={() => setMapZooming(true)}
+          onFinish={() => setSplashDone(true)}
+        />
       )}
-    </div>
+    </>
   );
 }
