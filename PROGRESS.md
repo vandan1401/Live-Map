@@ -4,28 +4,37 @@
 
 - **Click-to-focus (`canvasFlyTo.ts::runFlyTo`) now takes a variable duration instead of a
   fixed 400ms (2026-09-12, Tier 3, owner ask: "400ms is too fast if a lot of zoom and pan
-  difference is involved").** First change to `runFlyTo`'s own animation since it was built
-  (every prior session's touches were to `runOpenZoom`, the colony-open zoom, itself now
-  deleted per D-044 above). New `flyToDurationMs()` computes an "effort" score — whichever
-  is larger of the zoom-level delta or the pan distance in screen-widths — and linearly maps
-  it from `FLY_TO_MIN_DURATION_MS` (400, unchanged floor) to `FLY_TO_MAX_DURATION_MS` (2000,
-  new ceiling), capping at an effort of `FLY_TO_MAX_EFFORT = 3`. `runCameraAnimation`'s
-  `durationMs` param now accepts either a fixed number (still what `runOpenZoom` passes) or
-  a function of the resolved from/to camera state (what `runFlyTo` now passes) — kept as one
-  small union rather than two near-duplicate animation runners. The demo login
-  (`demo`/`demo-pass-123`) also needed its password reset mid-session via the admin API
-  (`client.auth.admin.updateUserById`, same precedent as `create-user.ts`/the admin portal)
-  — it had silently drifted from the documented placeholder value at some earlier session's
-  reseed/recreate, unrelated to this diff.
-  **Verified:** `pnpm typecheck && pnpm lint` clean; `pnpm test -- --run` 265/269 (same
-  4 pre-existing anon-grant-drift RLS/live-integration failures documented throughout this
-  file, none touching this diff); `pnpm build` clean; `tools/pipeline` `ruff`/`mypy`/`pytest`
-  all clean (129 passed, 1 skipped — untouched by this diff, run as part of the full gate).
-  **Not verified:** live, on-device feel of the new pacing — dev server started
-  (`http://localhost:5174/`) but only a human can watch an animation play; owner still needs
-  to confirm a far plot-to-plot jump feels appropriately slower than a near one.
-  **Next:** owner tries it live and reports back whether `FLY_TO_MAX_EFFORT = 3` needs
-  retuning (lower = hits the 2000ms ceiling sooner, higher = stays fast longer).
+  difference is involved") — first cut regressed to visible stutter, fixed same session.**
+  First change to `runFlyTo`'s own animation since it was built (every prior session's
+  touches were to `runOpenZoom`, the colony-open zoom, itself now deleted per D-044 above).
+  First cut's `flyToDurationMs()` scored "effort" as whichever was larger of zoom-level delta
+  or pan-in-screens, pushed live, then owner-reported "does not feel as smooth as before" —
+  confirmed as actual stutter, not just slower pacing, when asked. Root cause: the everyday
+  "tap a plot from the fit view" case always involves a big zoom swing (fit zoom to
+  `SELECT_ZOOM`, often 4+ levels) with only a small on-screen pan, and `FLY_TO_MAX_EFFORT = 3`
+  meant that zoom term alone saturated effort to 1 for nearly every tap — the common case ran
+  ~5x longer (near the 2000ms ceiling) instead of near the 400ms floor, long enough for
+  ordinary per-frame render variance (invisible in 400ms) to read as visible jank. Fix:
+  dropped zoom-level delta from the formula entirely — `flyToDurationMs()` now scales purely
+  off pan distance in screen-widths (`FLY_TO_MAX_EFFORT_SCREENS = 3`), which is also just a
+  more direct read of what "near plot vs. far plot" (the actual ask) means. `runCameraAnimation`'s
+  `durationMs` param still accepts either a fixed number (`runOpenZoom`, unchanged) or a
+  function of the resolved from/to camera state (`runFlyTo`) — one small union rather than
+  two near-duplicate animation runners. The demo login (`demo`/`demo-pass-123`) also needed
+  its password reset mid-session via the admin API (`client.auth.admin.updateUserById`, same
+  precedent as `create-user.ts`/the admin portal) — it had silently drifted from the
+  documented placeholder value at some earlier session's reseed/recreate, unrelated to this
+  diff.
+  **Verified:** `pnpm typecheck && pnpm lint` clean (both cuts); `pnpm test -- --run` 265/269
+  (same 4 pre-existing anon-grant-drift RLS/live-integration failures documented throughout
+  this file, none touching this diff); `pnpm build` clean; `tools/pipeline`
+  `ruff`/`mypy`/`pytest` all clean (129 passed, 1 skipped — untouched by this diff).
+  **Not verified:** live, on-device feel of the second cut — the stutter diagnosis came from
+  the owner watching the first cut live; this session still has no browser/device access to
+  confirm the fix directly (D-011-adjacent standing limitation, noted throughout this file).
+  **Next:** owner confirms the second cut actually removed the stutter and that duration
+  still reads as appropriately paced for near vs. far plot selections; retune
+  `FLY_TO_MAX_EFFORT_SCREENS` if not.
 
 - **`.map-loading-overlay` had no `pointer-events: none`, so the map was genuinely
   unclickable for the whole ~4.5s splash reveal, even where the needle-shaped hole visibly
@@ -4647,17 +4656,29 @@ effort estimates below are for planning, not a commitment to build in this order
   typecheck/lint/build clean, re-run fresh at wrap time. Pushed `98dcaac` then `4043fc4` to
   `origin/master`; live confirmation still owner-pending.
 
-### 2026-09-12 — Click-to-focus zoom gets a variable duration (Tier 3, owner ask)
-- Done: `canvasFlyTo.ts::runFlyTo`'s fixed 400ms animation replaced with `flyToDurationMs()`,
-  scaling 400–2000ms off whichever is larger of the zoom-level delta or the pan distance in
-  screen-widths; `runCameraAnimation`'s duration param now takes either a fixed number
-  (`runOpenZoom`, unchanged) or that function (`runFlyTo`). Also reset the local `demo`
-  account's drifted password back to `demo-pass-123` via the admin API, unrelated to the
-  diff.
-- Next: owner to try a far vs. near plot selection live at `http://localhost:5174/` and say
-  whether `FLY_TO_MAX_EFFORT = 3` needs retuning.
-- Surprises: none.
-- Verified: `pnpm typecheck && pnpm lint` clean; `pnpm test -- --run` 265/269, same 4
-  pre-existing anon-grant-drift RLS failures, none touching this diff; `pnpm build` clean;
-  `tools/pipeline` ruff/mypy/pytest clean (129 passed, 1 skipped, untouched by this diff).
-  Not verified: live animation feel — no browser/device access from this environment.
+### 2026-09-12 — Click-to-focus zoom gets a variable duration (Tier 3, owner ask), first cut fixed for stutter same day
+- Done: `canvasFlyTo.ts::runFlyTo`'s fixed 400ms animation replaced with `flyToDurationMs()`.
+  First cut scaled 400–2000ms off whichever was larger of the zoom-level delta or the pan
+  distance in screen-widths, pushed to `origin/master` (`13f7238`); owner reported it "does
+  not feel as smooth as before," confirmed as actual stutter. Root cause: the everyday
+  fit-view-to-plot tap always has a large zoom delta, which alone saturated the effort score
+  for nearly every selection — durations sat near the 2000ms ceiling instead of near the
+  floor, long enough to expose per-frame variance invisible at 400ms. Second cut drops zoom
+  delta from the formula; duration now scales on pan-in-screens alone
+  (`FLY_TO_MAX_EFFORT_SCREENS = 3`). `runCameraAnimation`'s duration param still takes either
+  a fixed number (`runOpenZoom`, unchanged) or that function (`runFlyTo`). Also reset the
+  local `demo` account's drifted password back to `demo-pass-123` via the admin API,
+  unrelated to the diff.
+- Next: owner to confirm the stutter is actually gone and duration still reads as
+  appropriately paced for near vs. far plot selections; retune
+  `FLY_TO_MAX_EFFORT_SCREENS` if not. Second cut not yet pushed.
+- Surprises: the first cut's own formula was the bug — zoom-level delta dominating effort
+  made the common case (not the rare one) hit the max duration, long enough to surface
+  frame-time variance as visible stutter that a 400ms flight had always been too brief to
+  expose.
+- Verified: `pnpm typecheck && pnpm lint` clean (both cuts); `pnpm test -- --run` 265/269,
+  same 4 pre-existing anon-grant-drift RLS failures, none touching this diff; `pnpm build`
+  clean; `tools/pipeline` ruff/mypy/pytest clean (129 passed, 1 skipped, untouched by this
+  diff). Not verified: live animation feel of the second cut — no browser/device access from
+  this environment; the stutter diagnosis came entirely from the owner watching the first cut
+  live.
