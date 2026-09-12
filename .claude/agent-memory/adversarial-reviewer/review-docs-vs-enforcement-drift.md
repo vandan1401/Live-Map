@@ -189,6 +189,17 @@ Three checks that have each caught a real defect:
     a stale row is worse than a missing one, because it tells the next session to call
     something that no longer exists.**
 
+19. **2026-09-12 (plan 30) — the *same row* as item 18, now stale in the opposite direction.**
+    Row 269 (`uploadColonyBackdropImage`/`updateColonyBackdropTransform`), written one session
+    earlier to fix item 18, says "Called **only** from `admin-portal/backdropRoutes.ts`'s two
+    routes" — the diff adds a second caller (`features/colony-picker/ColonyBackdropScreen.tsx`,
+    an authenticated-client path) and changes both functions to throw on a zero-row update.
+    Rows 187/191 (colony picker, in-app onboarding) also gained nothing for the new screen.
+    Confirms item 17's rule from the other side: a row added by a *previous* review's fix is
+    exactly the row the next feature falsifies, because it now contains a fresh "only".
+    **Grep `NAVIGATION.md` for every function name in the diff's changed-files list, not just
+    renamed/deleted ones.**
+
 **How to apply:** on any review that touches `CLAUDE.md`, `.claude/settings.json`, or a
 skill file, open `.claude/hooks/guard.sh` and `_json.sh` and check the greps in the same
 pass. This has now recurred ten times — worth a CLAUDE.md line or a guard.sh self-test.

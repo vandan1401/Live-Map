@@ -47,6 +47,7 @@ describe("ColonyPicker", () => {
         orgName={null}
         onSelect={onSelect}
         onUpload={vi.fn()}
+        onBackdrop={vi.fn()}
         onLogout={vi.fn()}
       />,
     );
@@ -66,6 +67,7 @@ describe("ColonyPicker", () => {
         orgName={null}
         onSelect={vi.fn()}
         onUpload={vi.fn()}
+        onBackdrop={vi.fn()}
         onLogout={vi.fn()}
       />,
     );
@@ -82,6 +84,7 @@ describe("ColonyPicker", () => {
         orgName={null}
         onSelect={vi.fn()}
         onUpload={onUpload}
+        onBackdrop={vi.fn()}
         onLogout={vi.fn()}
       />,
     );
@@ -98,6 +101,7 @@ describe("ColonyPicker", () => {
         orgName={null}
         onSelect={vi.fn()}
         onUpload={vi.fn()}
+        onBackdrop={vi.fn()}
         onLogout={onLogout}
       />,
     );
@@ -113,6 +117,7 @@ describe("ColonyPicker", () => {
         orgName={null}
         onSelect={vi.fn()}
         onUpload={vi.fn()}
+        onBackdrop={vi.fn()}
         onLogout={vi.fn()}
         freshnessLabel="Offline — last synced 3h ago"
       />,
@@ -128,6 +133,7 @@ describe("ColonyPicker", () => {
         orgName={null}
         onSelect={vi.fn()}
         onUpload={vi.fn()}
+        onBackdrop={vi.fn()}
         onLogout={vi.fn()}
       />,
     );
@@ -142,12 +148,30 @@ describe("ColonyPicker", () => {
         orgName="MG Group Colonies"
         onSelect={vi.fn()}
         onUpload={vi.fn()}
+        onBackdrop={vi.fn()}
         onLogout={vi.fn()}
       />,
     );
 
     expect(screen.getByText("MG Group Colonies")).toBeTruthy();
     expect(screen.queryByText("Nimantran Group Colonies")).toBeNull();
+  });
+
+  it("calls onBackdrop with the colony's id when its Backdrop button is clicked", () => {
+    const onBackdrop = vi.fn();
+    render(
+      <ColonyPicker
+        colonies={[colonyRow({ id: "another-colony", name: "Another Colony" })]}
+        orgName={null}
+        onSelect={vi.fn()}
+        onUpload={vi.fn()}
+        onBackdrop={onBackdrop}
+        onLogout={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByText("Backdrop"));
+    expect(onBackdrop).toHaveBeenCalledWith("another-colony");
   });
 
   it("shows the freshness label alongside the empty state (/review finding #3)", () => {
@@ -157,6 +181,7 @@ describe("ColonyPicker", () => {
         orgName={null}
         onSelect={vi.fn()}
         onUpload={vi.fn()}
+        onBackdrop={vi.fn()}
         onLogout={vi.fn()}
         freshnessLabel="Offline — last synced 3h ago"
       />,

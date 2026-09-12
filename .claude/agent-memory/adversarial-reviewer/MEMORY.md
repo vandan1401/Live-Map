@@ -1,10 +1,10 @@
 - [Autonomous skill loop](project-autonomous-loop.md) — approval gates removed on purpose; flag the fallout, not the decision.
 - [Review diff blind spots](review-diff-blind-spots.md) — 6x: `diff-head` hides untracked files and sweeps in unplanned work; (6) one `??` helper two tracked files import. `git status --short` first.
-- [Docs vs enforcement drift](review-docs-vs-enforcement-drift.md) — 18x: docs claim a guarantee the runtime lacks; (18) a NAVIGATION.md row still documenting a function the diff deleted.
+- [Docs vs enforcement drift](review-docs-vs-enforcement-drift.md) — 19x: docs claim a guarantee the runtime lacks; (19) the row a *previous* review added says "called only from…" and the new diff adds the second caller.
 - [Contract widening consumers](review-contract-widening-consumers.md) — 5x: widening a value's *meaning* breaks its old readers; (5) `fitZoomRef` repointed at a padded fit, silently moving the plot-label threshold.
-- [Line-cap breaches](review-line-cap-breaches.md) — 8x: `filesize.sh` is advisory, oxlint has no `max-lines`; (8) `admin-portal/server.ts` 273 + `portal.js` 315, files nobody was watching. `wc -l` every path in the plan.
+- [Line-cap breaches](review-line-cap-breaches.md) — 9x: `filesize.sh` is advisory, oxlint has no `max-lines`; (9) `colonyBackdrop.test.ts` 148 → 272 — "test file gains N cases" is a cap risk. `wc -l` every path in the plan.
 - [Vacuous acceptance tests](review-vacuous-acceptance-tests.md) — 17x: tests passing for the wrong reason; (17) a call-recording stub that records the call but discards the argument the bug lived in.
-- [Prod migration deploy order](review-prod-migration-deploy-order.md) — RPC results are unchecked `as` casts and prod lags local; a return-shape change with no PROGRESS.md pending entry renders blanks.
+- [Prod migration deploy order](review-prod-migration-deploy-order.md) — 3x: prod lags local; **any** new migration with no `## Deferred` entry is a finding (3: RLS/grants, and the UI's error blames the colony).
 - [Migrations run on an empty DB](review-migration-empty-db-blind-spot.md) — `db reset` replays migrations before any seed, so triggers/nullability/constraints over existing rows are untestable locally.
 - [Non-TypeScript call sites](review-non-ts-call-sites.md) — "tsc caught every call site" misses the Makefile, package.json scripts and hooks; `make db-reseed` broke on a new required CLI arg.
 - [Constants invented outside the plan](review-unpinned-constants.md) — 2x: unpinned constants beside pinned ones; (2) `VIGNETTE_FADE_RANGE` cites a prototype whose real value is 0.678, not 1.2.

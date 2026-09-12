@@ -89,6 +89,14 @@ pytest config. Recommend this fix without hedging.
   sibling module (`admin-portal/backdropRoutes.ts`) and `buildBackdropRow`/`readImageDimensions`/
   `readFileAsBase64` into `static/backdropEditor.js`.
 
+- 2026-09-12 (plan 30, backdrop from the app): `apps/map/src/lib/colony/colonyBackdrop.test.ts`
+  **148 → 272**, breached by six new live-integration cases appended in one `describe`. Same
+  shape as the plan-15/plan-20 test-file breaches, and the repo already has the precedent fix
+  in this exact area (`rls.test.ts` → `rls-cross-org.test.ts`, split "for invariant 7" per
+  `testHelpers.ts`'s own comment). **A plan task that says "`X.test.ts` gains N cases" is a
+  cap risk on its face — `wc -l X.test.ts` before accepting it.** The plan's §5 acceptance
+  criteria again listed gate/typecheck/lint/build and no `wc -l`.
+
 Note the residual: `test_export.py` (304) and `test_matching.py` (264) are *already* over the
 cap and every plan that adds a `ColonyConfig` field grows them by a line. Not worth flagging
 per-diff; worth flagging when a diff adds a whole test to one of them.

@@ -26,6 +26,16 @@ finding once (PROGRESS.md's own log: "**/review found 5 issues** … (1) real ga
 zoom-ref one, still open there), was not touched. `## Current` gets rewritten by the next
 session's work; `## Deferred` is the list that survives.
 
+**Recurrence, 3rd: 2026-09-12 (plan 30)** — a new migration
+(`20260912020000_colony_backdrop_authenticated_write.sql`, RLS + column grants, not an RPC
+shape change) with no `## Deferred` entry and no PROGRESS.md change at all, one session after
+the plan-29 finding above. **The failure mode generalises past RPC casts:** here the frontend
+ships a per-row "Backdrop" button whose every save, if deployed before the migration, fails
+with the diff's own new message — `colony "<id>" not found, or you do not have access to it`
+— which blames the colony for a deploy-order problem. **So: for *any* new migration, check
+`## Deferred`; and ask what the app's new error text asserts when the migration is missing
+([[review-error-vs-empty-conflation]]).**
+
 **How to apply:** for any migration touching a function the app already calls in
 production, (1) grep PROGRESS.md for the new migration's filename — if it is absent from
 `## Deferred`, that is the finding, with "add the entry in the same shape as the M16/M17

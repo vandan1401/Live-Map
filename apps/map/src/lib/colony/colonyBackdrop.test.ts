@@ -140,3 +140,7 @@ describe("updateColonyBackdropTransform", () => {
     expect(row?.backdrop_attribution).toBe("");
   }, 15_000);
 });
+
+// docs/plans/30.md: the authenticated-(non-service-role)-client cross-org RLS proof lives in
+// colonyBackdropRls.test.ts, its own file (invariant 7 — this file was over 250 lines with
+// it inline).

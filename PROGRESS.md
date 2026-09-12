@@ -2,6 +2,74 @@
 
 ## Current
 
+- **Colony backdrop also reachable and editable from inside the app itself, not only the
+  admin portal (2026-09-12, Tier 1, docs/plans/30.md, D-048).** Owner follow-up on the
+  plan-29 work directly above: "the backdrop upload should be present in upload colony
+  section" — then, once asked whether alignment should move too, clarified this was not a
+  request to rework the manifest/upload pipeline, just to make the same two functions
+  (`uploadColonyBackdropImage`/`updateColonyBackdropTransform`, `lib/colony/
+  colonyBackdrop.ts`) callable by an ordinary signed-in org member, not only the
+  admin-portal's service-role key. New migration
+  `20260912020000_colony_backdrop_authenticated_write.sql` opens exactly that: a
+  column-level `grant update` on the 11 `backdrop_*` columns (never the rest of `colonies`)
+  plus an org-scoped RLS policy, and **three** Storage policies (not two — see Surprises).
+  New `features/colony-picker/ColonyBackdropScreen.tsx`, opened from a new "Backdrop" button
+  per row in `ColonyPicker.tsx` (next to `ShareLinkButton`), reuses `colony-upload.css`'s
+  overlay classes and calls the two lib functions directly with the authenticated app
+  client — no HTTP hop, no admin portal. The admin-portal's own backdrop UI/routes are
+  **untouched** — this is a second caller of the same functions, a deliberate choice (an
+  earlier draft of this plan removed the admin-portal path and routed everything through
+  `create_colony_from_manifest()` instead; reverted before any of it was built, per the
+  owner's own "isn't this too much effort" pushback — see docs/plans/30.md's own header for
+  the full story).
+  **A real, latent gap fixed as part of this plan, not a drive-by:** both lib functions did
+  a bare `.update()` with no check that it matched a row. Under the service-role key this
+  never mattered (always matches); under the new authenticated/RLS path, a wrong org or a
+  nonexistent colony id makes the update silently affect zero rows with no error. Both now
+  do `.select("id").maybeSingle()` and throw a clear "not found, or you do not have access"
+  error otherwise — a correctness fix that also (harmlessly) changes admin-portal behavior
+  for a typo'd colony id, from silent no-op to a real error.
+  **Two real bugs found only by testing the legitimate case, not by reading the SQL back:**
+  (1) the Storage policies' `exists (select 1 from colonies c where c.id = substring(name
+  from ...))` — `colonies` also has a `name` column, and inside that subquery bare `name`
+  resolved to `colonies.name` (the display name), not the outer `storage.objects.name`
+  (the file path) — per standard SQL scoping, inner scope wins. The policy parsed and ran
+  with no error; it just silently compared a colony's display name against its id backward,
+  always false, rejecting every write including legitimate same-org ones. Fixed by
+  qualifying as `storage.objects.name` explicitly. (2) even after that fix, a legitimate
+  same-org upload still failed — traced (via `docker logs supabase_storage_colony-map` and
+  direct `psql` reproduction, not guessed) to `supabase-js`'s `upsert: true` compiling to a
+  single `INSERT ... ON CONFLICT (name, bucket_id) DO UPDATE ...` statement, which Postgres
+  requires a **SELECT** RLS policy for — even on a brand-new insert with no actual
+  conflict — because it needs SELECT visibility to perform its own internal conflict
+  lookup. Fixed by adding a third, org-scoped SELECT policy on `storage.objects`; confirmed
+  by reproducing the exact failure with `using(true)`/`with check(true)` on both existing
+  policies (still failed) and only the added SELECT policy resolving it.
+  **`/review` found 5 more issues, all fixed same session:** `colonyBackdrop.test.ts` had
+  grown to 272 lines (invariant 7) — the 6 authenticated-client cases moved to a new sibling
+  `colonyBackdropRls.test.ts` (now 146/160 lines); no `## Deferred` entry named the new
+  migration (added, extending the existing plan-29 entry rather than duplicating it);
+  `NAVIGATION.md`'s `colonyBackdrop.ts` row still said "called only from
+  admin-portal/backdropRoutes.ts" (rewritten, plus the colony-picker row now mentions the
+  new screen); the plan's own pinned "test the replace path" constraint had no test for it
+  (added, second upload in the existing success case); and `ColonyBackdropScreen.tsx`'s
+  number inputs were controlled + parsed every keystroke, so clearing a field silently
+  committed `0` and a leading `-` couldn't be typed into a pre-filled field — fixed by
+  holding those 5 fields as strings, parsed once on save.
+  **Verified:** full `mingw32-make gate` — apps/map lands on exactly the pre-existing
+  documented baseline (4 anon-privilege-grant-drift failures this run, no subscribePlots
+  flake; a run earlier the same session hit that flake too — both accounted for), nothing
+  new; `tools/pipeline verify`/`golden` run directly since gate halts before them
+  (129 passed/1 skipped, byte-identical); `pnpm build` clean, `dist/` clean of
+  `admin-portal`; `colonyBackdrop.test.ts` + `colonyBackdropRls.test.ts` 13/13 together,
+  including the new replace-path case; `ColonyPicker.test.tsx` 9/9.
+  **Not verified, not achievable from here (no browser):** the new "Backdrop" button and
+  screen have never been opened for real — plan 30 stays open (no `Status: complete`
+  marker) until the owner does that.
+  **Next:** owner clicks "Backdrop" on a real colony in the running app; then applies this
+  migration to production after the two from plan 29 (PROGRESS.md's own Deferred entry,
+  updated this session, has the full checklist and ordering).
+
 - **Colony backdrop image + alignment now uploadable via the admin portal, not a code
   change (2026-09-12, Tier 1, docs/plans/29.md, PROGRESS.md Backlog item 6).** Replaced the
   Vite-static-import (`bharatkshetraBackdropUrl`) + checked-in-JSON (`mapBackdrop.json`'s
@@ -1537,6 +1605,30 @@
   feature-labels yet, so this is latent, not live).
 
 ## Log
+
+### 2026-09-12 — Colony backdrop also reachable from the app itself (Tier 1, docs/plans/30.md, D-048)
+
+- Done: a new migration opens narrow, column-scoped RLS write access (Storage + 11
+  `colonies.backdrop_*` columns) to the `authenticated` role; a new `ColonyBackdropScreen.tsx`
+  reachable from `ColonyPicker.tsx` calls `lib/colony/colonyBackdrop.ts`'s existing two
+  functions directly with the app's own client. Admin portal untouched — second caller, not
+  a replacement.
+- Next: owner clicks "Backdrop" in the running app for real; then applies this migration to
+  production after plan 29's two (PROGRESS.md Deferred has the checklist).
+- Surprises: two real bugs only testing could find. (1) the Storage policy's `substring(name
+  from ...)` silently resolved to `colonies.name` (column collision inside the `exists`
+  subquery), not the file path — every write rejected, including legitimate ones. (2) even
+  fixed, `upsert:true`'s `INSERT ... ON CONFLICT DO UPDATE` needed a SELECT policy Postgres
+  requires for its own internal conflict lookup, even on a fresh insert with zero actual
+  conflict — undocumented anywhere I'd read, found by reproducing against the real stack
+  (`docker logs`, direct `psql`), not by re-reading the SQL. Also: an earlier draft of this
+  plan (routing everything through `create_colony_from_manifest()`, touching `contract/`)
+  was fully reverted mid-session on the owner's own "too much effort" pushback before any of
+  it was built — the smaller version shipped instead.
+- Verified: full `mingw32-make gate` — baseline-only failures (4 anon-grant, no flake this
+  run); `tools/pipeline` byte-identical (129/1 skipped); `pnpm build` clean, `dist/` clean of
+  `admin-portal`; `colonyBackdrop.test.ts`+`colonyBackdropRls.test.ts` 13/13,
+  `ColonyPicker.test.tsx` 9/9. Not verified: the screen itself, no browser here.
 
 ### 2026-09-12 — Colony backdrop uploadable via admin portal (Tier 1, docs/plans/29.md, Backlog item 6)
 
@@ -3089,22 +3181,30 @@ on a real phone. Not verified by anyone: the five visual behaviours in `## Curre
 
 ## Deferred
 
-- **Two new migrations (`20260912000000_colony_backdrop_storage.sql`,
-  `20260912010000_public_link_backdrop.sql`, docs/plans/29.md) have only been applied to the
-  local Docker Supabase instance — not yet to the real production Supabase project.** Same
-  shape as every prior phase (M16/M17/M19/M20): owner applies both, in file order, via the
+- **Three new migrations (`20260912000000_colony_backdrop_storage.sql`,
+  `20260912010000_public_link_backdrop.sql`, docs/plans/29.md; and
+  `20260912020000_colony_backdrop_authenticated_write.sql`, docs/plans/30.md) have only been
+  applied to the local Docker Supabase instance — not yet to the real production Supabase
+  project.** Same shape as every prior phase (M16/M17/M19/M20): owner applies all three, in
+  file order (`20260912020000` depends on the columns/bucket the first two create), via the
   Dashboard SQL Editor, each followed by `NOTIFY pgrst, 'reload schema';` (D-033), then
   confirms `select column_name from information_schema.columns where table_name = 'colonies'
-  and column_name = 'backdrop_storage_path';` returns a row and `select proname, pronargs
-  from pg_proc where proname = 'get_public_colony';` still shows `pronargs = 1`. Until this
-  runs, `apps/map/src/lib/db/colonies.ts`'s `fetchPublicColony` casts its RPC result to
-  `PublicColonyResult` unchecked — deploying the new frontend code before the second
-  migration lands would read the 10 new backdrop fields as `undefined` off the old,
-  unmigrated `get_public_colony()`'s response, silently, with no error surfaced anywhere.
-  Also still needed, separately: the owner must re-upload bharatkshetra's backdrop through
-  the new admin-portal UI (values logged in this file's own `## Current`/`## Log` entries for
-  2026-09-12) once both migrations are live — until then bharatkshetra shows no backdrop on
-  either surface, a real known regression, not an oversight.
+  and column_name = 'backdrop_storage_path';` returns a row, `select proname, pronargs
+  from pg_proc where proname = 'get_public_colony';` still shows `pronargs = 1`, and `select
+  policyname from pg_policies where tablename = 'objects' and schemaname = 'storage';` lists
+  all 3 of `20260912020000`'s policies. Until this runs, `apps/map/src/lib/db/colonies.ts`'s
+  `fetchPublicColony` casts its RPC result to `PublicColonyResult` unchecked — deploying the
+  new frontend code before the second migration lands would read the 10 new backdrop fields
+  as `undefined` off the old, unmigrated `get_public_colony()`'s response, silently, with no
+  error surfaced anywhere. Deploying before the third migration lands is worse in a
+  different way, not silent but misleading: every tap of the new in-app "Backdrop" button
+  (`ColonyBackdropScreen.tsx`, docs/plans/30.md) would fail with `colonyBackdrop.ts`'s own
+  "colony '<id>' not found, or you do not have access to it" — a message that reads like the
+  colony itself is the problem, when the real cause is a deploy-order gap. Also still
+  needed, separately: the owner must re-upload bharatkshetra's backdrop through the admin
+  portal or the new in-app screen (values logged in this file's own `## Current`/`## Log`
+  entries for 2026-09-12) once the migrations are live — until then bharatkshetra shows no
+  backdrop on either surface, a real known regression, not an oversight.
 - **Backdrop-vignette (`.public-colony-backdrop-vignette`, docs/plans/28.md) `backdrop-
   filter: blur()` performance on real low-end mobile Safari is unbenchmarked.** Not an
   SVG filter (tier-3.md's actual rule), so it doesn't force a canvas repaint the way that

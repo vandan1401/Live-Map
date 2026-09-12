@@ -57,7 +57,8 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-044 | The colony-open map-side zoom is removed entirely — the map renders its real final view from the first frame and never moves; only `MapLoadingScreen.tsx`'s own splash animation (unchanged) still animates | accepted |
 | D-045 | A camera flight (click-to-focus/colony-open) skips ground/road/roadEdge `CanvasPattern` textures, falling back to flat theme colours, and restores them on one extra render right after the flight settles | accepted |
 | D-046 | A flight's per-frame tick calls Leaflet's internal `_move()`, not the public `setView()` — one real `setView` only on the flight's last frame, mirroring TouchZoom's own live-pinch-then-settle shape | accepted |
-| D-047 | Colony backdrop raster + alignment move from a Vite static import + checked-in JSON to a Supabase Storage object + `colonies.backdrop_*` columns, uploadable via the admin portal — narrows D-034's "resolved client-side" precedent to just the remaining `labels` field | accepted |
+| D-047 | Colony backdrop raster + alignment move from a Vite static import + checked-in JSON to a Supabase Storage object + `colonies.backdrop_*` columns, uploadable via the admin portal — narrows D-034's "resolved client-side" precedent to just the remaining `labels` field | superseded by D-048 (write-path only; the Storage/columns mechanism itself stands) |
+| D-048 | Colony backdrop is also writable by an ordinary signed-in org member from inside the app, via narrow column-level `colonies` grants + Storage RLS reused by the same functions D-047 introduced — the admin portal's own write path is kept, not replaced | accepted |
 
 ## tools/pipeline
 

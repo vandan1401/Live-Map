@@ -1,7 +1,9 @@
-// docs/plans/29.md: colony backdrop image + alignment, uploadable via the admin portal —
-// same split as publicColony.ts's regeneratePublicLink/revokePublicLink (a plain function
-// taking a service-role SupabaseClient, doing client.from("colonies").update(...)), called
-// only from admin-portal/server.ts today.
+// docs/plans/29.md + docs/plans/30.md: colony backdrop image + alignment. Same split as
+// publicColony.ts's regeneratePublicLink/revokePublicLink (a plain function taking a
+// SupabaseClient, doing client.from("colonies").update(...)) — client-agnostic on purpose,
+// called both with the admin portal's service-role key (admin-portal/backdropRoutes.ts) and,
+// since docs/plans/30.md's RLS/grant additions, with an ordinary signed-in org member's
+// authenticated client (ColonyBackdropScreen.tsx).
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const BACKDROP_BUCKET = "colony-backdrops";
@@ -36,15 +38,24 @@ export async function uploadColonyBackdropImage(
     .upload(storagePath, args.bytes, { contentType: "image/jpeg", upsert: true });
   if (uploadError) throw new Error(`uploadColonyBackdropImage failed: ${uploadError.message}`);
 
-  const { error: updateError } = await client
+  // docs/plans/30.md: .select("id").maybeSingle() and a null-data check, not just
+  // `if (error)` — under RLS (an authenticated, non-service-role caller) a wrong org or a
+  // nonexistent colony id makes this .update() match zero rows *without* an error, which
+  // would otherwise read as a silent success. Service-role calls (admin-portal) always
+  // matched before and still do; this only changes behavior for a call that was already
+  // wrong.
+  const { data: updated, error: updateError } = await client
     .from("colonies")
     .update({
       backdrop_storage_path: storagePath,
       backdrop_image_width: args.imageWidth,
       backdrop_image_height: args.imageHeight,
     })
-    .eq("id", colonyId);
+    .eq("id", colonyId)
+    .select("id")
+    .maybeSingle();
   if (updateError) throw new Error(`uploadColonyBackdropImage failed to update colony row: ${updateError.message}`);
+  if (!updated) throw new Error(`uploadColonyBackdropImage: colony "${colonyId}" not found, or you do not have access to it.`);
 }
 
 export interface ColonyBackdropTransformArgs {
@@ -70,7 +81,9 @@ export async function updateColonyBackdropTransform(
   colonyId: string,
   args: ColonyBackdropTransformArgs,
 ): Promise<void> {
-  const { error } = await client
+  // docs/plans/30.md: same row-matched check as uploadColonyBackdropImage above — see its
+  // comment for why this is load-bearing now, not just under RLS.
+  const { data: updated, error } = await client
     .from("colonies")
     .update({
       backdrop_transform_x: args.x,
@@ -82,6 +95,9 @@ export async function updateColonyBackdropTransform(
       backdrop_enabled_on_public: args.enabledOnPublic,
       backdrop_attribution: args.attribution,
     })
-    .eq("id", colonyId);
+    .eq("id", colonyId)
+    .select("id")
+    .maybeSingle();
   if (error) throw new Error(`updateColonyBackdropTransform failed: ${error.message}`);
+  if (!updated) throw new Error(`updateColonyBackdropTransform: colony "${colonyId}" not found, or you do not have access to it.`);
 }

@@ -4,6 +4,7 @@ import { ColonyMap } from "./components/ColonyMap";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { MapLoadingScreen } from "./components/MapLoadingScreen";
 import { ColonyPicker } from "./features/colony-picker/ColonyPicker";
+import { ColonyBackdropScreen } from "./features/colony-picker/ColonyBackdropScreen";
 import { ColonyUploadScreen } from "./features/colony-upload/ColonyUploadScreen";
 import { LoginScreen } from "./features/auth/LoginScreen";
 import { PublicColonyView } from "./features/public-colony/PublicColonyView";
@@ -42,6 +43,9 @@ function App() {
   // docs/plans/11.md, D-025 — the colony-upload overlay, opened from ColonyPicker's
   // "Upload a colony" button, same sibling-overlay pattern as showInstallInstructions.
   const [showUpload, setShowUpload] = useState(false);
+  // docs/plans/30.md — the colony-backdrop overlay, opened from ColonyPicker's per-row
+  // "Backdrop" button, same sibling-overlay pattern as showUpload above.
+  const [backdropColonyId, setBackdropColonyId] = useState<string | null>(null);
   const [selectedColonyId, setSelectedColonyId] = useState<string | null>(null);
   const { openToken, showSplash, bumpOpen, finishSplash } = useColonyOpenSplash();
 
@@ -127,6 +131,25 @@ function App() {
     );
   }
 
+  if (backdropColonyId) {
+    // Same already-loaded-list precondition as selectedColony below — backdropColonyId
+    // only ever comes from a button ColonyPicker rendered for a colony already in
+    // `colonies`.
+    const backdropColony = colonies.find((colony) => colony.id === backdropColonyId)!;
+    return (
+      <ColonyBackdropScreen
+        client={client}
+        colony={backdropColony}
+        onClose={() => {
+          setBackdropColonyId(null);
+          // Refetches so a subsequent colony-open sees the just-saved backdrop_* values,
+          // not the stale ones this screen was opened with.
+          fetchColonies();
+        }}
+      />
+    );
+  }
+
   if (!selectedColonyId) {
     // `navigator.onLine` here, not a hardcoded `false` — the network can come back while
     // colonyListSavedAt is still set (a reconnect refetch can fail transiently), and the
@@ -143,6 +166,7 @@ function App() {
           bumpOpen();
         }}
         onUpload={() => setShowUpload(true)}
+        onBackdrop={(id) => setBackdropColonyId(id)}
         onLogout={() => void signOut(client)}
         freshnessLabel={freshnessLabel}
       />
