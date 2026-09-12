@@ -34,12 +34,22 @@ export interface SnapshotZoomHost extends FlyToHost {
   renderFinalFrame(ctx: CanvasRenderingContext2D, zoom: number, center: L.LatLng): void;
 }
 
+// TEMPORARY (2026-09-12) — the owner reported seeing a static start frame held for the
+// whole flight then a hard cut to the final one, no visible motion in between, which this
+// session has no way to reproduce or watch (rAF is suspended in a backgrounded automation
+// tab). These four lines are the fastest way to find out WHERE it diverges from intended —
+// remove once confirmed working, or once they've told us what the console actually shows.
+const DEBUG = true;
+
 export function runOpenZoomSnapshot(host: SnapshotZoomHost, finalCenter: L.LatLng, finalZoom: number): void {
   const map = host.map;
   const liveCanvas = host.canvas;
   const viewport = host.viewport;
   const parent = liveCanvas?.parentElement ?? null;
-  if (!map || !liveCanvas || !viewport || !parent) return;
+  if (!map || !liveCanvas || !viewport || !parent) {
+    if (DEBUG) console.log("[open-zoom] bailed on missing map/canvas/viewport/parent", { map: !!map, liveCanvas: !!liveCanvas, viewport, parent: !!parent });
+    return;
+  }
   const fromZoom = host.renderedZoom || map.getZoom();
 
   host.setFlyToActive(true);
@@ -74,6 +84,7 @@ export function runOpenZoomSnapshot(host: SnapshotZoomHost, finalCenter: L.LatLn
   overlay.style.cssText = `width:100%;height:100%;display:block;position:absolute;left:0;top:0;transform-origin:center center;`;
   const ctx = overlay.getContext("2d");
   if (!ctx) {
+    if (DEBUG) console.log("[open-zoom] no 2d context on overlay — falling back to an instant cut");
     // jsdom / no 2d backend (same fallback _render() already relies on) — nothing to
     // animate; leave the live map exactly where useColonyOpenZoom.ts's caller will still
     // move it to below, just without the visual flourish.
@@ -91,6 +102,10 @@ export function runOpenZoomSnapshot(host: SnapshotZoomHost, finalCenter: L.LatLn
 
   const startScale = Math.pow(2, fromZoom - finalZoom); // <1 — fromZoom is always the more-zoomed-out start
   overlay.style.transform = `scale(${startScale})`;
+  if (DEBUG) {
+    console.log("[open-zoom] started", { fromZoom, finalZoom, startScale, viewport, dpr, myId });
+    console.log("[open-zoom] overlay in DOM?", parent.contains(wrapper), "children of parent:", parent.children.length);
+  }
 
   function cleanup() {
     wrapper.remove();
@@ -99,20 +114,28 @@ export function runOpenZoomSnapshot(host: SnapshotZoomHost, finalCenter: L.LatLn
 
   const ease = (t: number) => cubicBezierEase(t, ...MAP_OPEN_ZOOM_EASE_POINTS);
   const start = performance.now();
+  let loggedFrames = 0;
   // An arrow function assigned to a const, not a hoisted `function` declaration -- TS only
   // carries the `map`-is-non-null narrowing from the guard above into a closure defined
   // after it, not into one that's hoisted above it.
   const tick = (now: number) => {
     if (isCancelled()) {
+      if (DEBUG) console.log("[open-zoom] cancelled by a later flight (id mismatch) — tearing down early", { myId, current: host.getFlyToId() });
       cleanup();
       return;
     }
     const t = Math.min(1, (now - start) / MAP_OPEN_ZOOM_MS);
-    overlay.style.transform = `scale(${startScale + (1 - startScale) * ease(t)})`;
+    const scale = startScale + (1 - startScale) * ease(t);
+    overlay.style.transform = `scale(${scale})`;
+    if (DEBUG && loggedFrames < 6) {
+      console.log("[open-zoom] frame", { t: t.toFixed(3), scale: scale.toFixed(3) });
+      loggedFrames++;
+    }
     if (t < 1) {
       requestAnimationFrame(tick);
       return;
     }
+    if (DEBUG) console.log("[open-zoom] finished — landing live map on destination and removing overlay");
     // Land the real map on the destination view and repaint it for real, THEN remove the
     // overlay — both synchronous, same tick, so there is no gap for a stale frame to flash.
     map.setView(finalCenter, finalZoom, { animate: false });
