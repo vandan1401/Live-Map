@@ -136,6 +136,19 @@ export function runOpenZoom(host: FlyToHost, center: L.LatLng, zoom: number): vo
   runCameraAnimation(host, center, zoom, MAP_OPEN_ZOOM_MS, MAP_OPEN_ZOOM_EASE_POINTS);
 }
 
+// Leaflet's own internal `Map._move()` (leaflet-src.js, called by e.g. TouchZoom's live-
+// pinch handler once per touchmove) -- updates _zoom/_pixelOrigin and fires plain 'zoom'/
+// 'move' events, skipping the public setView()'s _resetView() branch (mapPane repositioned
+// to (0,0), full zoomstart/movestart/viewreset cascade) that setView(..., {animate:false})
+// is forced into on every call where the zoom differs from the map's current one -- which is
+// every intermediate frame of a flight. Not in Leaflet's public .d.ts (undocumented,
+// underscore-prefixed), but stable across the 1.x line and exactly what a live pinch/drag
+// already relies on for its own per-frame cost; the one cast is confined to tick() below,
+// same convention as colonyCanvasLayer.ts's own "the one unavoidable cast".
+interface LeafletMapInternals {
+  _move(center: L.LatLng, zoom: number): void;
+}
+
 export function startCanvasFlyTo(
   map: L.Map,
   fromCenter: L.LatLng,
@@ -165,11 +178,19 @@ export function startCanvasFlyTo(
     const e = ease(t);
     const zoom = fromZoom + (toZoom - fromZoom) * e;
     const point = fromPoint.add(toPoint.subtract(fromPoint).multiplyBy(e));
-    map.setView(map.unproject(point, 0), zoom, { animate: false });
-    onFrame();
+    const center = map.unproject(point, 0);
     if (t < 1) {
+      (map as unknown as LeafletMapInternals)._move(center, zoom);
+      onFrame();
       requestAnimationFrame(tick);
     } else {
+      // The one real settle for the whole flight, mirroring how TouchZoom's own
+      // _onTouchEnd ends a live pinch -- exactly one setView/_resetView here re-syncs
+      // _mapPane's position and fires the full event cascade (zoomend etc., which the
+      // Leaflet zoom control and anything else outside this app's own code depends on)
+      // once, the same way a released gesture does, instead of never at all.
+      map.setView(center, zoom, { animate: false });
+      onFrame();
       onComplete();
     }
   }

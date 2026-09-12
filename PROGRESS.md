@@ -3,10 +3,10 @@
 ## Current
 
 - **Click-to-focus (`canvasFlyTo.ts::runFlyTo`) now takes a variable duration instead of a
-  fixed 400ms (2026-09-12, Tier 3, owner ask), plus a real render-cost fix for zoom-specific
-  jitter found along the way — three cuts, same session.** First change to `runFlyTo`'s own
-  animation since it was built (every prior session's touches were to `runOpenZoom`, the
-  colony-open zoom, itself now deleted per D-044 above).
+  fixed 400ms (2026-09-12, Tier 3, owner ask), plus two rounds of real render/interaction-cost
+  fixes for zoom-specific jitter found along the way — four cuts, same session.** First
+  change to `runFlyTo`'s own animation since it was built (every prior session's touches were
+  to `runOpenZoom`, the colony-open zoom, itself now deleted per D-044 above).
   - **Cut 1:** `flyToDurationMs()` scored "effort" as whichever was larger of zoom-level delta
     or pan-in-screens, scaling 400–2000ms. Owner: "does not feel as smooth as before."
   - **Cut 2 (wrong diagnosis, kept anyway):** assumed the stutter was pacing — the everyday
@@ -16,35 +16,46 @@
     (`FLY_TO_MAX_EFFORT_SCREENS = 3`) — a real improvement (matches "near vs. far plot" more
     directly) but, per owner's next report ("i can see the problem the zooming causes the
     jitter panning is smooth"), not the actual bug.
-  - **Cut 3 (the real fix):** ground/road/roadEdge are `CanvasPattern` fills
-    (`canvasPatterns.ts`) painted under `drawColony.ts`'s `ctx.scale(k, k)`. `k` changes every
-    single frame during ANY flight (not pacing-dependent) but is constant across a pure pan —
-    re-rasterizing a tiled pattern at a new scale every frame is real, measurable canvas cost
-    that a plain translated blit doesn't pay, which is exactly why panning was already smooth
-    and zooming wasn't. `colonyCanvasLayer.ts::_render()` now passes `null` for
-    grass/road/roadEdge while `this._flyToActive` is true, reusing `drawColony`'s existing
-    `state.x ?? theme.x` flat-colour fallback (built for `setGrassImage`'s slow-network first
-    paint, not invented for this); `canvasFlyTo.ts`'s `onComplete` now does one more
-    `host.render()` right after clearing the flag, since the flight's own last `onFrame` (at
-    t=1) still ran with the flag true and would otherwise leave the settled view textureless.
-    Backdrop (`drawMapBackdrop`, a single `drawImage`, not a repeating pattern) left untouched
-    — much cheaper per frame than a tiled pattern fill and not implicated. Native pinch/
-    scroll zoom (not a scripted flight, `_flyToActive` never true there) still pays this same
-    cost — already-known and separately documented as this layer's own "40fps on discrete
-    zoom steps vs. 60fps on animated zoom and pan," out of scope here.
+  - **Cut 3 (D-045, a real but partial fix):** ground/road/roadEdge are `CanvasPattern` fills
+    (`canvasPatterns.ts`) painted under `drawColony.ts`'s `ctx.scale(k, k)`, which changes
+    every flight frame; re-rasterizing a tiled pattern at a new scale every frame is real
+    canvas cost a translated-only blit doesn't pay. `colonyCanvasLayer.ts::_render()` now
+    passes `null` for grass/road/roadEdge while `_flyToActive` is true (`drawColony`'s
+    existing flat-colour fallback), restored by one extra `host.render()` in
+    `canvasFlyTo.ts`'s `onComplete`. Backdrop (one `drawImage`, not a repeating pattern) left
+    untouched. Worth keeping, but owner reported it didn't fully explain the jitter — asked
+    to confirm the actual pattern first: "when i zoom with my hand nothing jitters... only
+    when zooming and panning happens together."
+  - **Cut 4 (D-046, the real fix):** verified against the installed Leaflet source
+    (`node_modules/leaflet/dist/leaflet-src.js`, v1.9.4) rather than assumed — the engine's
+    tick loop calls the *public* `map.setView(center, zoom, {animate:false})` every frame;
+    whenever zoom differs from the map's current zoom (true almost every frame), `setView`'s
+    `_tryAnimatedZoom` bails on `animate===false` and falls through to `_resetView()`, which
+    resets `_mapPane`'s position to `(0,0)` and fires a full `zoomstart`/`movestart`/`zoom`/
+    `move`/`moveend`/`viewreset` cascade — real work, 60x/sec, for the whole flight. Leaflet's
+    own `TouchZoom` handler (what actually runs a live pinch) never does this: its
+    `_onTouchMove` calls the *internal* `map._move(center, zoom)` directly per frame — no
+    pane reset, no cascade — and only does one real settle at `_onTouchEnd`. This is exactly
+    why panning alone and pinch-zooming alone were both already smooth: neither ever went
+    through the expensive path; only this engine's own per-frame `setView` call did. Fixed by
+    mirroring `TouchZoom`'s shape: every intermediate tick frame now calls Leaflet's internal
+    `_move()` (typed via one confined cast, `LeafletMapInternals`), and exactly one real
+    `setView(..., {animate:false})` still runs on the flight's last frame to fully resync
+    `_mapPane` and fire the real event cascade once, the way a released gesture already does.
   - Unrelated to any of the above: the demo login (`demo`/`demo-pass-123`) needed its password
     reset mid-session via the admin API (`client.auth.admin.updateUserById`, same precedent as
     `create-user.ts`/the admin portal) — it had silently drifted from the documented
     placeholder value at some earlier session's reseed/recreate.
-  **Verified:** `pnpm typecheck && pnpm lint` clean (all three cuts); `pnpm test -- --run`
-  265/269 (same 4 pre-existing anon-grant-drift RLS/live-integration failures documented
-  throughout this file, none touching this diff); `pnpm build` clean; `tools/pipeline`
-  `ruff`/`mypy`/`pytest` all clean (129 passed, 1 skipped — untouched by this diff).
-  **Not verified:** live, on-device feel of cut 3 — both stutter reports came from the owner
+  **Verified:** `pnpm typecheck && pnpm lint` clean (all four cuts); `pnpm test -- --run`
+  264-265/269 (same 4 pre-existing anon-grant-drift RLS/live-integration failures documented
+  throughout this file, plus the documented `subscribePlots` realtime flake on one run — none
+  touching this diff); `pnpm build` clean; `tools/pipeline` `ruff`/`mypy`/`pytest` all clean
+  (129 passed, 1 skipped — untouched by this diff).
+  **Not verified:** live, on-device feel of cut 4 — every jitter report came from the owner
   watching it live; this session still has no browser/device access to confirm a fix directly
   (a standing limitation noted throughout this file).
-  **Next:** owner confirms cut 3 actually removed the zoom-specific jitter, and that duration
-  still reads as appropriately paced for near vs. far plot selections.
+  **Next:** owner confirms cut 4 actually removed the jitter, and that duration still reads
+  as appropriately paced for near vs. far plot selections.
 
 - **`.map-loading-overlay` had no `pointer-events: none`, so the map was genuinely
   unclickable for the whole ~4.5s splash reveal, even where the needle-shaped hole visibly
@@ -4675,7 +4686,7 @@ effort estimates below are for planning, not a commitment to build in this order
   typecheck/lint/build clean, re-run fresh at wrap time. Pushed `98dcaac` then `4043fc4` to
   `origin/master`; live confirmation still owner-pending.
 
-### 2026-09-12 — Click-to-focus zoom gets a variable duration (Tier 3, owner ask), then a real zoom-jitter fix
+### 2026-09-12 — Click-to-focus zoom gets a variable duration (Tier 3, owner ask), then two rounds of real zoom-jitter fixes (D-045, D-046)
 - Done: `canvasFlyTo.ts::runFlyTo`'s fixed 400ms animation replaced with `flyToDurationMs()`.
   Cut 1 scaled 400–2000ms off whichever was larger of zoom-level delta or pan-in-screens,
   pushed to `origin/master` (`13f7238`); owner reported it "does not feel as smooth as
@@ -4683,28 +4694,41 @@ effort estimates below are for planning, not a commitment to build in this order
   tap always has a large zoom delta, which alone saturated the effort score for nearly every
   selection, so duration dropped zoom delta and scales on pan-in-screens alone
   (`FLY_TO_MAX_EFFORT_SCREENS = 3`), pushed (`fe0acb5`). Owner, watching that live: "i can see
-  the problem the zooming causes the jitter panning is smooth" — the real bug. Cut 3: ground/
-  road/roadEdge are `CanvasPattern` fills painted under `drawColony.ts`'s `ctx.scale(k, k)`;
-  `k` changes every frame during ANY flight but is constant during a pan, and re-rasterizing a
-  tiled pattern at a new scale every frame is real per-frame cost a translated blit never
-  pays. `colonyCanvasLayer.ts::_render()` now passes `null` for those three while
-  `_flyToActive` is true (drawColony's existing flat-colour fallback), and
-  `canvasFlyTo.ts`'s `onComplete` renders once more right after clearing the flag so the
-  settled frame isn't left textureless. Also reset the local `demo` account's drifted
-  password back to `demo-pass-123` via the admin API, unrelated to the diff.
-- Next: owner to confirm cut 3 actually removed the zoom-specific jitter and duration still
-  reads as appropriately paced for near vs. far plot selections. Cut 3 not yet pushed.
-- Surprises: two separate wrong-then-right diagnoses in one session. Cut 1's own formula
-  really was a bug (zoom delta dominating effort made the common case, not the rare one, hit
-  the max duration) but fixing it (cut 2) didn't touch the actual stutter, which turned out to
-  be a real render-cost asymmetry between pattern-fills-under-scale (zoom) and blits
-  (pan) — already known and accepted for native pinch/scroll zoom (this layer's own header
-  comment: "40fps on discrete zoom steps" vs. "60fps on animated zoom and pan") but newly
-  exposed here because a scripted flight had never run long enough (400ms) for it to be
-  visible before cut 1 made flights longer.
-- Verified: `pnpm typecheck && pnpm lint` clean (all three cuts); `pnpm test -- --run`
-  265/269, same 4 pre-existing anon-grant-drift RLS failures, none touching this diff;
-  `pnpm build` clean; `tools/pipeline` ruff/mypy/pytest clean (129 passed, 1 skipped,
-  untouched by this diff). Not verified: live animation feel of cut 3 — no browser/device
-  access from this environment; both stutter reports came entirely from the owner watching
-  live.
+  the problem the zooming causes the jitter panning is smooth." Cut 3 (D-045, real but
+  partial): ground/road/roadEdge `CanvasPattern` fills under `drawColony.ts`'s `ctx.scale(k,
+  k)` re-rasterize every flight frame; `colonyCanvasLayer.ts::_render()` now falls back to
+  flat theme colours for those three while `_flyToActive`, restored on one extra render once
+  the flight settles, pushed (`cca16c6`). Owner, asked to confirm the pattern before further
+  guessing: "when i zoom with my hand nothing jitters... only when zooming and panning
+  happens together." Cut 4 (D-046, the real fix): read Leaflet 1.9.4's own source
+  (`node_modules/leaflet/dist/leaflet-src.js`) rather than assume — the engine's tick loop
+  calls the *public* `setView(center, zoom, {animate:false})` every frame, which (since zoom
+  differs from current almost every frame) bails out of `_tryAnimatedZoom` on
+  `animate===false` and falls through to `_resetView()`: a full `_mapPane` position reset +
+  `zoomstart`/`movestart`/`zoom`/`move`/`moveend`/`viewreset` cascade, done 60x/sec for the
+  whole flight. Leaflet's own `TouchZoom` handler (what a live pinch actually runs) never
+  does this — it calls the *internal* `map._move(center, zoom)` directly per frame, no reset,
+  no cascade, and settles for real only once at `_onTouchEnd`. Fixed by mirroring that shape:
+  every intermediate tick frame now calls `_move()` (one confined cast,
+  `LeafletMapInternals`), with exactly one real `setView` left on the flight's last frame.
+  Also reset the local `demo` account's drifted password back to `demo-pass-123` via the
+  admin API, unrelated to the diff.
+- Next: owner to confirm cut 4 actually removed the jitter and duration still reads as
+  appropriately paced for near vs. far plot selections. Cut 4 not yet pushed.
+- Surprises: three separate diagnoses before the real one, each ruled out by a specific owner
+  observation rather than by this session's own testing (no browser/device access all
+  session). Cut 1's formula really was a bug (worth cut 2) but wasn't the jitter. Cut 3's
+  pattern-rescale theory was real cost but, per the owner's own hand-zoom-vs-flight
+  comparison, not what was actually seen — pure native pinch-zoom (which also re-rasterizes
+  the same patterns under the same changing scale) was smooth, which cut 3's own reasoning
+  should have predicted wouldn't be, and would have caught sooner by asking "does pinch-only
+  zoom jitter too?" before shipping cut 3 rather than after. The actual cause (D-046) was
+  specific to this engine's own use of the public `setView` API, not to canvas drawing cost
+  at all — verifying against Leaflet's actual source once cut 3 was shown incomplete, rather
+  than guessing a fourth theory, is what found it.
+- Verified: `pnpm typecheck && pnpm lint` clean (all four cuts); `pnpm test -- --run`
+  264-265/269, same 4 pre-existing anon-grant-drift RLS failures (plus the documented
+  `subscribePlots` realtime flake on one run), none touching this diff; `pnpm build` clean;
+  `tools/pipeline` ruff/mypy/pytest clean (129 passed, 1 skipped, untouched by this diff).
+  Not verified: live animation feel of cut 4 — no browser/device access from this
+  environment; every jitter report came entirely from the owner watching live.
