@@ -2,6 +2,33 @@
 
 ## Current
 
+- **`.map-loading-overlay` had no `pointer-events: none`, so the map was genuinely
+  unclickable for the whole ~4.5s splash reveal, even where the needle-shaped hole visibly
+  showed it through (2026-09-12, Tier 3, fixed and verified).** Reported live right after
+  D-044 removed the map-side zoom: "the map remains unresponsive as if an image is being
+  shown," for exactly `MAP_OPEN_ZOOM_MS` (4.5s) — first mistaken for a stale PWA cache (the
+  number matched a since-deleted constant), ruled out once the owner confirmed a real close-
+  and-reopen still showed it. Root cause: `.map-loading-scene`'s clip-path cuts a needle-
+  shaped hole so the real map is visually revealed underneath as the scene scales up, but its
+  parent `.map-loading-overlay` — a plain, un-clipped, full-viewport, `z-index: 2600` box —
+  has no `pointer-events: none` of its own, so it keeps intercepting every tap across the
+  *entire* viewport for as long as it's mounted, including over the "hole" where the map is
+  plainly visible. Before D-044 this was equally true but effectively unnoticeable — the map
+  itself was busy animating a zoom during that exact window, so nobody tried tapping a still
+  image expecting it to respond. Once D-044 made the map sit static and clickable-looking
+  from frame one, the pre-existing gap became obvious. Fix: `pointer-events: none` added to
+  `.map-loading-overlay` (`map-loading-screen.css`) — a decorative overlay should never
+  intercept clicks meant for whatever's visible through it. **Known, accepted trade-off, not
+  fixed:** the splash footer's `tel:`/`mailto:` links are now also unclickable for the
+  splash's duration (previously they were, technically, tappable) — not reported as wanted,
+  and reintroducing click-through only for the footer would need `pointer-events: auto` on
+  `.map-loading-scene` plus verifying the clip-path's hit-test exclusion holds across
+  browsers, not attempted without it being asked for.
+  **Verified:** `pnpm typecheck && pnpm lint && pnpm build` clean (CSS-only change, no test
+  coverage exists or is warranted for a static stylesheet rule). **Not verified:** live, on
+  the owner's device — same standing limitation as everything in this animation feature all
+  session (no `requestAnimationFrame`/paint/hit-test visibility from this environment).
+
 - **Colony-open map-side zoom removed entirely, after three same-day attempts each tried and
   reverted (2026-09-12, Tier 2/3, D-041→D-044; verified, owner-confirmed direction).** Started
   from a real, owner-reported fps cost in the real-camera-every-frame engine then in place
@@ -1343,7 +1370,23 @@
 
 ## Log
 
-### 2026-09-12 — Colony-open zoom: three engines tried same day, then removed entirely (Tier 2/3, D-041→D-044)
+### 2026-09-12 — Splash overlay was blocking every click on the map underneath for its whole reveal (Tier 3)
+
+- Done: added `pointer-events: none` to `.map-loading-overlay` (`map-loading-screen.css`).
+  It has no clip-path of its own — the needle-hole clip-path is on the child
+  `.map-loading-scene` — so it stayed a plain full-viewport click-catcher for the whole
+  splash duration regardless of what was visually showing through the hole.
+- Next: owner confirms live that the map responds to a tap the instant it's visible through
+  the growing hole, not just once the splash fully unmounts.
+- Surprises: this bug predates today's session entirely (the overlay never had
+  `pointer-events: none`) but was invisible until D-044 removed the map's own zoom — with
+  the map animating during that window, nobody had reason to tap a moving picture and expect
+  a response, so the pre-existing gap only became obvious once the map started sitting still
+  and looking finished from frame one. First suspected a stale PWA cache (the reported
+  duration, 4.5s, exactly matched a deleted constant) — ruled out once the owner confirmed a
+  genuine close-and-reopen still showed it, which correctly pointed back at real code instead.
+- Verified: `pnpm typecheck && pnpm lint && pnpm build` clean (CSS-only, no test coverage
+  applicable). Not run: live/visual — see `## Current`.
 
 - Done: D-042 (frozen-destination-snapshot CSS overlay) shipped, hit a real device-only bug
   (overlay `getContext("2d")` null before DOM attach), got a working fix, was reverted anyway

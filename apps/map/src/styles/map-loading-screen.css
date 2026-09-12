@@ -12,6 +12,14 @@
   inset: 0;
   z-index: 2600;
   overflow: hidden;
+  /* This is a purely decorative overlay — the map underneath is already sitting at its
+   * correct, final, clickable state the whole time (D-044). Without this, the needle-shaped
+   * hole cut into .map-loading-scene below only ever clips what's PAINTED here; this parent
+   * box has no clip-path of its own, so it stays a plain full-viewport rectangle that
+   * intercepts every tap for the entire ~4.5s reveal, even over the "hole" where the real
+   * map is visibly showing through — confirmed live, 2026-09-12: the map looked static and
+   * ignored every tap for exactly MAP_OPEN_ZOOM_MS, which is precisely this window. */
+  pointer-events: none;
   transition: opacity var(--fade-ms, 200ms) ease-out;
 }
 
