@@ -5,21 +5,22 @@ const FLY_TO_MIN_DURATION_MS = 400; // owner ask, 2026-09-04 — click-to-focus-
 const FLY_TO_MAX_DURATION_MS = 2000; // owner ask, 2026-09-12 — a big zoom/pan jump gets more time
 const FLY_TO_EASE_POINTS: [number, number, number, number] = [0, 0, 0.4, 1]; // owner ask, 2026-09-04
 
-// Screens of pan (owner ask, 2026-09-12: 400ms felt too fast for a long jump) needed to
-// reach the max duration. Deliberately NOT a function of zoom-level delta too, despite an
-// earlier version being one (see git history) -- the everyday "tap a plot from the fit view"
-// case always involves a big zoom swing (fit zoom to SELECT_ZOOM, often 4+ levels) with only
-// a small on-screen pan, and including zoom delta made that everyday case sit near the
-// ceiling instead of near the floor: 5x longer on screen than before was enough for ordinary
-// frame-time variance to read as visible stutter (owner-reported, same day), something a
-// 400ms flight was too brief to expose. Pan distance alone is also just a more direct read
-// of what "near plot vs. far plot" (the ask) actually means.
-const FLY_TO_MAX_EFFORT_SCREENS = 3;
+// Effort (owner ask, 2026-09-12: 400ms felt too fast for a long zoom/pan jump) needed to
+// reach the max duration: whichever is larger of a ~3-level zoom swing or ~3 screens of pan.
+// An earlier cut dropped zoom delta from this formula, wrongly blaming IT for a stutter that
+// turned out to be unrelated (D-046: this engine's own per-frame setView call, fixed
+// independently of duration or of what drives it) -- with the real cause fixed, zoom delta
+// belongs back in: the everyday "tap a plot from the fit view" case (a big zoom swing, fit
+// zoom to SELECT_ZOOM, with only a small on-screen pan) is exactly the kind of big jump the
+// owner asked to feel slower, and D-046 means a longer flight no longer costs anything extra
+// per frame regardless of how much of that time is spent zooming vs. panning.
+const FLY_TO_MAX_EFFORT = 3;
 
-function flyToDurationMs(map: L.Map, fromCenter: L.LatLng, fromZoom: number, toCenter: L.LatLng): number {
+function flyToDurationMs(map: L.Map, fromCenter: L.LatLng, fromZoom: number, toCenter: L.LatLng, toZoom: number): number {
+  const zoomDelta = Math.abs(toZoom - fromZoom);
   const panPx = map.project(fromCenter, fromZoom).distanceTo(map.project(toCenter, fromZoom));
   const panScreens = panPx / Math.max(map.getSize().x, map.getSize().y);
-  const effort = Math.min(1, panScreens / FLY_TO_MAX_EFFORT_SCREENS);
+  const effort = Math.min(1, Math.max(zoomDelta, panScreens) / FLY_TO_MAX_EFFORT);
   return FLY_TO_MIN_DURATION_MS + effort * (FLY_TO_MAX_DURATION_MS - FLY_TO_MIN_DURATION_MS);
 }
 

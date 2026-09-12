@@ -4,7 +4,7 @@
 
 - **Click-to-focus (`canvasFlyTo.ts::runFlyTo`) now takes a variable duration instead of a
   fixed 400ms (2026-09-12, Tier 3, owner ask), plus two rounds of real render/interaction-cost
-  fixes for zoom-specific jitter found along the way — four cuts, same session.** First
+  fixes for zoom-specific jitter found along the way — five cuts, same session.** First
   change to `runFlyTo`'s own animation since it was built (every prior session's touches were
   to `runOpenZoom`, the colony-open zoom, itself now deleted per D-044 above).
   - **Cut 1:** `flyToDurationMs()` scored "effort" as whichever was larger of zoom-level delta
@@ -51,11 +51,19 @@
   throughout this file, plus the documented `subscribePlots` realtime flake on one run — none
   touching this diff); `pnpm build` clean; `tools/pipeline` `ruff`/`mypy`/`pytest` all clean
   (129 passed, 1 skipped — untouched by this diff).
-  **Not verified:** live, on-device feel of cut 4 — every jitter report came from the owner
+  **Not verified:** live, on-device feel of cut 5 — every report so far came from the owner
   watching it live; this session still has no browser/device access to confirm a fix directly
   (a standing limitation noted throughout this file).
-  **Next:** owner confirms cut 4 actually removed the jitter, and that duration still reads
-  as appropriately paced for near vs. far plot selections.
+  - **Cut 5 (duration formula restored):** owner confirmed cut 4 fixed the jitter, then: "the
+    animation still feels fast do that 400-2000ms again." Cut 2's diagnosis is now known
+    wrong (D-046 fixed the actual stutter, independent of duration or of what drives it), so
+    zoom-level delta goes back into `flyToDurationMs()` alongside pan-in-screens —
+    `effort = max(zoomDelta, panScreens) / FLY_TO_MAX_EFFORT` (3), restoring cut 1's original
+    formula verbatim. The everyday big-zoom/small-pan "tap from the fit view" case reaches
+    toward the 2000ms ceiling again, safely this time, since D-046 means a longer flight no
+    longer costs anything extra per frame.
+  **Next:** owner confirms cut 5's pacing now reads right, both for the everyday big-zoom tap
+  and for near vs. far plot-to-plot selections once already zoomed in.
 
 - **`.map-loading-overlay` had no `pointer-events: none`, so the map was genuinely
   unclickable for the whole ~4.5s splash reveal, even where the needle-shaped hole visibly
@@ -4710,11 +4718,16 @@ effort estimates below are for planning, not a commitment to build in this order
   does this — it calls the *internal* `map._move(center, zoom)` directly per frame, no reset,
   no cascade, and settles for real only once at `_onTouchEnd`. Fixed by mirroring that shape:
   every intermediate tick frame now calls `_move()` (one confined cast,
-  `LeafletMapInternals`), with exactly one real `setView` left on the flight's last frame.
-  Also reset the local `demo` account's drifted password back to `demo-pass-123` via the
-  admin API, unrelated to the diff.
-- Next: owner to confirm cut 4 actually removed the jitter and duration still reads as
-  appropriately paced for near vs. far plot selections. Cut 4 not yet pushed.
+  `LeafletMapInternals`), with exactly one real `setView` left on the flight's last frame,
+  pushed (`8f173af`). Owner confirmed: "confirmed it's smooth now, but now the animation
+  still feels fast do that 400-2000ms again." Cut 5: cut 2's diagnosis is now known wrong
+  (D-046 fixed the real stutter, independent of duration), so zoom-level delta goes back into
+  `flyToDurationMs()` alongside pan-in-screens — restoring cut 1's original
+  `max(zoomDelta, panScreens) / FLY_TO_MAX_EFFORT` formula verbatim, safely this time. Also
+  reset the local `demo` account's drifted password back to `demo-pass-123` via the admin
+  API, unrelated to the diff.
+- Next: owner to confirm cut 5's pacing now reads right for both the everyday big-zoom tap
+  and near vs. far plot-to-plot selections. Cut 5 not yet pushed.
 - Surprises: three separate diagnoses before the real one, each ruled out by a specific owner
   observation rather than by this session's own testing (no browser/device access all
   session). Cut 1's formula really was a bug (worth cut 2) but wasn't the jitter. Cut 3's
@@ -4725,10 +4738,12 @@ effort estimates below are for planning, not a commitment to build in this order
   zoom jitter too?" before shipping cut 3 rather than after. The actual cause (D-046) was
   specific to this engine's own use of the public `setView` API, not to canvas drawing cost
   at all — verifying against Leaflet's actual source once cut 3 was shown incomplete, rather
-  than guessing a fourth theory, is what found it.
-- Verified: `pnpm typecheck && pnpm lint` clean (all four cuts); `pnpm test -- --run`
+  than guessing a fourth theory, is what found it. Cut 2's own diagnosis (blaming zoom delta
+  in the duration formula) turned out wrong too, only provable once D-046 actually fixed the
+  real cause — cut 5 undoes cut 2's change now that it's safe to.
+- Verified: `pnpm typecheck && pnpm lint` clean (all five cuts); `pnpm test -- --run`
   264-265/269, same 4 pre-existing anon-grant-drift RLS failures (plus the documented
   `subscribePlots` realtime flake on one run), none touching this diff; `pnpm build` clean;
   `tools/pipeline` ruff/mypy/pytest clean (129 passed, 1 skipped, untouched by this diff).
-  Not verified: live animation feel of cut 4 — no browser/device access from this
-  environment; every jitter report came entirely from the owner watching live.
+  Not verified: live animation feel of cut 5 — no browser/device access from this
+  environment; every report so far came entirely from the owner watching live.
