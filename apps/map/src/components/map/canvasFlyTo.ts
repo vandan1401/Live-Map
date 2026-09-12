@@ -110,7 +110,13 @@ function runCameraAnimation(
       host.resize();
       host.render();
     },
-    () => host.setFlyToActive(false),
+    // The flight's own last onFrame above already rendered at t=1, but flyToActive was still
+    // true for it -- colonyCanvasLayer.ts's _render() reads that flag to skip the pattern
+    // fills while flying, so the settled view is left textureless until this one extra render.
+    () => {
+      host.setFlyToActive(false);
+      host.render();
+    },
   );
 }
 

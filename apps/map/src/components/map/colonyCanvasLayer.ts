@@ -193,6 +193,15 @@ const Layer = L.Layer.extend({
     this._renderedZoom = map.getZoom();
     const view = leafletViewState(map.getZoomScale(map.getZoom(), 0), center.lat, center.lng);
     ctx.setTransform(this._dpr, 0, 0, this._dpr, 0, 0);
+    // Ground/road/roadEdge are CanvasPattern fills (canvasPatterns.ts) painted under
+    // ctx.scale(k, k) -- k changes every frame during a flight (runFlyTo/runOpenZoom) but
+    // is constant across a pure pan, and re-rasterizing a tiled pattern at a new scale every
+    // frame is measurably more expensive than blitting the same one (owner-reported jitter
+    // on zoom, none on pan, 2026-09-12). Falling back to flat theme colours mid-flight reuses
+    // drawColony's existing `state.x ?? theme.x` fallback (built for slow-network first paint,
+    // setGrassImage's own comment) -- the settled frame after the flight (canvasFlyTo.ts's
+    // runCameraAnimation onComplete) re-renders once more with the real textures back on.
+    const flying = this._flyToActive;
     drawColony(
       ctx,
       this._model,
@@ -201,9 +210,9 @@ const Layer = L.Layer.extend({
       this._theme,
       {
         ...this._state,
-        grass: this._grass,
-        road: this._road,
-        roadEdge: this._roadEdge,
+        grass: flying ? null : this._grass,
+        road: flying ? null : this._road,
+        roadEdge: flying ? null : this._roadEdge,
         backdrop: this._backdrop,
       },
       this._dimensionConfig,

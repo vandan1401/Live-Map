@@ -3,38 +3,48 @@
 ## Current
 
 - **Click-to-focus (`canvasFlyTo.ts::runFlyTo`) now takes a variable duration instead of a
-  fixed 400ms (2026-09-12, Tier 3, owner ask: "400ms is too fast if a lot of zoom and pan
-  difference is involved") — first cut regressed to visible stutter, fixed same session.**
-  First change to `runFlyTo`'s own animation since it was built (every prior session's
-  touches were to `runOpenZoom`, the colony-open zoom, itself now deleted per D-044 above).
-  First cut's `flyToDurationMs()` scored "effort" as whichever was larger of zoom-level delta
-  or pan-in-screens, pushed live, then owner-reported "does not feel as smooth as before" —
-  confirmed as actual stutter, not just slower pacing, when asked. Root cause: the everyday
-  "tap a plot from the fit view" case always involves a big zoom swing (fit zoom to
-  `SELECT_ZOOM`, often 4+ levels) with only a small on-screen pan, and `FLY_TO_MAX_EFFORT = 3`
-  meant that zoom term alone saturated effort to 1 for nearly every tap — the common case ran
-  ~5x longer (near the 2000ms ceiling) instead of near the 400ms floor, long enough for
-  ordinary per-frame render variance (invisible in 400ms) to read as visible jank. Fix:
-  dropped zoom-level delta from the formula entirely — `flyToDurationMs()` now scales purely
-  off pan distance in screen-widths (`FLY_TO_MAX_EFFORT_SCREENS = 3`), which is also just a
-  more direct read of what "near plot vs. far plot" (the actual ask) means. `runCameraAnimation`'s
-  `durationMs` param still accepts either a fixed number (`runOpenZoom`, unchanged) or a
-  function of the resolved from/to camera state (`runFlyTo`) — one small union rather than
-  two near-duplicate animation runners. The demo login (`demo`/`demo-pass-123`) also needed
-  its password reset mid-session via the admin API (`client.auth.admin.updateUserById`, same
-  precedent as `create-user.ts`/the admin portal) — it had silently drifted from the
-  documented placeholder value at some earlier session's reseed/recreate, unrelated to this
-  diff.
-  **Verified:** `pnpm typecheck && pnpm lint` clean (both cuts); `pnpm test -- --run` 265/269
-  (same 4 pre-existing anon-grant-drift RLS/live-integration failures documented throughout
-  this file, none touching this diff); `pnpm build` clean; `tools/pipeline`
+  fixed 400ms (2026-09-12, Tier 3, owner ask), plus a real render-cost fix for zoom-specific
+  jitter found along the way — three cuts, same session.** First change to `runFlyTo`'s own
+  animation since it was built (every prior session's touches were to `runOpenZoom`, the
+  colony-open zoom, itself now deleted per D-044 above).
+  - **Cut 1:** `flyToDurationMs()` scored "effort" as whichever was larger of zoom-level delta
+    or pan-in-screens, scaling 400–2000ms. Owner: "does not feel as smooth as before."
+  - **Cut 2 (wrong diagnosis, kept anyway):** assumed the stutter was pacing — the everyday
+    fit-view-to-plot tap always has a big zoom swing (4+ levels), which alone saturated
+    `FLY_TO_MAX_EFFORT = 3` and put the *common* case near the 2000ms ceiling instead of the
+    floor. Dropped zoom delta from the formula so duration scales on pan-in-screens alone
+    (`FLY_TO_MAX_EFFORT_SCREENS = 3`) — a real improvement (matches "near vs. far plot" more
+    directly) but, per owner's next report ("i can see the problem the zooming causes the
+    jitter panning is smooth"), not the actual bug.
+  - **Cut 3 (the real fix):** ground/road/roadEdge are `CanvasPattern` fills
+    (`canvasPatterns.ts`) painted under `drawColony.ts`'s `ctx.scale(k, k)`. `k` changes every
+    single frame during ANY flight (not pacing-dependent) but is constant across a pure pan —
+    re-rasterizing a tiled pattern at a new scale every frame is real, measurable canvas cost
+    that a plain translated blit doesn't pay, which is exactly why panning was already smooth
+    and zooming wasn't. `colonyCanvasLayer.ts::_render()` now passes `null` for
+    grass/road/roadEdge while `this._flyToActive` is true, reusing `drawColony`'s existing
+    `state.x ?? theme.x` flat-colour fallback (built for `setGrassImage`'s slow-network first
+    paint, not invented for this); `canvasFlyTo.ts`'s `onComplete` now does one more
+    `host.render()` right after clearing the flag, since the flight's own last `onFrame` (at
+    t=1) still ran with the flag true and would otherwise leave the settled view textureless.
+    Backdrop (`drawMapBackdrop`, a single `drawImage`, not a repeating pattern) left untouched
+    — much cheaper per frame than a tiled pattern fill and not implicated. Native pinch/
+    scroll zoom (not a scripted flight, `_flyToActive` never true there) still pays this same
+    cost — already-known and separately documented as this layer's own "40fps on discrete
+    zoom steps vs. 60fps on animated zoom and pan," out of scope here.
+  - Unrelated to any of the above: the demo login (`demo`/`demo-pass-123`) needed its password
+    reset mid-session via the admin API (`client.auth.admin.updateUserById`, same precedent as
+    `create-user.ts`/the admin portal) — it had silently drifted from the documented
+    placeholder value at some earlier session's reseed/recreate.
+  **Verified:** `pnpm typecheck && pnpm lint` clean (all three cuts); `pnpm test -- --run`
+  265/269 (same 4 pre-existing anon-grant-drift RLS/live-integration failures documented
+  throughout this file, none touching this diff); `pnpm build` clean; `tools/pipeline`
   `ruff`/`mypy`/`pytest` all clean (129 passed, 1 skipped — untouched by this diff).
-  **Not verified:** live, on-device feel of the second cut — the stutter diagnosis came from
-  the owner watching the first cut live; this session still has no browser/device access to
-  confirm the fix directly (D-011-adjacent standing limitation, noted throughout this file).
-  **Next:** owner confirms the second cut actually removed the stutter and that duration
-  still reads as appropriately paced for near vs. far plot selections; retune
-  `FLY_TO_MAX_EFFORT_SCREENS` if not.
+  **Not verified:** live, on-device feel of cut 3 — both stutter reports came from the owner
+  watching it live; this session still has no browser/device access to confirm a fix directly
+  (a standing limitation noted throughout this file).
+  **Next:** owner confirms cut 3 actually removed the zoom-specific jitter, and that duration
+  still reads as appropriately paced for near vs. far plot selections.
 
 - **`.map-loading-overlay` had no `pointer-events: none`, so the map was genuinely
   unclickable for the whole ~4.5s splash reveal, even where the needle-shaped hole visibly
@@ -3503,6 +3513,15 @@ on a real phone. Not verified by anyone: the five visual behaviours in `## Curre
   doesn't consider focused, so the flight's own tick loop cannot be observed to advance
   regardless of what the code does. A future session hitting the same wall should not
   re-diagnose it as a code bug before checking `document.hidden` first.
+- **`canvasFlyTo.ts`'s `runOpenZoom`/`MAP_OPEN_ZOOM_MS`/`MAP_OPEN_ZOOM_EASE_POINTS` are dead
+  code, found 2026-09-12 while fixing click-to-focus zoom jitter.** D-044 deleted every
+  *caller* of the colony-open zoom (`useColonyOpenZoom.ts`, `ColonyCanvasLayer.openZoomTo`,
+  the `zoomingIn` plumbing end to end) but left `runOpenZoom` itself and its two constants in
+  place, unreferenced anywhere else in `apps/map/src` (confirmed by grep). Contradicts D-044's
+  own stated principle ("deleted completely instead" of keeping disabled code around). Not
+  removed this session — out of scope for the jitter fix and D-044 is Tier 2/3 territory
+  someone should confirm intent on first (was it left on purpose as a template for a future
+  attempt, or just missed?) before deleting.
 
 ## Backlog — owner-requested, not started
 
@@ -4656,29 +4675,36 @@ effort estimates below are for planning, not a commitment to build in this order
   typecheck/lint/build clean, re-run fresh at wrap time. Pushed `98dcaac` then `4043fc4` to
   `origin/master`; live confirmation still owner-pending.
 
-### 2026-09-12 — Click-to-focus zoom gets a variable duration (Tier 3, owner ask), first cut fixed for stutter same day
+### 2026-09-12 — Click-to-focus zoom gets a variable duration (Tier 3, owner ask), then a real zoom-jitter fix
 - Done: `canvasFlyTo.ts::runFlyTo`'s fixed 400ms animation replaced with `flyToDurationMs()`.
-  First cut scaled 400–2000ms off whichever was larger of the zoom-level delta or the pan
-  distance in screen-widths, pushed to `origin/master` (`13f7238`); owner reported it "does
-  not feel as smooth as before," confirmed as actual stutter. Root cause: the everyday
-  fit-view-to-plot tap always has a large zoom delta, which alone saturated the effort score
-  for nearly every selection — durations sat near the 2000ms ceiling instead of near the
-  floor, long enough to expose per-frame variance invisible at 400ms. Second cut drops zoom
-  delta from the formula; duration now scales on pan-in-screens alone
-  (`FLY_TO_MAX_EFFORT_SCREENS = 3`). `runCameraAnimation`'s duration param still takes either
-  a fixed number (`runOpenZoom`, unchanged) or that function (`runFlyTo`). Also reset the
-  local `demo` account's drifted password back to `demo-pass-123` via the admin API,
-  unrelated to the diff.
-- Next: owner to confirm the stutter is actually gone and duration still reads as
-  appropriately paced for near vs. far plot selections; retune
-  `FLY_TO_MAX_EFFORT_SCREENS` if not. Second cut not yet pushed.
-- Surprises: the first cut's own formula was the bug — zoom-level delta dominating effort
-  made the common case (not the rare one) hit the max duration, long enough to surface
-  frame-time variance as visible stutter that a 400ms flight had always been too brief to
-  expose.
-- Verified: `pnpm typecheck && pnpm lint` clean (both cuts); `pnpm test -- --run` 265/269,
-  same 4 pre-existing anon-grant-drift RLS failures, none touching this diff; `pnpm build`
-  clean; `tools/pipeline` ruff/mypy/pytest clean (129 passed, 1 skipped, untouched by this
-  diff). Not verified: live animation feel of the second cut — no browser/device access from
-  this environment; the stutter diagnosis came entirely from the owner watching the first cut
+  Cut 1 scaled 400–2000ms off whichever was larger of zoom-level delta or pan-in-screens,
+  pushed to `origin/master` (`13f7238`); owner reported it "does not feel as smooth as
+  before." Cut 2 (wrong diagnosis, kept anyway) assumed pacing: the everyday fit-view-to-plot
+  tap always has a large zoom delta, which alone saturated the effort score for nearly every
+  selection, so duration dropped zoom delta and scales on pan-in-screens alone
+  (`FLY_TO_MAX_EFFORT_SCREENS = 3`), pushed (`fe0acb5`). Owner, watching that live: "i can see
+  the problem the zooming causes the jitter panning is smooth" — the real bug. Cut 3: ground/
+  road/roadEdge are `CanvasPattern` fills painted under `drawColony.ts`'s `ctx.scale(k, k)`;
+  `k` changes every frame during ANY flight but is constant during a pan, and re-rasterizing a
+  tiled pattern at a new scale every frame is real per-frame cost a translated blit never
+  pays. `colonyCanvasLayer.ts::_render()` now passes `null` for those three while
+  `_flyToActive` is true (drawColony's existing flat-colour fallback), and
+  `canvasFlyTo.ts`'s `onComplete` renders once more right after clearing the flag so the
+  settled frame isn't left textureless. Also reset the local `demo` account's drifted
+  password back to `demo-pass-123` via the admin API, unrelated to the diff.
+- Next: owner to confirm cut 3 actually removed the zoom-specific jitter and duration still
+  reads as appropriately paced for near vs. far plot selections. Cut 3 not yet pushed.
+- Surprises: two separate wrong-then-right diagnoses in one session. Cut 1's own formula
+  really was a bug (zoom delta dominating effort made the common case, not the rare one, hit
+  the max duration) but fixing it (cut 2) didn't touch the actual stutter, which turned out to
+  be a real render-cost asymmetry between pattern-fills-under-scale (zoom) and blits
+  (pan) — already known and accepted for native pinch/scroll zoom (this layer's own header
+  comment: "40fps on discrete zoom steps" vs. "60fps on animated zoom and pan") but newly
+  exposed here because a scripted flight had never run long enough (400ms) for it to be
+  visible before cut 1 made flights longer.
+- Verified: `pnpm typecheck && pnpm lint` clean (all three cuts); `pnpm test -- --run`
+  265/269, same 4 pre-existing anon-grant-drift RLS failures, none touching this diff;
+  `pnpm build` clean; `tools/pipeline` ruff/mypy/pytest clean (129 passed, 1 skipped,
+  untouched by this diff). Not verified: live animation feel of cut 3 — no browser/device
+  access from this environment; both stutter reports came entirely from the owner watching
   live.

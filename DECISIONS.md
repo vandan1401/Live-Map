@@ -55,6 +55,7 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-042 | Colony-open zoom-in animates a frozen snapshot of the DESTINATION frame via CSS `transform: scale()`, not the real camera every frame — D-035's click-to-focus engine (400ms, live-interactive) is unaffected | reverted by D-043 |
 | D-043 | Colony-open zoom-in drives Leaflet's own native animated `setView` (`leaflet-zoom-animated` class + `duration`/`easeLinearity`) — the same mechanism an ordinary user-driven zoom already uses on this map — replacing both D-041's per-frame camera engine and D-042's snapshot overlay, per the owner's explicit direction after D-042 shipped a real device-only bug | superseded by D-044 |
 | D-044 | The colony-open map-side zoom is removed entirely — the map renders its real final view from the first frame and never moves; only `MapLoadingScreen.tsx`'s own splash animation (unchanged) still animates | accepted |
+| D-045 | A camera flight (click-to-focus/colony-open) skips ground/road/roadEdge `CanvasPattern` textures, falling back to flat theme colours, and restores them on one extra render right after the flight settles | accepted |
 
 ## tools/pipeline
 
