@@ -141,15 +141,27 @@ async function loadColonies() {
         setStatus(err.message, true);
       }
     });
+    const backdropButton = document.createElement("button");
+    backdropButton.textContent = "Backdrop";
+    const backdropRow = buildBackdropRow(colony);
+    backdropRow.hidden = true;
+    backdropButton.addEventListener("click", () => {
+      backdropRow.hidden = !backdropRow.hidden;
+    });
     actionsTd.appendChild(genButton);
     actionsTd.appendChild(revokeButton);
+    actionsTd.appendChild(backdropButton);
     tr.appendChild(nameTd);
     tr.appendChild(verifiedTd);
     tr.appendChild(linkTd);
     tr.appendChild(actionsTd);
     tbody.appendChild(tr);
+    tbody.appendChild(backdropRow);
   }
 }
+
+// docs/plans/29.md: buildBackdropRow/readImageDimensions/readFileAsBase64 moved to
+// backdropEditor.js (invariant 7) — loaded before this file in index.html.
 
 document.getElementById("create-org-form").addEventListener("submit", async (event) => {
   event.preventDefault();

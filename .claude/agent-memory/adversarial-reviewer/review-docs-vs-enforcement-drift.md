@@ -177,6 +177,18 @@ Three checks that have each caught a real defect:
     the whole row, and treat any word like "only"/"single"/"never" in it as an assertion the
     diff must be checked against.**
 
+18. **2026-09-12 (plan 29) — a NAVIGATION.md row documenting a function the diff deleted.**
+    Row 268 still describes `resolveMapBackdrop(colonyId, surface)` and its whole mechanism
+    ("a hand-written map joining a statically-imported image `assets/backdrops/<id>.jpg` with
+    its `config/mapBackdrop.json` entry"), after the diff replaced it with
+    `resolveMapBackdropFromRow(client, row, surface)` reading Storage + `colonies.backdrop_*`.
+    Same diff also left `## Backlog` item 6 unstruck though it shipped it (item 1 above it
+    shows the `~~…~~ **Done <date>**` convention), and added no `NAVIGATION.md` row for the new
+    `lib/colony/colonyBackdrop.ts` or the two new admin-portal routes. **Rule: any diff that
+    renames or deletes an exported function must grep `NAVIGATION.md` for the old name —
+    a stale row is worse than a missing one, because it tells the next session to call
+    something that no longer exists.**
+
 **How to apply:** on any review that touches `CLAUDE.md`, `.claude/settings.json`, or a
 skill file, open `.claude/hooks/guard.sh` and `_json.sh` and check the greps in the same
 pass. This has now recurred ten times — worth a CLAUDE.md line or a guard.sh self-test.

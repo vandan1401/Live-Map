@@ -18,6 +18,14 @@ error. On plan 25 that meant a public visitor tapping a plot would see a panel w
 heading and " ft / ft / sq ft". `tsc` cannot see this: the type says the fields are
 non-optional strings/numbers. Same family as [[review-optimistic-defaults]].
 
+**Recurrence:** 2026-09-12 (plan 29) — the same gap again, and it had already been a `/review`
+finding once (PROGRESS.md's own log: "**/review found 5 issues** … (1) real gap — no
+`## Deferred` entry"). Both new migrations (`20260912000000_colony_backdrop_storage.sql`,
+`20260912010000_public_link_backdrop.sql`) appear only in `## Current`/`## Log` prose; the
+`## Deferred` section, which carries a dedicated entry per pending migration (see the M20
+zoom-ref one, still open there), was not touched. `## Current` gets rewritten by the next
+session's work; `## Deferred` is the list that survives.
+
 **How to apply:** for any migration touching a function the app already calls in
 production, (1) grep PROGRESS.md for the new migration's filename — if it is absent from
 `## Deferred`, that is the finding, with "add the entry in the same shape as the M16/M17

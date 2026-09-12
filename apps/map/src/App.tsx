@@ -163,6 +163,7 @@ function App() {
         colonySvg={selectedColony.svg}
         selectZoomRefWidthPx={selectedColony.select_zoom_ref_width_px ?? null}
         selectZoomRefHeightPx={selectedColony.select_zoom_ref_height_px ?? null}
+        colonyBackdropFields={selectedColony}
         onBack={() => setSelectedColonyId(null)}
       />
       {showSplash && (

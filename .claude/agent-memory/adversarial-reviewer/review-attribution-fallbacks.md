@@ -89,6 +89,18 @@ Occurrences so far:
    a credit gated on a proxy (labels exist) rather than on the obligation's cause (the asset
    is derived) is the same defect as a `?? "unknown"`: it looks like provenance and isn't.**
 
+10. 2026-09-12 (plan 29, backdrop moves to Storage + DB) — #9's prediction came true one plan
+    later, structurally. The ODbL credit stopped being a checked-in string and became
+    `colonies.backdrop_attribution text not null default ''` — and **nothing can write it**:
+    `uploadColonyBackdropImage` sets 3 columns, `updateColonyBackdropTransform` sets 7, the
+    admin-portal form has 7 inputs, `ColonyInsert` is unchanged. The diff deletes the real
+    credit string from `mapBackdrop.json` in the same commit, so every backdrop from then on
+    renders `<p class="...-attribution"></p>` empty while the OSM-derived raster and labels
+    render fine. **Rule: when a diff moves a credit/provenance value from a checked-in file
+    into a column, trace a write path for that specific column — a `default ''` plus a
+    seven-field form is a silent deletion, and the plan's own "values to re-enter after the
+    regression window" list is where the omission shows up first.**
+
 **How to apply:** the fix is always the same — make the guarantee structural (pass the actor
 as a required prop from the component that already enforces it) or refuse the write. Related:
 [[review-vacuous-acceptance-tests]], [[review-gitignored-provenance]].

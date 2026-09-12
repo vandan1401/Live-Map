@@ -1,34 +1,37 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+import { resolveMapBackdropFromRow, type ColonyBackdropFields } from "./mapBackdrops.ts";
 
-// Own file, not mapBackdrops.test.ts -- vi.mock's module replacement is file-scoped, and
-// mapBackdrops.test.ts's other tests need the real checked-in mapBackdrop.json (asserting
-// real bharatkshetra field values), which this mock would otherwise shadow for the whole
-// file. Covers the enabledOnAdmin/enabledOnPublic gate added alongside admin backdrop
-// parity (docs/plans/28.md Backlog #1, 2026-09-09) -- the real config has no colony with
-// either flag false yet, so that branch needs a fixture, not the shipped data.
-vi.mock("../../config/mapBackdrop.json", () => ({
-  default: {
-    bharatkshetra: {
-      transform: { x: 0, y: 0, scale: 1, rotateDeg: 0 },
-      imageWidth: 100,
-      imageHeight: 100,
-      darkenAlpha: 0.5,
-      enabledOnAdmin: false,
-      enabledOnPublic: true,
-      attribution: "",
-      labels: [],
+// docs/plans/29.md: covers the enabledOnAdmin/enabledOnPublic gate (docs/plans/28.md
+// Backlog #1, 2026-09-09) against an explicit fixture row — one flag false, the other true.
+function fakeClient() {
+  return {
+    storage: {
+      from: () => ({ getPublicUrl: () => ({ data: { publicUrl: "https://example.test/x.jpg" } }) }),
     },
-  },
-}));
+  } as unknown as Parameters<typeof resolveMapBackdropFromRow>[0];
+}
 
-const { resolveMapBackdrop } = await import("./mapBackdrops.ts");
+const ROW: ColonyBackdropFields = {
+  id: "bharatkshetra",
+  backdrop_storage_path: "bharatkshetra.jpg",
+  backdrop_image_width: 100,
+  backdrop_image_height: 100,
+  backdrop_transform_x: 0,
+  backdrop_transform_y: 0,
+  backdrop_transform_scale: 1,
+  backdrop_transform_rotate_deg: 0,
+  backdrop_darken_alpha: 0.5,
+  backdrop_enabled_on_admin: false,
+  backdrop_enabled_on_public: true,
+  backdrop_attribution: "",
+};
 
-describe("resolveMapBackdrop — per-surface on/off", () => {
+describe("resolveMapBackdropFromRow — per-surface on/off", () => {
   it("returns null on the surface whose flag is false", () => {
-    expect(resolveMapBackdrop("bharatkshetra", "admin")).toBeNull();
+    expect(resolveMapBackdropFromRow(fakeClient(), ROW, "admin")).toBeNull();
   });
 
   it("still returns the backdrop on the surface whose flag is true", () => {
-    expect(resolveMapBackdrop("bharatkshetra", "public")).not.toBeNull();
+    expect(resolveMapBackdropFromRow(fakeClient(), ROW, "public")).not.toBeNull();
   });
 });

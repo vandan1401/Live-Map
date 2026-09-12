@@ -101,6 +101,18 @@ describe("get_public_colony — live integration", () => {
         // docs/plans/26.md: the owner-drawn COL-ZOOM-REF extent, pure geometry.
         select_zoom_ref_width_px: 234,
         select_zoom_ref_height_px: 416,
+        // docs/plans/29.md: this scratch colony never uploaded a backdrop — every column is
+        // at its migration-time default (null image fields, 0/1/0/0/false/"" the rest).
+        backdrop_storage_path: null,
+        backdrop_image_width: null,
+        backdrop_image_height: null,
+        backdrop_transform_x: 0,
+        backdrop_transform_y: 0,
+        backdrop_transform_scale: 1,
+        backdrop_transform_rotate_deg: 0,
+        backdrop_darken_alpha: 0,
+        backdrop_enabled_on_public: false,
+        backdrop_attribution: "",
       },
       // docs/plans/25.md: block/number/area_sqft/length_ft/breadth_ft — pure geometry,
       // never PII/money (see the forbidden-column loop below, unchanged).
@@ -132,6 +144,8 @@ describe("get_public_colony — live integration", () => {
       "version",
       "Real Buyer",
       "Real Broker",
+      // docs/plans/29.md: the admin-only backdrop flag must never reach an anonymous caller.
+      "backdrop_enabled_on_admin",
     ]) {
       expect(serialized).not.toContain(forbidden);
     }

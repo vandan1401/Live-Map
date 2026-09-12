@@ -1,8 +1,8 @@
 - [Autonomous skill loop](project-autonomous-loop.md) — approval gates removed on purpose; flag the fallout, not the decision.
 - [Review diff blind spots](review-diff-blind-spots.md) — 6x: `diff-head` hides untracked files and sweeps in unplanned work; (6) one `??` helper two tracked files import. `git status --short` first.
-- [Docs vs enforcement drift](review-docs-vs-enforcement-drift.md) — 17x: docs claim a guarantee the runtime lacks; (17) a NAVIGATION.md row edited in the same diff that broke its own "only place" clause.
+- [Docs vs enforcement drift](review-docs-vs-enforcement-drift.md) — 18x: docs claim a guarantee the runtime lacks; (18) a NAVIGATION.md row still documenting a function the diff deleted.
 - [Contract widening consumers](review-contract-widening-consumers.md) — 5x: widening a value's *meaning* breaks its old readers; (5) `fitZoomRef` repointed at a padded fit, silently moving the plot-label threshold.
-- [Line-cap breaches](review-line-cap-breaches.md) — 7x: `filesize.sh` is advisory, oxlint has no `max-lines`; the 3 canvas files now sit at 250/249/248 — 0-2 lines of headroom. `wc -l` first.
+- [Line-cap breaches](review-line-cap-breaches.md) — 8x: `filesize.sh` is advisory, oxlint has no `max-lines`; (8) `admin-portal/server.ts` 273 + `portal.js` 315, files nobody was watching. `wc -l` every path in the plan.
 - [Vacuous acceptance tests](review-vacuous-acceptance-tests.md) — 17x: tests passing for the wrong reason; (17) a call-recording stub that records the call but discards the argument the bug lived in.
 - [Prod migration deploy order](review-prod-migration-deploy-order.md) — RPC results are unchecked `as` casts and prod lags local; a return-shape change with no PROGRESS.md pending entry renders blanks.
 - [Migrations run on an empty DB](review-migration-empty-db-blind-spot.md) — `db reset` replays migrations before any seed, so triggers/nullability/constraints over existing rows are untestable locally.
@@ -10,7 +10,8 @@
 - [Constants invented outside the plan](review-unpinned-constants.md) — 2x: unpinned constants beside pinned ones; (2) `VIGNETTE_FADE_RANGE` cites a prototype whose real value is 0.678, not 1.2.
 - [Prototype envelope mismatch](review-prototype-envelope-mismatch.md) — 6 findings on one function; CLOSED at pass 7, geometry+constants re-derived independently. Don't re-litigate.
 - [Gitignored provenance](review-gitignored-provenance.md) — `/experiments/` + `out/` gitignored yet cited as source-of-truth; the D-036 "durable copy" rescued 2 of the cited files, not all. `git check-ignore -v`.
-- [Attribution fallbacks](review-attribution-fallbacks.md) — 9x: `??` placeholders, bogus `confidence`, self-writable JWT claim; (9) an ODbL credit naming the labels while the *raster* is the OSM-derived work.
+- [Attribution fallbacks](review-attribution-fallbacks.md) — 10x: `??` placeholders, bogus `confidence`, self-writable JWT claim; (10) the ODbL credit moved to a `default ''` column with no write path anywhere.
+- [Unstable effect deps](review-unstable-effect-deps.md) — an object literal built in render, threaded into a canvas hook's mount effect, remounts Leaflet every render; no lint rule catches it.
 - [Fixture geometry unchecked](review-fixture-geometry-unchecked.md) — 3x: nothing checks overlap, viewBox drift, or derived `facing`/`is_corner`; recompute them from `colony.svg` yourself.
 - [Fixture plot-count drift](review-fixture-plot-count-drift.md) — the fixture's plot count is a literal in ~8 spec/README files; grep the old count on any fixture change.
 - [Comments assert what code doesn't do](review-comment-asserts-unimplemented.md) — 15x: intent comments the code doesn't deliver; (15) a fix applied at the call site left the *exported* function's comment promising pre-fix behaviour.

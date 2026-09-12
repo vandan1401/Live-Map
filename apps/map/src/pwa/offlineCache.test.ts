@@ -37,6 +37,17 @@ describe("offlineCache", () => {
         svg: "<svg></svg>",
         created_at: new Date("2020-01-01").toISOString(),
         public_token: null,
+        backdrop_storage_path: null,
+        backdrop_image_width: null,
+        backdrop_image_height: null,
+        backdrop_transform_x: 0,
+        backdrop_transform_y: 0,
+        backdrop_transform_scale: 1,
+        backdrop_transform_rotate_deg: 0,
+        backdrop_darken_alpha: 0,
+        backdrop_enabled_on_admin: false,
+        backdrop_enabled_on_public: false,
+        backdrop_attribution: "",
       },
     ];
 

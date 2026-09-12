@@ -1,6 +1,7 @@
 import { useEffect, useRef, type RefObject } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { parseColonyModel, type ColonyModel } from "./colonyModel.ts";
 import { resolveColonyTheme } from "./colonyTheme.ts";
 import { applyStatusColorOverrides } from "./applyPresentationColors.ts";
@@ -13,6 +14,7 @@ import { colonyLatLngBounds, ZOOM_DETAIL_MARGIN } from "./view.ts";
 import { loadGrass } from "./loadGrass.ts";
 import { attachMapBackdrop, applyBackdropMinZoom, resolveBackdropFit } from "./useMapBackdrop.ts";
 import type { MapBackdropController } from "./useMapBackdrop.ts";
+import type { ColonyBackdropFields } from "./mapBackdrops.ts";
 
 // The public link's counterpart to useColonyCanvas.ts (owner ask, 2026-09-01: "exactly copy
 // colony owners ui" for the public link — real pan/zoom, fly-to-plot on selection, and the
@@ -35,6 +37,7 @@ import type { MapBackdropController } from "./useMapBackdrop.ts";
 
 interface Args {
   containerRef: RefObject<HTMLDivElement | null>;
+  client: SupabaseClient;
   colonyId: string | null; // docs/plans/27.md — null falls back to presentation.json's default
   svg: string | null;
   statuses: Record<string, string>;
@@ -44,11 +47,14 @@ interface Args {
   // docs/plans/26.md — COL-ZOOM-REF extent; null/null falls back to the fixed SELECT_ZOOM.
   selectZoomRefWidthPx: number | null;
   selectZoomRefHeightPx: number | null;
+  // docs/plans/29.md: get_public_colony()'s backdrop_* fields, already loaded alongside svg
+  // above — no separate fetch.
+  colonyBackdropFields: ColonyBackdropFields | null;
   backdropVignetteRef?: RefObject<HTMLDivElement | null>; // absent/null: useMapBackdrop.ts no-ops
 }
 
 export function usePublicColonyCanvas(args: Args): void {
-  const { containerRef, colonyId, svg, selectedId, onSelect, backdropVignetteRef } = args;
+  const { containerRef, client, colonyId, svg, selectedId, onSelect, colonyBackdropFields, backdropVignetteRef } = args;
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<ColonyCanvasLayer | null>(null);
   const modelRef = useRef<ColonyModel | null>(null);
@@ -95,7 +101,7 @@ export function usePublicColonyCanvas(args: Args): void {
     applyStatusColorOverrides(colonyId ?? undefined);
     const theme = resolveColonyTheme();
     const dimensionConfig = resolvePresentationConfig(colonyId ?? undefined).dimension;
-    const { backdrop, bounds, minZoom } = resolveBackdropFit(colonyId, "public", model);
+    const { backdrop, bounds, minZoom } = resolveBackdropFit(client, colonyBackdropFields, "public", model);
 
     const map = L.map(el, {
       crs: L.CRS.Simple,
@@ -212,7 +218,7 @@ export function usePublicColonyCanvas(args: Args): void {
       modelRef.current = null;
       map.remove();
     };
-  }, [containerRef, colonyId, svg, onSelect, backdropVignetteRef]);
+  }, [containerRef, client, colonyId, svg, colonyBackdropFields, onSelect, backdropVignetteRef]);
 
   // Selection, status and dimension changes all repaint without remounting the map — same
   // split useColonyCanvas.ts makes between its mount effect and this one.

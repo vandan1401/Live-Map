@@ -78,6 +78,17 @@ pytest config. Recommend this fix without hedging.
   them. The next feature that threads through a mount effect breaches on its first line.
   Say this out loud on the next plan that names any of them.*
 
+- 2026-09-12 (plan 29, backdrop upload): **a new pair of files, both breached in one diff** —
+  `apps/map/admin-portal/server.ts` **217 → 273** and `apps/map/admin-portal/static/portal.js`
+  **193 → 315**. Neither had ever been near the cap, so nobody was watching them; the plan's
+  §2 tasks D and E name both by path and its acceptance criteria never say `wc -l`. The
+  canvas files it *did* watch stayed fine (244/237/193). **Rule: the cap risk is wherever the
+  plan adds a new UI surface, not only in the files a previous breach taught you to watch —
+  `wc -l` every path in the plan's task list, including `admin-portal/**`, which filesize.sh
+  covers (`*.ts|*.js`) but no gate step measures.** Smallest fix: the two routes into a
+  sibling module (`admin-portal/backdropRoutes.ts`) and `buildBackdropRow`/`readImageDimensions`/
+  `readFileAsBase64` into `static/backdropEditor.js`.
+
 Note the residual: `test_export.py` (304) and `test_matching.py` (264) are *already* over the
 cap and every plan that adds a `ColonyConfig` field grows them by a line. Not worth flagging
 per-diff; worth flagging when a diff adds a whole test to one of them.

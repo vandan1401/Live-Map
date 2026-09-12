@@ -6,7 +6,12 @@
 verify: verify-map verify-pipe
 
 db-start:  ## local Supabase stack (Docker must already be running); excludes services this app doesn't need
-	cd apps/map && npx -y supabase start --exclude storage-api,imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+	# storage-api dropped from this exclude list 2026-09-12 (docs/plans/29.md) — the colony
+	# backdrop feature is this app's first real use of Storage. imgproxy stays excluded: no
+	# on-the-fly image transform is ever requested (drawBackdrop.ts always renders the raw
+	# uploaded JPEG), only Storage's own upload/getPublicUrl/download, which imgproxy is not
+	# needed for.
+	cd apps/map && npx -y supabase start --exclude imgproxy,mailpit,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
 
 db-restart:  ## full stop+start — required for supabase/config.toml edits to take effect (a plain `db-start` on an already-running stack silently keeps stale container env vars; bit twice now, M5's service-exclusion flags and M8's [auth] block)
 	cd apps/map && npx -y supabase stop

@@ -52,6 +52,21 @@ export interface ColonyRow extends Omit<ColonyInsert, "svg"> {
   // insert path writes this; it starts null and is set later, service-role-only, by
   // scripts/generate-public-link.ts.
   public_token: string | null;
+  // docs/plans/29.md: the backdrop raster + its alignment, uploaded via the admin portal —
+  // never set on ColonyInsert, every colony gets these via column defaults at creation and
+  // a later admin-portal update, never at insert. backdrop_storage_path/image_width/
+  // image_height stay null until a first upload; every other field has a real DB default.
+  backdrop_storage_path: string | null;
+  backdrop_image_width: number | null;
+  backdrop_image_height: number | null;
+  backdrop_transform_x: number;
+  backdrop_transform_y: number;
+  backdrop_transform_scale: number;
+  backdrop_transform_rotate_deg: number;
+  backdrop_darken_alpha: number;
+  backdrop_enabled_on_admin: boolean;
+  backdrop_enabled_on_public: boolean;
+  backdrop_attribution: string;
 }
 
 export interface PlotInsert {
@@ -177,6 +192,8 @@ export type CreateColonyResult =
 // re-derived. Still never any PII/money field — see get_public_colony()'s own comment.
 // docs/plans/26.md: select_zoom_ref_width_px/select_zoom_ref_height_px added to `colony` —
 // same nullable-numeric type ColonyRow already uses for these columns.
+// docs/plans/29.md: backdrop_* added — same types as ColonyRow, except NO
+// backdrop_enabled_on_admin (get_public_colony() withholds it by design).
 export type PublicColonyResult =
   | { found: false }
   | {
@@ -187,6 +204,16 @@ export type PublicColonyResult =
         svg: string;
         select_zoom_ref_width_px: number | null;
         select_zoom_ref_height_px: number | null;
+        backdrop_storage_path: string | null;
+        backdrop_image_width: number | null;
+        backdrop_image_height: number | null;
+        backdrop_transform_x: number;
+        backdrop_transform_y: number;
+        backdrop_transform_scale: number;
+        backdrop_transform_rotate_deg: number;
+        backdrop_darken_alpha: number;
+        backdrop_enabled_on_public: boolean;
+        backdrop_attribution: string;
       };
       plots: {
         svg_id: string;

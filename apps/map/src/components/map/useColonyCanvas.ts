@@ -16,6 +16,7 @@ import { colonyLatLngBounds, ZOOM_DETAIL_MARGIN } from "./view.ts";
 import { loadGrass } from "./loadGrass.ts";
 import { useCornerPlots } from "./useCornerPlots.ts";
 import { attachMapBackdrop, applyBackdropMinZoom, resolveBackdropFit, type MapBackdropController } from "./useMapBackdrop.ts";
+import type { ColonyBackdropFields } from "./mapBackdrops.ts";
 import { applyStatusVisibility } from "../../shared/plotStatusVisibility.ts";
 
 // Leaflet init, the canvas layer, attachSync's subscription, picking and the transition
@@ -31,6 +32,9 @@ interface Args {
   // so the fly-to-plot effect falls back to the fixed SELECT_ZOOM constant.
   selectZoomRefWidthPx: number | null;
   selectZoomRefHeightPx: number | null;
+  // docs/plans/29.md: the colonies row's backdrop_* columns, already loaded alongside
+  // colonySvg above — no separate fetch. null only when App.tsx has no row at all.
+  colonyBackdropFields: ColonyBackdropFields | null;
   selectedId: string | null;
   activeStatuses: ReadonlySet<string>;
   showStatus: boolean; // StatusToggle.tsx, ColonyMap.tsx
@@ -56,6 +60,7 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
     colonySvg,
     selectZoomRefWidthPx,
     selectZoomRefHeightPx,
+    colonyBackdropFields,
     selectedId,
     activeStatuses,
     showStatus,
@@ -125,7 +130,7 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
     const theme = resolveColonyTheme();
     const dimensionConfig = resolvePresentationConfig(colonyId).dimension;
     // docs/plans/28.md Backlog #1 — shared with usePublicColonyCanvas.ts.
-    const { backdrop, bounds, minZoom } = resolveBackdropFit(colonyId, "admin", model);
+    const { backdrop, bounds, minZoom } = resolveBackdropFit(client, colonyBackdropFields, "admin", model);
     const map = L.map(el, {
       crs: L.CRS.Simple,
       minZoom, // fitBounds below -> applyBackdropMinZoom refines when there's a backdrop
@@ -223,7 +228,7 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
       modelRef.current = null;
       map.remove();
     };
-  }, [client, colonyId, colonySvg, containerRef, onSelect, args.setOffline, args.setFreshnessLabel, backdropVignetteRef]);
+  }, [client, colonyId, colonySvg, colonyBackdropFields, containerRef, onSelect, args.setOffline, args.setFreshnessLabel, backdropVignetteRef]);
 
   // Selection, legend filter, and the status toggle all repaint, without remounting the map.
   useEffect(() => {

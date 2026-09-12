@@ -1,7 +1,13 @@
 import type L from "leaflet";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ColonyCanvasLayer } from "./colonyCanvasLayer.ts";
 import type { ColonyModel } from "./colonyModel.ts";
-import { resolveMapBackdrop, type MapBackdrop, type MapBackdropSurface } from "./mapBackdrops.ts";
+import {
+  resolveMapBackdropFromRow,
+  type ColonyBackdropFields,
+  type MapBackdrop,
+  type MapBackdropSurface,
+} from "./mapBackdrops.ts";
 import { loadMapBackdropImage } from "./loadMapBackdrop.ts";
 import { createBackdropLabelLayer } from "./mapBackdropLabels.ts";
 import { backdropCoveredWorldBounds } from "./mapBackdropTransform.ts";
@@ -79,8 +85,13 @@ export interface BackdropFit {
 // (padded bounds + the generous placeholder minZoom vs. the plain tight-fit ones), so
 // neither hook duplicates this branching (both were independently at risk of invariant 7's
 // 250-line cap once admin gained backdrop parity, 2026-09-09).
-export function resolveBackdropFit(colonyId: string | null, surface: MapBackdropSurface, model: ColonyModel): BackdropFit {
-  const backdrop = resolveMapBackdrop(colonyId, surface);
+export function resolveBackdropFit(
+  client: SupabaseClient,
+  row: ColonyBackdropFields | null,
+  surface: MapBackdropSurface,
+  model: ColonyModel,
+): BackdropFit {
+  const backdrop = resolveMapBackdropFromRow(client, row, surface);
   return {
     backdrop,
     bounds: backdrop

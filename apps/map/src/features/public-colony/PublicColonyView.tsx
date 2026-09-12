@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { loadPublicColony } from "../../lib/colony/publicColony.ts";
 import { usePublicColonyCanvas } from "../../components/map/usePublicColonyCanvas.ts";
-import { resolveMapBackdrop } from "../../components/map/mapBackdrops.ts";
+import { resolveMapBackdropFromRow, type ColonyBackdropFields } from "../../components/map/mapBackdrops.ts";
 import { resolvePublicLinkStatusToggle } from "../../lib/colony/publicLinkConfig.ts";
 import { MapLoadingScreen } from "../../components/MapLoadingScreen.tsx";
 import { StatusToggle } from "../../components/StatusToggle.tsx";
@@ -91,15 +91,28 @@ export function PublicColonyView({ client, token }: Props) {
   for (const plot of found?.plots ?? []) rawStatuses[plot.svg_id] = plot.status;
   const statuses = applyStatusVisibility(rawStatuses, toggleOffered && statusRevealed);
   const selectedPlot = found?.plots.find((plot) => plot.svg_id === selectedId) ?? null;
-  // docs/plans/28.md, D-036: null for every colony without a mapBackdrop.json entry —
+  // docs/plans/29.md: get_public_colony() never returns backdrop_enabled_on_admin (withheld
+  // by design, docs/plans/29.md §3) — false here is a harmless placeholder, never read since
+  // resolveMapBackdropFromRow only consults it for surface "admin".
+  // useMemo keyed on `found` (not recomputed on every render — `found` is only a new
+  // reference when `result` state itself changes, i.e. a real fetch/retry, never on
+  // selectedId/statusRevealed/splashDone changes) — without this, a fresh object literal
+  // every render fed usePublicColonyCanvas's mount-effect dependency array below, remounting
+  // the whole Leaflet map (losing pan/zoom) on every plot tap (/review finding, 2026-09-12).
+  const colonyBackdropFields: ColonyBackdropFields | null = useMemo(
+    () => (found ? { ...found.colony, backdrop_enabled_on_admin: false } : null),
+    [found],
+  );
+  // docs/plans/28.md, D-036: null for every colony without a live public backdrop —
   // decides whether the vignette/attribution below render at all.
-  const backdrop = resolveMapBackdrop(found?.colony.id ?? null, "public");
+  const backdrop = resolveMapBackdropFromRow(client, colonyBackdropFields, "public");
   const dimensions = selectedPlot
     ? { plotId: selectedPlot.svg_id, lengthFt: selectedPlot.length_ft, breadthFt: selectedPlot.breadth_ft }
     : null;
 
   usePublicColonyCanvas({
     containerRef,
+    client,
     colonyId: found?.colony.id ?? null,
     svg: found?.colony.svg ?? null,
     statuses,
@@ -108,6 +121,7 @@ export function PublicColonyView({ client, token }: Props) {
     onSelect: useCallback((svgId: string | null) => setSelectedId(svgId), []),
     selectZoomRefWidthPx: found?.colony.select_zoom_ref_width_px ?? null,
     selectZoomRefHeightPx: found?.colony.select_zoom_ref_height_px ?? null,
+    colonyBackdropFields,
     backdropVignetteRef,
   });
 

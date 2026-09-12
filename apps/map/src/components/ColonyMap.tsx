@@ -11,7 +11,7 @@ import { FreshnessIndicator } from "./FreshnessIndicator.tsx";
 import { StatusLegend } from "./StatusLegend.tsx";
 import { StatusToggle } from "./StatusToggle.tsx";
 import { useColonyCanvas } from "./map/useColonyCanvas.ts";
-import { resolveMapBackdrop } from "./map/mapBackdrops.ts";
+import { resolveMapBackdropFromRow, type ColonyBackdropFields } from "./map/mapBackdrops.ts";
 
 interface Props {
   // From App.tsx's single app-lifetime client (docs/plans/09.md) — no longer created
@@ -34,6 +34,9 @@ interface Props {
   // no such rectangle; useColonyCanvas then falls back to its fixed default zoom.
   selectZoomRefWidthPx: number | null;
   selectZoomRefHeightPx: number | null;
+  // docs/plans/29.md: the same already-loaded colony row's backdrop_* columns — no
+  // separate fetch, same precedent as selectZoomRefWidthPx/HeightPx above.
+  colonyBackdropFields: ColonyBackdropFields | null;
   // Returns to the colony picker (owner feedback, 2026-08-15 iPhone session: opening a
   // colony was previously one-way). App.tsx owns selectedColonyId and clears it here.
   onBack: () => void;
@@ -46,6 +49,7 @@ export function ColonyMap({
   colonySvg,
   selectZoomRefWidthPx,
   selectZoomRefHeightPx,
+  colonyBackdropFields,
   onBack,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -72,9 +76,25 @@ export function ColonyMap({
 
   // docs/plans/27.md — per-colony status display names, resolved once per colonyId.
   const { statusLabels } = resolvePresentationConfig(colonyId);
+  // App.tsx's `colonies.find(...)` (docs/plans/29.md) returns a fresh-but-equal ColonyRow
+  // object on every reconnect refetch (useColonyList.ts). A useMemo keyed on the individual
+  // scalar fields (rather than [colonyBackdropFields] itself) would fix that churn, but
+  // trips react-hooks/exhaustive-deps by design — a manual compare-and-cache in a ref avoids
+  // the lint fight entirely while doing the same job: stop that churn from reaching
+  // useColonyCanvas.ts's mount-effect dependency array and remounting the map on a reconnect
+  // while a colony is open (/review finding, 2026-09-12).
+  const backdropFieldsRef = useRef<{ signature: string; value: ColonyBackdropFields | null }>({
+    signature: "",
+    value: null,
+  });
+  const backdropFieldsSignature = colonyBackdropFields ? JSON.stringify(colonyBackdropFields) : "";
+  if (backdropFieldsRef.current.signature !== backdropFieldsSignature) {
+    backdropFieldsRef.current = { signature: backdropFieldsSignature, value: colonyBackdropFields };
+  }
+  const stableColonyBackdropFields = backdropFieldsRef.current.value;
   // docs/plans/28.md Backlog #1: null for every colony without an enabledOnAdmin backdrop
   // entry — decides whether the vignette/attribution below render at all.
-  const backdrop = resolveMapBackdrop(colonyId, "admin");
+  const backdrop = resolveMapBackdropFromRow(client, stableColonyBackdropFields, "admin");
 
   // Leaflet (pan/zoom only, D-009), the canvas layer, attachSync's subscription, picking
   // and the 400ms status fade all live in useColonyCanvas.ts — the canvas renderer that
@@ -87,6 +107,7 @@ export function ColonyMap({
     colonySvg,
     selectZoomRefWidthPx,
     selectZoomRefHeightPx,
+    colonyBackdropFields: stableColonyBackdropFields,
     selectedId,
     activeStatuses,
     showStatus,

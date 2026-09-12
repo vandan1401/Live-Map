@@ -2,6 +2,109 @@
 
 ## Current
 
+- **Colony backdrop image + alignment now uploadable via the admin portal, not a code
+  change (2026-09-12, Tier 1, docs/plans/29.md, PROGRESS.md Backlog item 6).** Replaced the
+  Vite-static-import (`bharatkshetraBackdropUrl`) + checked-in-JSON (`mapBackdrop.json`'s
+  `transform`/`imageWidth`/etc.) mechanism with a Supabase Storage raster
+  (`colony-backdrops` bucket, `<colonyId>.jpg`, public) plus 11 new `colonies.backdrop_*`
+  columns as alignment metadata (two migrations:
+  `20260912000000_colony_backdrop_storage.sql`, `20260912010000_public_link_backdrop.sql`
+  — the latter adds the 10 non-admin backdrop fields to `get_public_colony()`'s hand-written
+  column list). New `lib/colony/colonyBackdrop.ts` (`uploadColonyBackdropImage`/
+  `updateColonyBackdropTransform`/`isJpegBuffer`) is called from two new admin-portal routes
+  (`POST /api/colonies/:id/backdrop-image`, `PATCH /api/colonies/:id/backdrop`) and a new
+  inline per-colony-row editor in `admin-portal/static/{index.html,portal.js}` — plain
+  number/checkbox fields, explicitly not a drag-to-align UI per the backlog's own text.
+  `mapBackdrops.ts`'s `resolveMapBackdrop(colonyId, surface)` Record-lookup is replaced by
+  `resolveMapBackdropFromRow(client, row, surface)` (fully synchronous — `getPublicUrl` is a
+  pure string build, no network call — so the metadata resolution stays inline in the map's
+  mount effect exactly as before); `mapBackdrop.json` shrinks to labels only, out of scope
+  per the backlog text. `bharatkshetra.jpg` deleted from `src/assets/`.
+  **A real, pre-existing environment gap discovered and fixed along the way, not called out
+  in the plan:** the local Supabase stack's `db-start` Makefile target explicitly excluded
+  `storage-api` ("this app doesn't need it") and `supabase/config.toml` had no `[storage]`
+  block at all — Storage has never run locally in this repo before. Both fixed (Makefile's
+  exclude list, a new `[storage]` block in config.toml, `enabled = true`, `file_size_limit =
+  "50MiB"`), then `mingw32-make db-restart` + `mingw32-make db-reseed` run for real —
+  confirmed `supabase_storage_colony-map` now appears in `docker ps` and both new migrations
+  applied cleanly.
+  **A real, known, temporary regression, called out per the plan's own pinned constraint:**
+  deleting the old static-import/JSON path means production will show **no backdrop on
+  either surface for bharatkshetra** from the moment this deploys until the owner manually
+  re-uploads `bharatkshetra.jpg` and re-enters its known-good transform (`x: 864, y: 283,
+  scale: 0.1050, rotateDeg: 0, darkenAlpha: 0.65, enabledOnAdmin: true, enabledOnPublic:
+  true` — copied verbatim from the old `mapBackdrop.json`) through the new admin-portal UI.
+  No automatic backfill was written on purpose (plan Non-goal).
+  **Verified:** `mingw32-make -C tools/pipeline verify` and `golden` both clean and
+  unaffected (129 passed, 1 skipped, ruff/mypy clean — byte-identical to baseline, confirmed
+  by actually running it since `make gate` halts before reaching it once `apps/map`'s own
+  step fails, see below); `apps/map` typecheck/lint/build clean, `dist/` grepped clean of any
+  `admin-portal` reference; `pnpm exec vitest run --no-file-parallelism` against the
+  freshly-reset local DB — 271/276 (5 pre-existing failures: the documented anon-privilege-
+  grant drift, 4 tests, plus the documented `subscribePlots.test.ts` realtime flake, 1 test —
+  re-confirmed these are the same, pre-existing, documented failures, not this diff — a
+  same-session full-parallelism run hit only 4 of the 5, consistent with the flake being a
+  flake); the new `colonyBackdrop.test.ts` (upload + re-upload-preserves-alignment +
+  transform-update, all live-integration against the real local Storage bucket) and the
+  rewritten `mapBackdrops.test.ts`/`mapBackdropSurface.test.ts` all pass; `publicColony.test.ts`
+  updated (new backdrop fields in the expected object, `backdrop_enabled_on_admin` added to
+  the forbidden-column loop) and passes.
+  **`/review` found 6 issues, all fixed same session:** (1) **real bug** — `PublicColonyView.tsx`'s
+  `colonyBackdropFields` was a fresh object literal every render, feeding
+  `usePublicColonyCanvas.ts`'s mount-effect dependency array and remounting the whole
+  Leaflet map (losing pan/zoom) on every plot tap; fixed with `useMemo(() => ..., [found])`
+  (`found` is only a new reference on a real fetch/retry). (2) same class, admin side —
+  `App.tsx`'s `colonies.find(...)` returns a fresh-but-equal `ColonyRow` on every reconnect
+  refetch; fixed in `ColonyMap.tsx` with a manual signature-compare-and-cache in a `useRef`
+  (a plain `useMemo` keyed on scalar fields trips `react-hooks/exhaustive-deps`, by design,
+  since the memo body reads the whole object — the ref sidesteps that lint fight). (3) **real
+  invariant-7 breach** — `admin-portal/server.ts` hit 273 lines and `portal.js` hit 315;
+  split into `admin-portal/{httpHelpers,backdropRoutes}.ts` and
+  `static/backdropEditor.js` (now 167/205/87/71/124 lines). (4) **real gap** — the ODbL/OSM
+  attribution string had no write path at all (only 3 image columns + 7 transform fields
+  were ever written) and the same diff deleted the real credit from `mapBackdrop.json`;
+  added `attribution` as an 8th field to `updateColonyBackdropTransform`/the PATCH route/the
+  admin-portal form (`requireStringAllowEmpty`, since "no attribution yet" is a valid state).
+  (5) **real gap** — no `## Deferred` entry named the two pending production migrations
+  (`## Current`/`## Log` alone don't survive compaction); added one, plus noted
+  `fetchPublicColony`'s unchecked cast as the concrete silent-failure risk if the frontend
+  ships before the second migration does. (6) **doc drift + minor hardening** —
+  `NAVIGATION.md` still described the deleted `resolveMapBackdrop`; rewritten, plus a new row
+  for `colonyBackdrop.ts`, plus Backlog item 6 struck as done. `backdropRoutes.ts`'s upload
+  route now also rejects on the request's own `Content-Length` header before ever calling
+  `readJsonBody` (the original 15MB check only ran after the whole body was already streamed
+  into memory and base64-decoded).
+  **Re-verified after the fixes, then again at `/wrap`:** `pnpm typecheck`/`pnpm lint` (zero
+  warnings, including the `exhaustive-deps`/`no-unused-vars` ones the split/memo fixes
+  triggered)/`pnpm build` all clean; `dist/` still clean of `admin-portal`. A full-suite
+  `mingw32-make gate` attempt mid-session hit only harness-level kills (the machine was down
+  to ~430MB free physical RAM — two local Supabase/Docker stacks + IDE + browsers already
+  resident, confirmed via `Get-Process`) — worked around by running every review-touched
+  test file individually instead (49/49 green: `colonyBackdrop.test.ts` 7/7,
+  `publicColony.test.ts` 9/9, `ColonyMap.test.tsx` 3/3, `mapBackdrops.test.ts` 4/4,
+  `mapBackdropSurface.test.ts` 2/2, `ColonyPicker.test.tsx`+`offlineCache.test.ts` 15/15,
+  `admin-portal/actions.test.ts` 4/4). **At `/wrap`, a real full-suite `mingw32-make gate`
+  run did complete** and is the one that counts: first attempt hit 23 `TypeError: fetch
+  failed` failures, root-caused (not this diff) to Kong having crash-looped under the same
+  low-memory condition — `docker logs supabase_kong_colony-map` showed two unexpected worker
+  restarts, and a direct `curl` against `/rest/v1/` came back empty. `mingw32-make
+  db-restart` cleared it (confirmed via the same `curl`, now `200`), and the retry landed
+  exactly on the documented baseline: 272/277 with only the 5 pre-existing, documented
+  failures (anon-privilege-grant drift ×4, `subscribePlots` flake ×1) — nothing new.
+  `tools/pipeline verify`/`golden` (129/1 skipped, byte-identical) and `pnpm build` were each
+  re-run directly since `make gate`'s recipe halts at the first failing line, before reaching
+  either.
+  **Not verified, not achievable from here (CLAUDE.md: Claude has no browser):** the new
+  admin-portal upload/alignment UI has never been opened in a real browser — needs a live
+  `make admin-portal` walkthrough (owner-run) before it's trustworthy, not just a green gate.
+  **Next:** owner runs `make admin-portal` and walks the real flow once (upload a JPEG for a
+  real colony, confirm it renders, nudge the alignment numbers); then re-uploads
+  bharatkshetra's backdrop with the values above before the regression window above is
+  closed; then, separately and later, applies both new migrations to the production Supabase
+  project via the Dashboard SQL Editor in file order, each followed by `NOTIFY pgrst,
+  'reload schema';` (D-033) — not done as part of this session, tracked here per the
+  established M16/M17/M19/M20 ordering (local first, verified, then production, owner-run).
+
 - **Click-to-focus (`canvasFlyTo.ts::runFlyTo`) now takes a variable duration instead of a
   fixed 400ms (2026-09-12, Tier 3, owner ask), plus two rounds of real render/interaction-cost
   fixes for zoom-specific jitter found along the way — five cuts, same session.** First
@@ -1434,6 +1537,34 @@
   feature-labels yet, so this is latent, not live).
 
 ## Log
+
+### 2026-09-12 — Colony backdrop uploadable via admin portal (Tier 1, docs/plans/29.md, Backlog item 6)
+
+- Done: Supabase Storage (`colony-backdrops` bucket) + 11 new `colonies.backdrop_*` columns
+  replace the static-import/checked-in-JSON backdrop mechanism; two new admin-portal routes
+  and an inline numeric editor upload/realign it; `get_public_colony()` gains the 10
+  non-admin backdrop fields. See `## Current`'s own entry above for the full breakdown.
+- Next: owner runs `make admin-portal`, uploads/realigns a real colony, then re-uploads
+  bharatkshetra's backdrop (values in `## Current`) to close the temporary regression
+  window; production migrations still pending, owner-run.
+- Surprises: local Storage had never run in this repo — `db-start`'s exclude list dropped
+  `storage-api` and `supabase/config.toml` had no `[storage]` block at all; both fixed and a
+  full `db-restart` + `db-reseed` confirmed the bucket and both migrations for real. `/review`
+  then found 6 issues (2 real remount bugs from unstable object props, an invariant-7 breach
+  in two files, a missing attribution write path, a missing `## Deferred` entry, and doc
+  drift) — all fixed same session, see `## Current`'s own entry for the detail.
+- Verified: full `mingw32-make gate` from repo root, at `/wrap` — first attempt hit 23
+  `TypeError: fetch failed` failures, traced to Kong having crash-looped under the same
+  machine-wide low-memory condition (confirmed via `docker logs supabase_kong_colony-map`,
+  not this diff); `mingw32-make db-restart` cleared it (confirmed via a direct `curl` against
+  `/rest/v1/`), and the retry landed exactly on the documented baseline: `apps/map`
+  typecheck/lint (zero warnings)/build all clean, `dist/` clean of `admin-portal`, tests
+  272/277 with only the 5 pre-existing, documented failures (anon-privilege-grant drift ×4,
+  `subscribePlots` flake ×1) — `make gate`'s recipe halts there by design, so
+  `tools/pipeline verify`/`golden` (129 passed/1 skipped, byte-identical) and `pnpm build`
+  were each re-run directly to cover what the halted recipe couldn't reach. Not verified:
+  the admin-portal UI itself, no browser available here — plan 29 stays open (`docs/plans/
+  29.md` has no `Status: complete` marker) until the owner's live walkthrough closes it.
 
 ### 2026-09-12 — Splash overlay was blocking every click on the map underneath for its whole reveal (Tier 3)
 
@@ -2958,6 +3089,22 @@ on a real phone. Not verified by anyone: the five visual behaviours in `## Curre
 
 ## Deferred
 
+- **Two new migrations (`20260912000000_colony_backdrop_storage.sql`,
+  `20260912010000_public_link_backdrop.sql`, docs/plans/29.md) have only been applied to the
+  local Docker Supabase instance — not yet to the real production Supabase project.** Same
+  shape as every prior phase (M16/M17/M19/M20): owner applies both, in file order, via the
+  Dashboard SQL Editor, each followed by `NOTIFY pgrst, 'reload schema';` (D-033), then
+  confirms `select column_name from information_schema.columns where table_name = 'colonies'
+  and column_name = 'backdrop_storage_path';` returns a row and `select proname, pronargs
+  from pg_proc where proname = 'get_public_colony';` still shows `pronargs = 1`. Until this
+  runs, `apps/map/src/lib/db/colonies.ts`'s `fetchPublicColony` casts its RPC result to
+  `PublicColonyResult` unchecked — deploying the new frontend code before the second
+  migration lands would read the 10 new backdrop fields as `undefined` off the old,
+  unmigrated `get_public_colony()`'s response, silently, with no error surfaced anywhere.
+  Also still needed, separately: the owner must re-upload bharatkshetra's backdrop through
+  the new admin-portal UI (values logged in this file's own `## Current`/`## Log` entries for
+  2026-09-12) once both migrations are live — until then bharatkshetra shows no backdrop on
+  either surface, a real known regression, not an oversight.
 - **Backdrop-vignette (`.public-colony-backdrop-vignette`, docs/plans/28.md) `backdrop-
   filter: blur()` performance on real low-end mobile Safari is unbenchmarked.** Not an
   SVG filter (tier-3.md's actual rule), so it doesn't force a canvas repaint the way that
@@ -3620,22 +3767,15 @@ effort estimates below are for planning, not a commitment to build in this order
    citation earlier in this backlog's originating conversation). Not urgent — revisit
    alongside colony #2's backdrop generation or a future Bharatkshetra texture redo, not on
    its own.
-6. **Backdrop image + alignment should be uploadable, not a code change.** Medium. Raised
-   2026-09-09 in the same conversation as the backlog above. Today the alignment half is
-   already JSON — `apps/map/src/config/mapBackdrop.json`'s `transform: {x, y, scale,
-   rotateDeg}` per colony (`mapBackdropTransform.ts`) — but it's checked-in, and the raster
-   itself is a hardcoded static import (`mapBackdrops.ts`'s `BACKDROPS: Record<string,
-   string>`, one `import ... from "../../assets/backdrops/<id>.jpg"` line per colony). Adding
-   or re-aligning any colony's backdrop today means editing source and redeploying — there is
-   no upload path at all, let alone one exposed to the owner in-app. Real work: (a) move the
-   JPEG out of a Vite static import into something fetchable at runtime (Supabase Storage is
-   the natural fit — no photo-storage path exists anywhere else in this repo yet, so this
-   would be the first real use of one), (b) let `x`/`y`/`scale` (and optionally `rotateDeg`)
-   be adjusted post-upload rather than hand-tuned in the offline stitching tool
-   (`experiments/map-texture-poc/stitch.html`) — an in-app numeric nudge or drag-to-align UI,
-   not necessarily a full redo of the offline tool. Touches
-   `apps/map/src/features/colony-upload/**` (Tier 1) if the upload path is added to the
-   existing upload screen, so this needs its own `/plan` + `/review` — not a quick follow-up.
+6. ~~**Backdrop image + alignment should be uploadable, not a code change.**~~ **Done
+   2026-09-12** — see `## Current`'s "Colony backdrop image + alignment now uploadable"
+   entry above (docs/plans/29.md, D-047). Shipped as Supabase Storage + `colonies.backdrop_*`
+   columns, uploaded/realigned via two new admin-portal routes and an inline numeric editor
+   — `apps/map/src/features/colony-upload/**` was NOT touched (the backdrop is decorative,
+   orthogonal to the human-verification gate, unlike the original text's speculation).
+   Two things still open: the admin-portal UI itself has never been opened in a real browser
+   (owner-verification needed), and bharatkshetra's backdrop needs a one-time manual
+   re-upload once the new migrations reach production — both tracked in `## Deferred`.
 
 ## Log
 

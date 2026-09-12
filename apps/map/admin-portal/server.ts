@@ -22,6 +22,8 @@ import { fetchColoniesByOrg } from "../src/lib/db/colonies.ts";
 import { fetchOrganizations, insertOrganization } from "../src/lib/db/organizations.ts";
 import { regeneratePublicLink, revokePublicLink } from "../src/lib/colony/publicColony.ts";
 import { createOrgUser, InvalidUsernameError, listOrgUsers, reassignUserOrg } from "./actions.ts";
+import { handleBackdropRoute } from "./backdropRoutes.ts";
+import { HttpError, sendJson, sendError, requireJsonContentType, readJsonBody, requireString } from "./httpHelpers.ts";
 
 declare const process: NodeJS.Process & { loadEnvFile?: (path?: string) => void };
 try {
@@ -32,62 +34,6 @@ try {
 
 const PORT = 5002; // tools/pipeline/ui/ already owns 5001.
 const STATIC_DIR = path.resolve(import.meta.dirname, "static");
-
-function sendJson(res: ServerResponse, status: number, body: unknown): void {
-  const payload = JSON.stringify(body);
-  res.writeHead(status, { "Content-Type": "application/json" });
-  res.end(payload);
-}
-
-// Errors reach the operator as a sentence, not a stack trace — same posture
-// tools/pipeline/ui/server.py already established for this same audience (an owner at a
-// terminal), carried over even though this is Tier 1 code.
-function sendError(res: ServerResponse, status: number, message: string): void {
-  sendJson(res, status, { ok: false, error: message });
-}
-
-// The CSRF mitigation pinned in docs/plans/23.md §3 — a cross-site form POST/DELETE
-// cannot forge this header without script access this same-origin page already controls.
-// Checked for every mutating route, including the body-less public-link ones (/review,
-// 2026-08-31 — the check originally lived only inside readJsonBody, which those routes
-// never call, so they were unprotected despite the file's own header comment claiming
-// otherwise).
-function requireJsonContentType(req: IncomingMessage): void {
-  const contentType = req.headers["content-type"] ?? "";
-  if (!contentType.startsWith("application/json")) {
-    throw new HttpError(415, "Content-Type must be application/json.");
-  }
-}
-
-// Caller (handleApi) already calls requireJsonContentType for every non-GET method before
-// dispatching, so this only ever parses a body already known to be application/json.
-async function readJsonBody(req: IncomingMessage): Promise<Record<string, unknown>> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of req) chunks.push(chunk as Buffer);
-  const raw = Buffer.concat(chunks).toString("utf8");
-  if (!raw) return {};
-  try {
-    return JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    throw new HttpError(400, "Request body is not valid JSON.");
-  }
-}
-
-class HttpError extends Error {
-  status: number;
-  constructor(status: number, message: string) {
-    super(message);
-    this.status = status;
-  }
-}
-
-function requireString(body: Record<string, unknown>, field: string): string {
-  const value = body[field];
-  if (typeof value !== "string" || value.length === 0) {
-    throw new HttpError(400, `"${field}" is required.`);
-  }
-  return value;
-}
 
 async function serveStatic(res: ServerResponse, pathname: string): Promise<void> {
   const relative = pathname === "/" ? "index.html" : pathname.replace(/^\/+/, "");
@@ -170,6 +116,10 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, pathname: st
     sendJson(res, 200, { ok: true });
     return;
   }
+
+  // docs/plans/29.md: backdrop-image/backdrop routes, split into their own module
+  // (invariant 7) — returns false for anything it doesn't own.
+  if (await handleBackdropRoute(req, res, pathname, method, client)) return;
 
   sendError(res, 404, `no route for ${method} ${pathname}`);
 }

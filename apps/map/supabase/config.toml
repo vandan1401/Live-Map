@@ -28,6 +28,18 @@ port = 55323
 enabled = true
 port = 55324
 
+[storage]
+# docs/plans/29.md: the colony-backdrops bucket (20260912000000_colony_backdrop_storage.sql)
+# is the first real use of Storage in this repo — absent from this hand-written file until
+# now, which is why `docker ps` shows no supabase_storage_colony-map container. Served
+# through the [api] port's Kong gateway at /storage/v1, no separate port of its own, same as
+# every other Supabase CLI project. 50MiB comfortably covers the largest colony backdrop
+# this app is expected to ever ship (MAX_BACKDROP_UPLOAD_BYTES in admin-portal/server.ts is
+# 15MB) — restart the stack (`supabase stop` then a fresh `db-up`) for this section to take
+# effect; an already-running stack started before this section existed will not pick it up.
+enabled = true
+file_size_limit = "50MiB"
+
 [auth]
 enabled = true
 site_url = "http://localhost:5173"
