@@ -2,11 +2,11 @@ import L from "leaflet";
 import type { ColonyModel } from "./colonyModel.ts";
 import type { ColonyTheme } from "./colonyTheme.ts";
 import { buildGrassPattern, buildRoadEdgePattern, buildRoadPattern } from "./canvasPatterns.ts";
-import type { DrawState } from "./drawColony.ts";
+import { drawColony, type DrawState } from "./drawColony.ts";
 import type { DimensionConfig } from "./drawDimensions.ts";
-import { renderCanvasFrame } from "./renderCanvasFrame.ts";
+import { leafletViewState } from "./view.ts";
 import { runFlyTo } from "./canvasFlyTo.ts";
-import { runOpenZoomSnapshot } from "./canvasOpenZoomSnapshot.ts";
+import { runNativeOpenZoom } from "./nativeOpenZoom.ts";
 
 type BackdropState = DrawState["backdrop"];
 
@@ -25,12 +25,13 @@ export interface ColonyCanvasLayer extends L.Layer {
   flyTo(center: L.LatLng, zoom: number): void;
   openZoomTo(center: L.LatLng, zoom: number): void;
   isFlying(): boolean; // useColonyCanvas.ts's onZoom explains why
-  // usePublicColonyCanvas.ts (owner ask, 2026-09-01): lets a caller constructed with
-  // grassImage: null (flat colour, paint immediately) swap the real texture in once its
-  // network fetch decodes. useColonyCanvas.ts awaits loadGrass() first and never calls this.
+  // usePublicColonyCanvas.ts (owner ask, 2026-09-01: public link loaded too slowly): lets a
+  // caller that constructed with grassImage: null (paint immediately, flat ground colour)
+  // swap the real texture in once its network fetch decodes. useColonyCanvas.ts still
+  // awaits loadGrass() before constructing at all and never calls this.
   setGrassImage(image: CanvasImageSource | null): void;
-  // docs/plans/28.md, D-036: same shape as setGrassImage above — never called on the
-  // authenticated map (Non-goals, no backdrop there).
+  // docs/plans/28.md, D-036: same shape as setGrassImage above. useColonyCanvas.ts never
+  // calls this (Non-goals — authenticated map has no backdrop).
   setBackdrop(backdrop: BackdropState): void;
 }
 
@@ -45,8 +46,10 @@ interface Options {
   backdrop?: BackdropState;
 }
 
-// L.Layer.extend() is untyped, so `this` is declared by hand below — spelling the fields out
-// (not `this: any`) makes a typo in `this._ctx` a compile error, not a blank map (/review, 2026-08-22).
+// L.Layer.extend() is untyped, so `this` inside these methods has to be declared by hand.
+// Spelling the fields out (rather than `this: any`, which was the only `any` left in
+// apps/map/src) is what makes a typo in `this._ctx` a compile error instead of a blank map
+// at runtime (/review, 2026-08-22).
 interface LayerInternals {
   _model: ColonyModel;
   _theme: ColonyTheme;
@@ -63,7 +66,8 @@ interface LayerInternals {
   _viewport: { width: number; height: number } | null;
   _dpr: number;
   _frame: number;
-  // What the canvas last drew — flyTo/openZoomTo's flights start FROM this (canvasFlyTo.ts).
+  // What the canvas last actually drew — flyTo's (canvasFlyTo.ts) camera interpolation
+  // starts FROM this. _flyToId/_flyToActive: see that file's FlyToHost/runFlyTo.
   _renderedCenter: L.LatLng | null;
   _renderedZoom: number;
   _flyToId: number;
@@ -71,7 +75,6 @@ interface LayerInternals {
   _schedule(): void;
   _resize(): void;
   _render(): void;
-  _fullState(): DrawState;
 }
 
 const Layer = L.Layer.extend({
@@ -81,20 +84,31 @@ const Layer = L.Layer.extend({
     this._state = options.state;
     this._dimensionConfig = options.dimensionConfig;
     this._grassImage = options.grassImage;
+    this._grass = null;
     this._backdrop = options.backdrop ?? null;
-    this._grass = this._road = this._roadEdge = null;
-    this._map = this._canvas = this._ctx = this._viewport = this._renderedCenter = null;
+    this._road = null;
+    this._roadEdge = null;
+    this._map = null;
+    this._canvas = null;
+    this._ctx = null;
+    this._viewport = null;
     this._dpr = 1;
-    this._frame = this._renderedZoom = this._flyToId = 0;
+    this._frame = 0;
+    this._renderedCenter = null;
+    this._renderedZoom = 0;
+    this._flyToId = 0;
     this._flyToActive = false;
   },
 
   onAdd(this: LayerInternals, map: L.Map) {
     this._map = map;
-    const canvas = L.DomUtil.create("canvas", "leaflet-layer colony-canvas") as HTMLCanvasElement;
+    // leaflet-zoom-animated: without an element carrying this class, Leaflet's own animated-
+    // zoom pipeline never engages at all (nativeOpenZoom.ts, D-043, needs it).
+    const canvas = L.DomUtil.create("canvas", "leaflet-layer colony-canvas leaflet-zoom-animated") as HTMLCanvasElement;
     this._canvas = canvas;
     this._ctx = canvas.getContext("2d");
-    // jsdom has no canvas backend (getContext returns null under vitest) — skipped, not crashed.
+    // jsdom has no canvas backend, so getContext returns null under vitest. Rendering is
+    // skipped rather than crashed — the React tests assert on HTML chrome, not pixels.
     if (this._ctx && this._grassImage) {
       this._grass = buildGrassPattern(this._ctx, this._grassImage);
       this._road = buildRoadPattern(this._ctx, this._theme.road);
@@ -110,7 +124,7 @@ const Layer = L.Layer.extend({
   onRemove(this: LayerInternals, map: L.Map) {
     map.off("move zoom viewreset resize zoomend", this._schedule, this);
     if (this._frame) cancelAnimationFrame(this._frame);
-    this._flyToId++; // any still-running flight's next tick now sees isCancelled() and bails
+    map.stop(); // a pending native zoom (nativeOpenZoom.ts) must not outlive this layer/map
     this._canvas?.remove();
     this._canvas = null;
     this._ctx = null;
@@ -171,19 +185,6 @@ const Layer = L.Layer.extend({
     this._viewport = { width: size.x, height: size.y };
   },
 
-  // grass/road/roadEdge/backdrop live on the layer, not in _state — every caller of a full
-  // DrawState (_render() below, flyToHost()'s renderFinalFrame) merges them in here instead
-  // of duplicating the spread.
-  _fullState(this: LayerInternals): DrawState {
-    return {
-      ...this._state,
-      grass: this._grass,
-      road: this._road,
-      roadEdge: this._roadEdge,
-      backdrop: this._backdrop,
-    };
-  },
-
   _render(this: LayerInternals) {
     const ctx = this._ctx;
     const map = this._map;
@@ -196,9 +197,22 @@ const Layer = L.Layer.extend({
     const center = map.getCenter();
     this._renderedCenter = center;
     this._renderedZoom = map.getZoom();
-    renderCanvasFrame(
-      ctx, this._model, this._theme, this._fullState(), this._dimensionConfig,
-      viewport, this._dpr, this._renderedZoom, center.lat, center.lng,
+    const view = leafletViewState(map.getZoomScale(map.getZoom(), 0), center.lat, center.lng);
+    ctx.setTransform(this._dpr, 0, 0, this._dpr, 0, 0);
+    drawColony(
+      ctx,
+      this._model,
+      view,
+      viewport,
+      this._theme,
+      {
+        ...this._state,
+        grass: this._grass,
+        road: this._road,
+        roadEdge: this._roadEdge,
+        backdrop: this._backdrop,
+      },
+      this._dimensionConfig,
     );
   },
 
@@ -206,16 +220,13 @@ const Layer = L.Layer.extend({
     runFlyTo(flyToHost(this), center, zoom);
   },
 
-  openZoomTo(this: LayerInternals, center: L.LatLng, zoom: number) { // snapshot adapter, own file
-    runOpenZoomSnapshot(flyToHost(this), center, zoom);
+  openZoomTo(this: LayerInternals, center: L.LatLng, zoom: number) { // nativeOpenZoom.ts owns this, D-043
+    if (this._map) runNativeOpenZoom(this._map, center, zoom);
   },
   isFlying(this: LayerInternals) { return this._flyToActive; },
 });
 
-// flyTo/openZoomTo's shared adapter — named public fields rather than passing `this` itself
-// (FlyToHost's header, canvasFlyTo.ts). renderFinalFrame/canvas/viewport/dpr are the extra
-// bits SnapshotZoomHost needs beyond FlyToHost; runFlyTo only reads the FlyToHost subset.
-function flyToHost(internals: LayerInternals) {
+function flyToHost(internals: LayerInternals) { // flyTo's own adapter — openZoomTo uses nativeOpenZoom.ts instead
   return {
     map: internals._map,
     renderedCenter: internals._renderedCenter,
@@ -225,18 +236,6 @@ function flyToHost(internals: LayerInternals) {
     setFlyToActive: (active: boolean) => void (internals._flyToActive = active),
     resize: () => internals._resize(),
     render: () => internals._render(),
-    canvas: internals._canvas,
-    viewport: internals._viewport,
-    dpr: internals._dpr,
-    // Paints the DESTINATION zoom/center — unlike render() above, which always paints
-    // wherever the live map currently is — into a caller-supplied canvas (the snapshot
-    // overlay). Same model/theme/state/dimensionConfig the live canvas itself paints with.
-    renderFinalFrame: (ctx: CanvasRenderingContext2D, zoom: number, center: L.LatLng) =>
-      renderCanvasFrame(
-        ctx, internals._model, internals._theme, internals._fullState(),
-        internals._dimensionConfig, internals._viewport ?? { width: 0, height: 0 },
-        internals._dpr, zoom, center.lat, center.lng,
-      ),
   };
 }
 

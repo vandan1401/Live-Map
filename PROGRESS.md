@@ -2,63 +2,54 @@
 
 ## Current
 
-- **Colony-open zoom-in's remaining fps cost fixed by replacing the live-redraw-every-frame
-  engine with a frozen-destination-snapshot one (2026-09-12, Tier 2/3, verified but not yet
-  owner-confirmed live).** Owner ask, explicitly inviting the "static image" technique back
-  after being told last session it had caused three bugs previously — but that history was
-  about a *different* flight (click-to-focus, 400ms, real-time interactive) using a
-  *different* technique (freezing the START frame and blowing it up ~20x, inherently blurry,
-  plus a real Leaflet zoomanim lifecycle bug, an inverted scale, and a wrong transform-origin
-  — canvasFlyTo.ts's own header comment). The colony-open zoom (4.5s, starts from behind an
-  opaque loading splash where nothing is interactive yet) is a genuinely different shape of
-  problem, and the fix does not repeat any of those three: `canvasFlyTo.ts::runOpenZoom`
-  (deleted) called a real `drawColony()` — the whole scene, every plot/label/texture — on
-  every one of the flight's ~270 frames; that cost grows as the zoom climbs toward the end,
-  which the earlier pushState-skip fix (below) never touched, because it was never about
-  pushState. New decision D-042 (amends D-041's real-camera part; its `zoomend` guard still
-  stands). `canvasOpenZoomSnapshot.ts::runOpenZoomSnapshot` renders the DESTINATION
-  frame exactly once into an overlay canvas (via new `renderCanvasFrame.ts`, split out of
-  `colonyCanvasLayer.ts`'s own `_render()` so both share one implementation) and animates a
-  plain CSS `transform: scale()` on it from the start view's scale up to exactly 1 — GPU-
-  composited, zero `drawColony()` calls in the loop. The live canvas underneath is left alone
-  the whole flight (still showing its last real render, the parked start view — correct and
-  unchanging) and gets exactly one more real render at the very end, once the overlay already
-  matches it pixel-for-pixel, then the overlay is removed — same tick, no gap for a stale
-  frame to flash. Why each old bug can't recur: no Leaflet zoomanim hooking at all (`setView`
-  called exactly once, at the end); no scale-direction/transform-origin ambiguity (this
-  flight never pans — same centre throughout, useColonyOpenZoom.ts's own design — so it's a
-  pure scale from a hardcoded `transform-origin: center center`, no second axis to get
-  wrong); no blur (the overlay is painted at its OWN native destination resolution and only
-  ever scaled DOWN then back up to exactly 1, never upscaled past native — the old attempt
-  scaled the *start* frame up). A full-viewport `pointer-events: none` on the map container
-  (not a new element's own click listener) blocks interaction for the flight's duration —
-  the live canvas is deliberately stale throughout, so a stray click/drag/wheel-zoom reaching
-  Leaflet would act on the wrong picture — restored from the one `cleanup()` every exit path
-  (normal completion, cancellation, no-2d-context fallback) already goes through, so it
-  can't be left stuck the way `MapLoadingScreen.tsx`'s own pointer-events incident was.
-  `colonyCanvasLayer.ts` was already sitting exactly at the 250-line cap before this
-  session's diff (invariant 7) — the adapter that bridges the layer's private fields out to
-  the new file (`flyToHost()`) grew by a `renderFinalFrame` method rather than four separate
-  fields, and several long-standing comments were tightened (no factual content dropped) to
-  make room; see `.claude/hooks/filesize.sh`'s own feedback loop, used as designed rather
-  than hand-budgeting lines in advance. `mapOpenZoomTiming.ts` and `NAVIGATION.md`'s feature-
-  index entry updated to point at the new file/function names.
-  **Verified:** `pnpm typecheck && pnpm lint` clean; `pnpm test -- --run` 265/269 (same 4
-  pre-existing anon-grant-drift RLS failures on record, none touching this diff — confirmed
-  via both a plain `pnpm test` run and `mingw32-make verify-map`); `pnpm build` clean, same
-  pre-existing >500kB chunk-size warning as every prior build. **Not verified:** the actual
-  frame-by-frame motion/fps improvement and the click-blocker's real-world feel — same
-  limitation as every prior zoom-animation session: a browser-automation tab never reports
-  `document.hidden: false`, so Chrome suspends `requestAnimationFrame` there and the flight's
-  own tick loop never advances regardless of what the code does. The mechanism was reasoned
-  through carefully (see the design comment atop `canvasOpenZoomSnapshot.ts`) and every
-  static check available from this session is clean, but the owner watching it live on a
-  real device is still the only real verification this specific kind of change has ever had.
-  **Next:** owner opens a colony (admin and/or public link) and watches the reveal —
-  specifically: does it look smoother/faster than before, is there any visible seam where
-  the growing overlay's edge meets the static background behind it (a known, accepted
-  approximation — outside the box shows the unmoving start-zoom framing, not a physically
-  continuous zoom), and does the map land correctly clickable the instant the reveal ends.
+- **Colony-open zoom-in now drives Leaflet's own native animated zoom, after two other
+  engines were tried and reverted the same day (2026-09-12, Tier 2/3, D-043; verified but not
+  yet owner-confirmed live).** Started from a real, owner-reported fps cost in D-041's
+  real-camera-every-frame engine (a full `drawColony()` on every one of the flight's ~270
+  frames over 4.5s). First attempt (D-042, reverted same day): a frozen-destination-snapshot
+  CSS overlay, carefully reasoned to avoid the three specific bugs that killed an earlier
+  frozen-snapshot attempt at click-to-focus — and it did avoid all three, but hit a *fourth*,
+  new one: the overlay's `getContext("2d")` was called before the canvas was attached to the
+  DOM, which some WebKit/mobile Safari builds return `null` for — confirmed by extracting
+  frames every 50ms from the owner's own screen recording (this session cannot watch
+  `requestAnimationFrame`-driven motion at all — a backgrounded automation tab suspends it —
+  so a video was the only way to actually see what was happening), which showed the entire
+  4.5s zoom phase collapsing into a single unanimated cut under 50ms: exactly what that
+  fallback path does. A fix for that specific bug (attach before `getContext`, cap the
+  overlay's DPR, animate the fallback instead of cutting instantly) was written and deployed,
+  but the owner's response was to stop optimizing this path entirely and use "the exact same
+  map animation which we are using in live map... trigger[ed]... as if user is zooming it" —
+  explicitly not D-041's engine either ("the real camera does not mean the previous version
+  which had very low fps"). That mechanism is Leaflet's own native animated zoom, which
+  neither prior engine actually used: new `nativeOpenZoom.ts::runNativeOpenZoom` calls
+  `map.setView(center, zoom, {animate:true, duration, easeLinearity})`, the same
+  CSS-pane-transition-plus-one-real-redraw path an ordinary scroll-wheel/double-click zoom
+  already uses on this map — Leaflet fires `'zoomend'` once, at the true end, driving the
+  layer's existing `_schedule()` the same as any settled zoom, not once per frame. The canvas
+  now carries `leaflet-zoom-animated` (`colonyCanvasLayer.ts::onAdd`) — without an element
+  carrying that class anywhere, Leaflet's own animated-zoom pipeline never engages at all,
+  animated or not. `map.stop()` added to `onRemove()` — a pending native zoom completes via a
+  Leaflet-internal timer this layer doesn't own, and D-035's own history names exactly this
+  race ("tearing down the map while one is pending") as a confirmed prior crash; the risk
+  there was in a *custom* zoomanim handler layered on top of Leaflet's pipeline, which this
+  decision deliberately does not add. Pointer-events on the map container are dropped for the
+  flight and restored on `'zoomend'` or a timeout backup, same reasoning as D-042's version.
+  `canvasOpenZoomSnapshot.ts`/`renderCanvasFrame.ts` deleted; `canvasFlyTo.ts::runOpenZoom`
+  deleted (click-to-focus's own `runFlyTo` is completely untouched throughout all of this).
+  **Known gap, not fixed:** `MAP_OPEN_ZOOM_EASE_LINEARITY` is a fresh guess, not a conversion
+  of the owner-tuned 4-point bezier (`MAP_OPEN_ZOOM_EASE_POINTS`) — Leaflet's own easing is a
+  single 0-1 knob and cannot reproduce that curve exactly; needs the owner's own eyes to
+  retune, same as every prior easing tune in `mapOpenZoomTiming.ts`'s history.
+  **Verified:** `pnpm typecheck && pnpm lint` clean; `pnpm test -- --run` 264/269 (same
+  pre-existing anon-grant-drift RLS failures + one confirmed-flaky realtime timeout, none
+  touching this diff); `pnpm build` clean, same pre-existing >500kB chunk-size warning as
+  every prior build. **Not verified:** the actual motion/feel live, and specifically whether
+  Leaflet's native pipeline avoids D-035's own historical crash for this narrower case — this
+  session cannot watch `requestAnimationFrame`/CSS-transition-driven behaviour at all.
+  **Next:** owner opens a colony (admin and/or public link) and watches the reveal on a real
+  device — does it look/feel like a real zoom now, is the easing pace close enough to the
+  prior tuned curve or does `MAP_OPEN_ZOOM_EASE_LINEARITY` need retuning, and does the map
+  land correctly clickable the instant the reveal ends with no console errors from Leaflet.
 
 - **Colony-open zoom-in moved off a CSS transform onto a real Leaflet zoom, and the fps cost
   that surfaced along the way is fixed too (2026-09-11, Tier 2/3, pushed and manually
@@ -1365,36 +1356,27 @@
 
 ## Log
 
-### 2026-09-12 — Colony-open zoom: frozen-destination-snapshot engine replaces live-redraw-every-frame (Tier 2/3)
+### 2026-09-12 — Colony-open zoom: two engines tried and reverted, landed on Leaflet's own native animated zoom (Tier 2/3)
 
-- Done: `canvasOpenZoomSnapshot.ts::runOpenZoomSnapshot` replaces
-  `canvasFlyTo.ts::runOpenZoom` for `ColonyCanvasLayer.openZoomTo` — renders the destination
-  frame once into an overlay canvas, animates a CSS `transform: scale()` from the start
-  view's scale to 1 instead of calling `drawColony()` every frame. `renderCanvasFrame.ts`
-  split out of `colonyCanvasLayer.ts`'s `_render()` (the pure view/transform/drawColony half,
-  no live map dependency) so both the live render and the one-off destination capture share
-  it. A full-viewport `pointer-events: none` on `map.getContainer()` blocks interaction for
-  the flight's duration, restored in the one `cleanup()` every exit path goes through.
-  `onRemove` now also bumps `_flyToId` so a still-running flight (either kind) self-cancels
-  instead of touching a map/canvas mid-teardown — a latent gap the old engine had too, closed
-  as a side effect. Logged as D-042 (amends D-041's real-camera part; its `zoomend` guard is
-  untouched). See `## Current` for the full reasoning on why this doesn't repeat the three
-  bugs a differently-shaped frozen-snapshot attempt hit for click-to-focus.
-- Next: owner watches a real colony open (admin + public link) and confirms it feels faster
-  and looks right — this session cannot observe `requestAnimationFrame` motion at all (tab-
-  focus rAF suspension, documented every prior zoom-animation session).
-- Surprises: `colonyCanvasLayer.ts` was already at the exact 250-line cap — every edit had to
-  be net-neutral-or-better, which pushed the `_render()`/`flyToHost()` split further than a
-  first draft would have (a single `renderFinalFrame` method on the adapter instead of four
-  separate fields) and is a real design improvement, not just a workaround. Separately,
-  `const map` narrowed by an early-return guard did not carry into a nested `function`
-  declaration used as an rAF callback (TS only flows that narrowing into a closure defined
-  *after* the guard, not one hoisted above it) — fixed by making it a `const` arrow function
-  instead; worth remembering for any future rAF loop referencing a nullable field.
-- Verified: `pnpm typecheck`, `pnpm lint`, `pnpm build` all clean; `pnpm test -- --run`
-  265/269 and `mingw32-make verify-map` 265/269, both the same 4 pre-existing anon-grant-
-  drift RLS failures on record, none touching this diff. Not run: anything visual/live — see
-  `## Current`'s Next.
+- Done: D-042 (frozen-destination-snapshot CSS overlay) shipped, hit a real device-only bug
+  (overlay `getContext("2d")` null before DOM attach), got a working fix, then was reverted
+  anyway per owner direction to stop iterating on custom engines. D-043 (final state):
+  `nativeOpenZoom.ts::runNativeOpenZoom` drives Leaflet's own `setView({animate:true,
+  duration, easeLinearity})` — the same mechanism an ordinary user zoom already uses on this
+  map — with the canvas now carrying `leaflet-zoom-animated` and `onRemove()` calling
+  `map.stop()` defensively. `canvasOpenZoomSnapshot.ts`, `renderCanvasFrame.ts`, and
+  `canvasFlyTo.ts::runOpenZoom` all deleted; click-to-focus's `runFlyTo` untouched throughout.
+- Next: owner watches a real colony open and confirms it feels like a real zoom, and whether
+  `MAP_OPEN_ZOOM_EASE_LINEARITY` (a fresh guess, not a bezier conversion) needs retuning.
+- Surprises: extracting frames from the owner's own screen recording (ffmpeg unavailable,
+  OpenCV was) was the only way this session could actually diagnose D-042's bug — it showed
+  the whole 4.5s zoom collapsing into a <50ms unanimated cut, which pointed straight at the
+  no-2d-context fallback path. Separately: `colonyCanvasLayer.ts` sitting exactly at the
+  250-line cap all session forced every edit to be net-neutral, which is what pushed the
+  `_render()`/adapter split into a real improvement rather than a shortcut.
+- Verified: `pnpm typecheck`, `pnpm lint`, `pnpm build` clean on the final (D-043) state;
+  `pnpm test -- --run` 264/269, same pre-existing anon-grant-drift + one confirmed-flaky
+  realtime timeout, none touching this diff. Not run: anything visual/live.
 
 ### 2026-09-10 — Home-screen heading reads the real org name, not the shared config default (Tier 2)
 

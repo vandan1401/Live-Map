@@ -51,8 +51,9 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-038 | Public-link status-visibility toggle is enforced client-side only, not inside `get_public_colony()` | accepted |
 | D-039 | Admin map's status toggle is always offered (ungated by config) and defaults off | accepted |
 | D-040 | Home-screen heading is read from `organizations.name` at sign-in, not `presentation.json`'s single `default.homeHeading`; supersedes D-034's per-org-heading non-goal, written before multi-tenant (M16) shipped | accepted |
-| D-041 | Colony-open zoom-in interpolates the real camera (D-035's click-to-focus engine, reused), not a CSS transform on the canvas — and a flight's own `zoomend` events must be guarded out of any caller's per-frame state recompute, not just the layer's own redraw scheduling | amended by D-042 (real-camera part only; the `zoomend` guard still stands) |
-| D-042 | Colony-open zoom-in animates a frozen snapshot of the DESTINATION frame via CSS `transform: scale()`, not the real camera every frame — D-035's click-to-focus engine (400ms, live-interactive) is unaffected | accepted |
+| D-041 | Colony-open zoom-in interpolates the real camera (D-035's click-to-focus engine, reused), not a CSS transform on the canvas — and a flight's own `zoomend` events must be guarded out of any caller's per-frame state recompute, not just the layer's own redraw scheduling | superseded by D-043 (the `zoomend`-guard reasoning stands; the real-camera mechanism itself was replaced) |
+| D-042 | Colony-open zoom-in animates a frozen snapshot of the DESTINATION frame via CSS `transform: scale()`, not the real camera every frame — D-035's click-to-focus engine (400ms, live-interactive) is unaffected | reverted by D-043 |
+| D-043 | Colony-open zoom-in drives Leaflet's own native animated `setView` (`leaflet-zoom-animated` class + `duration`/`easeLinearity`) — the same mechanism an ordinary user-driven zoom already uses on this map — replacing both D-041's per-frame camera engine and D-042's snapshot overlay, per the owner's explicit direction after D-042 shipped a real device-only bug | accepted |
 
 ## tools/pipeline
 

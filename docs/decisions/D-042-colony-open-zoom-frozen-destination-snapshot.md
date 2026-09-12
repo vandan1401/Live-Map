@@ -1,6 +1,15 @@
 # D-042: Colony-open zoom-in animates a frozen snapshot of the DESTINATION frame, not the real camera every frame
 
-**Status:** accepted — supersedes D-041's "interpolates the real camera" for the colony-open
+**Status:** reverted by D-043 (2026-09-12, same day) — shipped with a real bug (the overlay's
+`getContext("2d")` was called before the canvas was attached to the DOM, a known WebKit/mobile
+Safari quirk that returns null there; on the owner's actual test device this made the whole
+4.5s animation collapse into an instant, unanimated cut, confirmed by extracting frames from
+the owner's own screen recording). A fix for that specific bug was written and deployed, but
+the owner asked directly to stop iterating on this technique and go back to the mechanism
+already proven live (D-041/D-035's real camera). Kept here, not deleted, as the reasoning a
+future session should read before trying this same idea a third time — see Rejected
+alternatives in D-043 for exactly what would need to hold before it's worth retrying.
+~~**Status:** accepted~~ — supersedes D-041's "interpolates the real camera" for the colony-open
 zoom specifically. D-041's second decision (a flight's `zoomend` must be guarded out of a
 caller's own state recompute, not just the layer's redraw scheduling) is untouched and still
 governs both flight types. D-035 (click-to-focus, 400ms) is untouched — this decision applies

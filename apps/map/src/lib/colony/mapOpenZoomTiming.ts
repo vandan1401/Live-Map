@@ -17,15 +17,25 @@ export const MAP_OPEN_ZOOM_MS = 4500; // the zoom itself — owner ask, slower t
 // This curve keeps both control points off the axes (x1=0.33, x2=0.6) and y1<=y2<1
 // (monotonic, no dip) so the back third of the zoom still has real, visible motion.
 //
-// Exported as the raw 4 numbers, not just a CSS string, since 2026-09-11: the real map's
-// zoom-in moved from a CSS transform to a JS-side cubic-bezier evaluated per frame — the
-// consumer needs the numbers, not a string meant for `transition-timing-function`. That
-// consumer was canvasFlyTo.ts's runOpenZoom (2026-09-11) until 2026-09-12, when it moved
-// again to canvasOpenZoomSnapshot.ts's runOpenZoomSnapshot (own file — a frozen-destination-
-// snapshot technique, not the live-redraw-every-frame one canvasFlyTo.ts's runFlyTo still
-// uses for click-to-focus) — same easing curve either way, only the mechanism changed.
-// MAP_OPEN_ZOOM_EASE (the CSS string) stays derived from the same numbers, still used by
-// MapLoadingScreen.tsx's own splash overlay animation, a real CSS transition unaffected by
-// either change — only what happens to the *map underneath* the splash has ever moved.
+// Exported as the raw 4 numbers, not just a CSS string, since 2026-09-11 — kept that way for
+// MapLoadingScreen.tsx's own splash overlay, still a real CSS `transition-timing-function`
+// on that component's zoom-out. The real map's own zoom-in underneath went through two
+// mechanisms since: a JS-side per-frame camera interpolation evaluating this same curve
+// (2026-09-11, `canvasFlyTo.ts::runOpenZoom` — reverted, D-043, real but not free: a full
+// drawColony() on every one of ~270 frames over 4.5s), then a frozen-destination-snapshot
+// CSS transform (2026-09-12, D-042 — reverted same day after a real bug on the owner's own
+// device). colonyCanvasLayer.ts's openZoomTo now drives Leaflet's OWN native animated
+// `setView` instead (D-043) — the same CSS-pane-transition-plus-one-real-redraw mechanism
+// every ordinary scroll-wheel/double-click zoom on this map already uses, so there is no
+// third custom engine to get wrong. Leaflet's own easing is a single easeLinearity number,
+// not a 4-point bezier, so MAP_OPEN_ZOOM_EASE_POINTS' exact curve cannot be reproduced
+// precisely — MAP_OPEN_ZOOM_EASE_LINEARITY below is a fresh approximation, not a conversion,
+// and needs the owner's own eyes on a real device to retune (Claude cannot watch
+// requestAnimationFrame-driven or CSS-transition motion from this environment).
 export const MAP_OPEN_ZOOM_EASE_POINTS: [number, number, number, number] = [0.33, 0.6, 0.6, 0.9];
 export const MAP_OPEN_ZOOM_EASE = `cubic-bezier(${MAP_OPEN_ZOOM_EASE_POINTS.join(", ")})`;
+export const MAP_OPEN_ZOOM_DURATION_S = MAP_OPEN_ZOOM_MS / 1000; // Leaflet's setView takes seconds
+// Leaflet's own zoom-easing knob (0 = most curved/decelerated, 1 = linear, its own default
+// zoom feel is 0.25) — lower than default for the same "slower as it finishes" the owner
+// tuned MAP_OPEN_ZOOM_EASE_POINTS for, not yet verified against a real device.
+export const MAP_OPEN_ZOOM_EASE_LINEARITY = 0.2;
