@@ -2,6 +2,31 @@
 
 ## Current
 
+- **Click-to-focus (`canvasFlyTo.ts::runFlyTo`) now takes a variable duration instead of a
+  fixed 400ms (2026-09-12, Tier 3, owner ask: "400ms is too fast if a lot of zoom and pan
+  difference is involved").** First change to `runFlyTo`'s own animation since it was built
+  (every prior session's touches were to `runOpenZoom`, the colony-open zoom, itself now
+  deleted per D-044 above). New `flyToDurationMs()` computes an "effort" score — whichever
+  is larger of the zoom-level delta or the pan distance in screen-widths — and linearly maps
+  it from `FLY_TO_MIN_DURATION_MS` (400, unchanged floor) to `FLY_TO_MAX_DURATION_MS` (2000,
+  new ceiling), capping at an effort of `FLY_TO_MAX_EFFORT = 3`. `runCameraAnimation`'s
+  `durationMs` param now accepts either a fixed number (still what `runOpenZoom` passes) or
+  a function of the resolved from/to camera state (what `runFlyTo` now passes) — kept as one
+  small union rather than two near-duplicate animation runners. The demo login
+  (`demo`/`demo-pass-123`) also needed its password reset mid-session via the admin API
+  (`client.auth.admin.updateUserById`, same precedent as `create-user.ts`/the admin portal)
+  — it had silently drifted from the documented placeholder value at some earlier session's
+  reseed/recreate, unrelated to this diff.
+  **Verified:** `pnpm typecheck && pnpm lint` clean; `pnpm test -- --run` 265/269 (same
+  4 pre-existing anon-grant-drift RLS/live-integration failures documented throughout this
+  file, none touching this diff); `pnpm build` clean; `tools/pipeline` `ruff`/`mypy`/`pytest`
+  all clean (129 passed, 1 skipped — untouched by this diff, run as part of the full gate).
+  **Not verified:** live, on-device feel of the new pacing — dev server started
+  (`http://localhost:5174/`) but only a human can watch an animation play; owner still needs
+  to confirm a far plot-to-plot jump feels appropriately slower than a near one.
+  **Next:** owner tries it live and reports back whether `FLY_TO_MAX_EFFORT = 3` needs
+  retuning (lower = hits the 2000ms ceiling sooner, higher = stays fast longer).
+
 - **`.map-loading-overlay` had no `pointer-events: none`, so the map was genuinely
   unclickable for the whole ~4.5s splash reveal, even where the needle-shaped hole visibly
   showed it through (2026-09-12, Tier 3, fixed and verified).** Reported live right after
@@ -4621,3 +4646,18 @@ effort estimates below are for planning, not a commitment to build in this order
   failures and one confirmed-flaky `subscribePlots.test.ts` timeout (passes in isolation).
   typecheck/lint/build clean, re-run fresh at wrap time. Pushed `98dcaac` then `4043fc4` to
   `origin/master`; live confirmation still owner-pending.
+
+### 2026-09-12 — Click-to-focus zoom gets a variable duration (Tier 3, owner ask)
+- Done: `canvasFlyTo.ts::runFlyTo`'s fixed 400ms animation replaced with `flyToDurationMs()`,
+  scaling 400–2000ms off whichever is larger of the zoom-level delta or the pan distance in
+  screen-widths; `runCameraAnimation`'s duration param now takes either a fixed number
+  (`runOpenZoom`, unchanged) or that function (`runFlyTo`). Also reset the local `demo`
+  account's drifted password back to `demo-pass-123` via the admin API, unrelated to the
+  diff.
+- Next: owner to try a far vs. near plot selection live at `http://localhost:5174/` and say
+  whether `FLY_TO_MAX_EFFORT = 3` needs retuning.
+- Surprises: none.
+- Verified: `pnpm typecheck && pnpm lint` clean; `pnpm test -- --run` 265/269, same 4
+  pre-existing anon-grant-drift RLS failures, none touching this diff; `pnpm build` clean;
+  `tools/pipeline` ruff/mypy/pytest clean (129 passed, 1 skipped, untouched by this diff).
+  Not verified: live animation feel — no browser/device access from this environment.

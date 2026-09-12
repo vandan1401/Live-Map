@@ -1,8 +1,29 @@
 import L from "leaflet";
 import { MAP_OPEN_ZOOM_MS, MAP_OPEN_ZOOM_EASE_POINTS } from "../../lib/colony/mapOpenZoomTiming.ts";
 
-const FLY_TO_DURATION_MS = 400; // owner ask, 2026-09-04 — click-to-focus-a-plot's own pace
-const FLY_TO_EASE_POINTS: [number, number, number, number] = [0, 0, 0.4, 1]; // owner ask, same day
+const FLY_TO_MIN_DURATION_MS = 400; // owner ask, 2026-09-04 — click-to-focus-a-plot's own pace
+const FLY_TO_MAX_DURATION_MS = 2000; // owner ask, 2026-09-12 — a big zoom/pan jump gets more time
+const FLY_TO_EASE_POINTS: [number, number, number, number] = [0, 0, 0.4, 1]; // owner ask, 2026-09-04
+
+// Effort (owner ask, 2026-09-12: 400ms felt too fast for a long jump) needed to reach the
+// max duration: whichever is larger of a full zoom swing (~3 levels) or panning ~3 screens.
+// Kept as a dimensionless ratio of two already-meaningful quantities (zoom levels, screen
+// widths) rather than raw pixels, which would depend on the colony's own SVG scale.
+const FLY_TO_MAX_EFFORT = 3;
+
+function flyToDurationMs(
+  map: L.Map,
+  fromCenter: L.LatLng,
+  fromZoom: number,
+  toCenter: L.LatLng,
+  toZoom: number,
+): number {
+  const zoomDelta = Math.abs(toZoom - fromZoom);
+  const panPx = map.project(fromCenter, fromZoom).distanceTo(map.project(toCenter, fromZoom));
+  const panScreens = panPx / Math.max(map.getSize().x, map.getSize().y);
+  const effort = Math.min(1, Math.max(zoomDelta, panScreens) / FLY_TO_MAX_EFFORT);
+  return FLY_TO_MIN_DURATION_MS + effort * (FLY_TO_MAX_DURATION_MS - FLY_TO_MIN_DURATION_MS);
+}
 
 // Rebuilt from scratch (2026-09-04) after three attempts at animating a CSS transform on a
 // frozen raster snapshot of the old view all failed for different reasons (a real Leaflet
@@ -61,13 +82,17 @@ function runCameraAnimation(
   host: FlyToHost,
   center: L.LatLng,
   zoom: number,
-  durationMs: number,
+  // A fixed duration (runOpenZoom) or one computed from the actual from/to camera
+  // (runFlyTo's flyToDurationMs) -- the latter needs `map` and the resolved fromCenter/
+  // fromZoom below, which only exist once we're inside this function.
+  durationMs: number | ((map: L.Map, fromCenter: L.LatLng, fromZoom: number, toCenter: L.LatLng, toZoom: number) => number),
   easePoints: [number, number, number, number],
 ): void {
   const map = host.map;
   if (!map) return;
   const fromCenter = host.renderedCenter ?? map.getCenter();
   const fromZoom = host.renderedZoom || map.getZoom();
+  const duration = typeof durationMs === "function" ? durationMs(map, fromCenter, fromZoom, center, zoom) : durationMs;
   // Blocks _schedule's own move/zoom listener for the duration -- setView fires those
   // synchronously on every frame of this flight, and onFrame below already redraws
   // directly; without this they'd double up on every frame.
@@ -80,7 +105,7 @@ function runCameraAnimation(
     fromZoom,
     center,
     zoom,
-    durationMs,
+    duration,
     easePoints,
     () => host.getFlyToId() !== myId,
     () => {
@@ -95,7 +120,7 @@ function runCameraAnimation(
 // rAF loop (isCancelled, below) stops on its next tick instead of fighting a newer one over
 // the same setView/redraw every frame.
 export function runFlyTo(host: FlyToHost, center: L.LatLng, zoom: number): void {
-  runCameraAnimation(host, center, zoom, FLY_TO_DURATION_MS, FLY_TO_EASE_POINTS);
+  runCameraAnimation(host, center, zoom, flyToDurationMs, FLY_TO_EASE_POINTS);
 }
 
 // The colony-open zoom-in (owner ask, 2026-09-10; moved here from a CSS transform
