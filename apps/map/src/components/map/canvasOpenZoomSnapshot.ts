@@ -1,5 +1,5 @@
 import L from "leaflet";
-import { cubicBezierEase, type FlyToHost } from "./canvasFlyTo.ts";
+import { cubicBezierEase, startCanvasFlyTo, type FlyToHost } from "./canvasFlyTo.ts";
 import { MAP_OPEN_ZOOM_MS, MAP_OPEN_ZOOM_EASE_POINTS } from "../../lib/colony/mapOpenZoomTiming.ts";
 
 // The colony-open zoom-in's own engine (2026-09-12), replacing an earlier version that
@@ -78,29 +78,37 @@ export function runOpenZoomSnapshot(host: SnapshotZoomHost, finalCenter: L.LatLn
   L.DomUtil.setPosition(wrapper, map.containerPointToLayerPoint([0, 0]));
 
   const overlay = document.createElement("canvas");
-  const dpr = host.dpr || 1;
+  // Capped, not the raw devicePixelRatio: a second full-viewport canvas at 3x DPR alongside
+  // the live one is real memory pressure on a phone, and this element is only ever shown
+  // scaled DOWN from 1 (never magnified past its own pixels), so 2x loses nothing visible.
+  const dpr = Math.min(host.dpr || 1, 2);
   overlay.width = Math.max(1, Math.round(viewport.width * dpr));
   overlay.height = Math.max(1, Math.round(viewport.height * dpr));
   overlay.style.cssText = `width:100%;height:100%;display:block;position:absolute;left:0;top:0;transform-origin:center center;`;
+  // Attached to the DOM BEFORE requesting its 2d context -- some WebKit/mobile-Safari builds
+  // (this app's own stated target platform, colonyCanvasLayer.ts's header comment) have
+  // returned null from getContext("2d") on a still-detached canvas. Rendering into it while
+  // detached was never actually necessary; attaching first costs nothing.
+  wrapper.appendChild(overlay);
+  parent.appendChild(wrapper);
   const ctx = overlay.getContext("2d");
+  const startScale = Math.pow(2, fromZoom - finalZoom); // <1 — fromZoom is always the more-zoomed-out start
   if (!ctx) {
-    if (DEBUG) console.log("[open-zoom] no 2d context on overlay — falling back to an instant cut");
-    // jsdom / no 2d backend (same fallback _render() already relies on) — nothing to
-    // animate; leave the live map exactly where useColonyOpenZoom.ts's caller will still
-    // move it to below, just without the visual flourish.
-    containerEl.style.pointerEvents = prevPointerEvents;
-    host.setFlyToActive(false);
-    map.setView(finalCenter, finalZoom, { animate: false });
-    host.resize();
-    host.render();
+    if (DEBUG) console.log("[open-zoom] no 2d context on overlay even attached — falling back to a real-camera flight instead of an instant cut");
+    // No usable overlay on this device/browser for whatever reason -- fall back to the
+    // OLDER, real-camera-every-frame technique (canvasFlyTo.ts's own engine, still used by
+    // click-to-focus) rather than silently skipping the animation. Costs a real drawColony()
+    // per frame again, but a slower zoom is a far better failure mode than none at all.
+    wrapper.remove();
+    startCanvasFlyTo(
+      map, map.getCenter(), fromZoom, finalCenter, finalZoom, MAP_OPEN_ZOOM_MS, MAP_OPEN_ZOOM_EASE_POINTS,
+      () => host.getFlyToId() !== myId,
+      () => { host.resize(); host.render(); },
+      () => { containerEl.style.pointerEvents = prevPointerEvents; host.setFlyToActive(false); },
+    );
     return;
   }
   host.renderFinalFrame(ctx, finalZoom, finalCenter);
-
-  wrapper.appendChild(overlay);
-  parent.appendChild(wrapper);
-
-  const startScale = Math.pow(2, fromZoom - finalZoom); // <1 — fromZoom is always the more-zoomed-out start
   overlay.style.transform = `scale(${startScale})`;
   if (DEBUG) {
     console.log("[open-zoom] started", { fromZoom, finalZoom, startScale, viewport, dpr, myId });
