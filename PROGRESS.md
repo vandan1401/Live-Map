@@ -51,9 +51,6 @@
   throughout this file, plus the documented `subscribePlots` realtime flake on one run — none
   touching this diff); `pnpm build` clean; `tools/pipeline` `ruff`/`mypy`/`pytest` all clean
   (129 passed, 1 skipped — untouched by this diff).
-  **Not verified:** live, on-device feel of cut 5 — every report so far came from the owner
-  watching it live; this session still has no browser/device access to confirm a fix directly
-  (a standing limitation noted throughout this file).
   - **Cut 5 (duration formula restored):** owner confirmed cut 4 fixed the jitter, then: "the
     animation still feels fast do that 400-2000ms again." Cut 2's diagnosis is now known
     wrong (D-046 fixed the actual stutter, independent of duration or of what drives it), so
@@ -61,9 +58,14 @@
     `effort = max(zoomDelta, panScreens) / FLY_TO_MAX_EFFORT` (3), restoring cut 1's original
     formula verbatim. The everyday big-zoom/small-pan "tap from the fit view" case reaches
     toward the 2000ms ceiling again, safely this time, since D-046 means a longer flight no
-    longer costs anything extra per frame.
-  **Next:** owner confirms cut 5's pacing now reads right, both for the everyday big-zoom tap
-  and for near vs. far plot-to-plot selections once already zoomed in.
+    longer costs anything extra per frame. Pushed (`fb88aff`).
+  **Verified live:** owner, after cut 5 deployed: "just perfecttttt." Both the jitter (D-046)
+  and the pacing (cut 5) are owner-confirmed live — the one item in this whole feature this
+  session could not check itself all session (no browser/device access) is now actually
+  settled, not just shipped.
+  **Next:** none open on this feature. If a future session touches `canvasFlyTo.ts` again,
+  read this entry and D-045/D-046 first — the real jitter cause was never canvas draw cost,
+  it was this engine's own use of the public Leaflet `setView` API.
 
 - **`.map-loading-overlay` had no `pointer-events: none`, so the map was genuinely
   unclickable for the whole ~4.5s splash reveal, even where the needle-shaped hole visibly
@@ -4725,9 +4727,11 @@ effort estimates below are for planning, not a commitment to build in this order
   `flyToDurationMs()` alongside pan-in-screens — restoring cut 1's original
   `max(zoomDelta, panScreens) / FLY_TO_MAX_EFFORT` formula verbatim, safely this time. Also
   reset the local `demo` account's drifted password back to `demo-pass-123` via the admin
-  API, unrelated to the diff.
-- Next: owner to confirm cut 5's pacing now reads right for both the everyday big-zoom tap
-  and near vs. far plot-to-plot selections. Cut 5 not yet pushed.
+  API, unrelated to the diff. Pushed (`fb88aff`). Owner, after it deployed: "just
+  perfecttttt."
+- Next: none open. Read this entry and D-045/D-046 first if `canvasFlyTo.ts` changes again —
+  the real jitter cause was never canvas draw cost, it was this engine's own use of the
+  public Leaflet `setView` API.
 - Surprises: three separate diagnoses before the real one, each ruled out by a specific owner
   observation rather than by this session's own testing (no browser/device access all
   session). Cut 1's formula really was a bug (worth cut 2) but wasn't the jitter. Cut 3's
@@ -4745,5 +4749,4 @@ effort estimates below are for planning, not a commitment to build in this order
   264-265/269, same 4 pre-existing anon-grant-drift RLS failures (plus the documented
   `subscribePlots` realtime flake on one run), none touching this diff; `pnpm build` clean;
   `tools/pipeline` ruff/mypy/pytest clean (129 passed, 1 skipped, untouched by this diff).
-  Not verified: live animation feel of cut 5 — no browser/device access from this
-  environment; every report so far came entirely from the owner watching live.
+  Owner-confirmed live: both the jitter fix (D-046) and cut 5's pacing — "just perfecttttt."
