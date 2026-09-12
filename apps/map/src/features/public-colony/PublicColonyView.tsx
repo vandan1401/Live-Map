@@ -50,19 +50,15 @@ export function PublicColonyView({ client, token }: Props) {
   // on every token/retry so reopening (or retrying) replays the animation instead of
   // instantly revealing a map the splash never got to zoom into.
   const [splashDone, setSplashDone] = useState(false);
-  // Mirrors App.tsx's useColonyOpenSplash mapZooming (owner ask, 2026-09-10) — true once
-  // MapLoadingScreen's own zoom has started; threaded straight through to
-  // usePublicColonyCanvas.ts, which drives the map's own real Leaflet zoom-in on the same
-  // tick (useColonyOpenZoom.ts, moved off a CSS transform 2026-09-11).
-  const [mapZooming, setMapZooming] = useState(false);
   // Stable identity across every re-render this component has for any other reason (the
-  // RPC resolving, a status toggle, a plot selection...) — these are MapLoadingScreen's
-  // onZoomStart/onFinish props, which sit in that component's own effect dependency
-  // arrays. A fresh inline closure here on every render re-runs those effects at the wrong
-  // moment; this was the actual cause of a live incident (2026-09-11) where the splash
-  // never unmounted and silently blocked every click on the page underneath it forever —
-  // see MapLoadingScreen.tsx's own fix for the other half of that bug.
-  const handleZoomStart = useCallback(() => setMapZooming(true), []);
+  // RPC resolving, a status toggle, a plot selection...) — this is MapLoadingScreen's
+  // onFinish prop, which sits in that component's own effect dependency array. A fresh
+  // inline closure here on every render re-runs that effect at the wrong moment; this was
+  // the actual cause of a live incident (2026-09-11) where the splash never unmounted and
+  // silently blocked every click on the page underneath it forever — see
+  // MapLoadingScreen.tsx's own fix for the other half of that bug. The map underneath never
+  // moves (owner ask, 2026-09-12) — it renders its real final view from the first frame, so
+  // there is no equivalent "start the map's own zoom" callback to keep stable any more.
   const handleSplashFinish = useCallback(() => setSplashDone(true), []);
 
   useEffect(() => {
@@ -70,7 +66,6 @@ export function PublicColonyView({ client, token }: Props) {
     setResult("loading");
     setSelectedId(null);
     setSplashDone(false);
-    setMapZooming(false);
     loadPublicColony(client, token)
       .then((loaded) => {
         if (!cancelled) setResult(loaded);
@@ -110,7 +105,6 @@ export function PublicColonyView({ client, token }: Props) {
     statuses,
     selectedId,
     dimensions,
-    zoomingIn: mapZooming,
     onSelect: useCallback((svgId: string | null) => setSelectedId(svgId), []),
     selectZoomRefWidthPx: found?.colony.select_zoom_ref_width_px ?? null,
     selectZoomRefHeightPx: found?.colony.select_zoom_ref_height_px ?? null,
@@ -211,7 +205,6 @@ export function PublicColonyView({ client, token }: Props) {
           colonyName={found?.colony.name ?? null}
           colonyId={found?.colony.id ?? null}
           ready={!!found}
-          onZoomStart={handleZoomStart}
           onFinish={handleSplashFinish}
         />
       )}

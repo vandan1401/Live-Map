@@ -43,8 +43,7 @@ function App() {
   // "Upload a colony" button, same sibling-overlay pattern as showInstallInstructions.
   const [showUpload, setShowUpload] = useState(false);
   const [selectedColonyId, setSelectedColonyId] = useState<string | null>(null);
-  const { openToken, showSplash, mapZooming, bumpOpen, finishSplash, startMapZoom } =
-    useColonyOpenSplash();
+  const { openToken, showSplash, bumpOpen, finishSplash } = useColonyOpenSplash();
 
   useEffect(() => {
     if (!client) {
@@ -165,17 +164,16 @@ function App() {
         selectZoomRefWidthPx={selectedColony.select_zoom_ref_width_px ?? null}
         selectZoomRefHeightPx={selectedColony.select_zoom_ref_height_px ?? null}
         onBack={() => setSelectedColonyId(null)}
-        zoomingIn={mapZooming}
       />
       {showSplash && (
-        // Mounted on top of the already-rendering ColonyMap above (data's already local, no
-        // fetch to wait on) so the fixed-duration zoom always lands on a ready map.
+        // Mounted on top of the already-rendering ColonyMap above, which is already sitting
+        // at its real final view underneath (owner ask, 2026-09-12: no map-side zoom at all —
+        // the map never moves, the splash is the only thing animating).
         <MapLoadingScreen
           key={openToken}
           colonyName={selectedColony.name}
           colonyId={selectedColonyId}
           ready
-          onZoomStart={startMapZoom}
           onFinish={finishSplash}
         />
       )}

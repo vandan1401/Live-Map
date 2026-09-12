@@ -38,7 +38,7 @@ function cubicBezierEase(t: number, x1: number, y1: number, x2: number, y2: numb
 // The bits of ColonyCanvasLayer's internal state runFlyTo/runOpenZoom need, named rather
 // than passed as `this: LayerInternals` so this file doesn't depend on colonyCanvasLayer.ts's
 // own private interface (invariant 7's 250-line cap moved this extraction here, /review
-// 2026-09-08 — colonyCanvasLayer.ts's flyTo()/openZoomTo() are thin adapters over this).
+// 2026-09-08 — colonyCanvasLayer.ts's flyTo() is a thin adapter over this).
 export interface FlyToHost {
   map: L.Map | null;
   renderedCenter: L.LatLng | null;

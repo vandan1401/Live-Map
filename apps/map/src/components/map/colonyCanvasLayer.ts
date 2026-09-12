@@ -6,7 +6,6 @@ import { drawColony, type DrawState } from "./drawColony.ts";
 import type { DimensionConfig } from "./drawDimensions.ts";
 import { leafletViewState } from "./view.ts";
 import { runFlyTo } from "./canvasFlyTo.ts";
-import { runNativeOpenZoom } from "./nativeOpenZoom.ts";
 
 type BackdropState = DrawState["backdrop"];
 
@@ -21,9 +20,7 @@ export interface ColonyCanvasLayer extends L.Layer {
   setDrawState(state: DrawState): void;
   redraw(): void;
   getCanvas(): HTMLCanvasElement | null;
-  // Click-to-focus (useFlyToSelectedPlot.ts) and colony-open (useColonyOpenZoom.ts) zooms.
-  flyTo(center: L.LatLng, zoom: number): void;
-  openZoomTo(center: L.LatLng, zoom: number): void;
+  flyTo(center: L.LatLng, zoom: number): void; // click-to-focus, useFlyToSelectedPlot.ts
   isFlying(): boolean; // useColonyCanvas.ts's onZoom explains why
   // usePublicColonyCanvas.ts (owner ask, 2026-09-01: public link loaded too slowly): lets a
   // caller that constructed with grassImage: null (paint immediately, flat ground colour)
@@ -102,9 +99,7 @@ const Layer = L.Layer.extend({
 
   onAdd(this: LayerInternals, map: L.Map) {
     this._map = map;
-    // leaflet-zoom-animated: without an element carrying this class, Leaflet's own animated-
-    // zoom pipeline never engages at all (nativeOpenZoom.ts, D-043, needs it).
-    const canvas = L.DomUtil.create("canvas", "leaflet-layer colony-canvas leaflet-zoom-animated") as HTMLCanvasElement;
+    const canvas = L.DomUtil.create("canvas", "leaflet-layer colony-canvas") as HTMLCanvasElement;
     this._canvas = canvas;
     this._ctx = canvas.getContext("2d");
     // jsdom has no canvas backend, so getContext returns null under vitest. Rendering is
@@ -124,7 +119,6 @@ const Layer = L.Layer.extend({
   onRemove(this: LayerInternals, map: L.Map) {
     map.off("move zoom viewreset resize zoomend", this._schedule, this);
     if (this._frame) cancelAnimationFrame(this._frame);
-    map.stop(); // a pending native zoom (nativeOpenZoom.ts) must not outlive this layer/map
     this._canvas?.remove();
     this._canvas = null;
     this._ctx = null;
@@ -219,14 +213,10 @@ const Layer = L.Layer.extend({
   flyTo(this: LayerInternals, center: L.LatLng, zoom: number) { // runFlyTo owns the rAF loop
     runFlyTo(flyToHost(this), center, zoom);
   },
-
-  openZoomTo(this: LayerInternals, center: L.LatLng, zoom: number) { // nativeOpenZoom.ts owns this, D-043
-    if (this._map) runNativeOpenZoom(this._map, center, zoom);
-  },
   isFlying(this: LayerInternals) { return this._flyToActive; },
 });
 
-function flyToHost(internals: LayerInternals) { // flyTo's own adapter — openZoomTo uses nativeOpenZoom.ts instead
+function flyToHost(internals: LayerInternals) { // flyTo's own adapter
   return {
     map: internals._map,
     renderedCenter: internals._renderedCenter,

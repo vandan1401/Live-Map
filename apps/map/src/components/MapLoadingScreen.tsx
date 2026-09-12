@@ -11,10 +11,6 @@ interface Props {
   // still runs on its own fixed clock either way — this only controls whether the final
   // held frame fades out the moment the clock finishes, or waits for data first.
   ready: boolean;
-  // Fires the moment this scene starts scaling up (after the hold), so the caller can start
-  // the real map's own matching zoom-in on the same tick rather than re-deriving
-  // MAP_OPEN_HOLD_MS itself. App.tsx/PublicColonyView.tsx both use this.
-  onZoomStart: () => void;
   onFinish: () => void;
 }
 
@@ -36,12 +32,14 @@ interface Props {
 // Reworked again 2026-09-10 (owner's third round): the needle used to be transparent from
 // the very first frame; now it starts solid and the hole opens up from the needle's own
 // centre over the hold, via `opened` below and .map-loading-scene's own clip-path transition
-// (see that CSS for the "closed" vs "open" polygons). HOLD_MS/ZOOM_MS moved into
-// mapOpenZoomTiming.ts, shared with ColonyMap.tsx/PublicColonyView.tsx so the real map's own
-// zoom-in lands at the same moment this one finishes.
+// (see that CSS for the "closed" vs "open" polygons). HOLD_MS/ZOOM_MS live in
+// mapOpenZoomTiming.ts. The real map underneath never moves (owner ask, 2026-09-12, after
+// three tried-and-reverted map-side zoom engines — D-041/D-042/D-043): it renders its actual
+// final view from the very first frame and just sits there, revealed once this scene's own
+// hole finishes opening — this component's zoom is the only thing animating.
 const FADE_MS = 200; // not a visible step — see onFinish below
 
-export function MapLoadingScreen({ colonyName, colonyId, ready, onZoomStart, onFinish }: Props) {
+export function MapLoadingScreen({ colonyName, colonyId, ready, onFinish }: Props) {
   const [opened, setOpened] = useState(false);
   const [zooming, setZooming] = useState(false);
   const [zoomDone, setZoomDone] = useState(false);
@@ -72,7 +70,6 @@ export function MapLoadingScreen({ colonyName, colonyId, ready, onZoomStart, onF
     if (reducedMotion) {
       setOpened(true);
       setZooming(true);
-      onZoomStart();
       setZoomDone(true);
       return;
     }
@@ -80,17 +77,14 @@ export function MapLoadingScreen({ colonyName, colonyId, ready, onZoomStart, onF
     // the very first paint (the closed needle) and only then flip, so the clip-path actually
     // has a "before" state to transition away from instead of mounting already-open.
     const open = setTimeout(() => setOpened(true), 30);
-    const startZoom = setTimeout(() => {
-      setZooming(true);
-      onZoomStart();
-    }, MAP_OPEN_HOLD_MS);
+    const startZoom = setTimeout(() => setZooming(true), MAP_OPEN_HOLD_MS);
     const finishZoom = setTimeout(() => setZoomDone(true), MAP_OPEN_HOLD_MS + MAP_OPEN_ZOOM_MS);
     return () => {
       clearTimeout(open);
       clearTimeout(startZoom);
       clearTimeout(finishZoom);
     };
-  }, [reducedMotion, onZoomStart]);
+  }, [reducedMotion]);
 
   useEffect(() => {
     if (!zoomDone || !ready || fadeStartedRef.current) return;

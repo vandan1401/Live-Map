@@ -56,7 +56,6 @@ describe("ColonyMap", () => {
         colonySvg={fixtureSvg}
         selectZoomRefWidthPx={null}
         selectZoomRefHeightPx={null}
-        zoomingIn={false}
         onBack={vi.fn()}
       />,
     );
@@ -72,7 +71,6 @@ describe("ColonyMap", () => {
         colonySvg={fixtureSvg}
         selectZoomRefWidthPx={null}
         selectZoomRefHeightPx={null}
-        zoomingIn={false}
         onBack={vi.fn()}
       />,
     );
@@ -89,7 +87,6 @@ describe("ColonyMap", () => {
         colonySvg={fixtureSvg}
         selectZoomRefWidthPx={null}
         selectZoomRefHeightPx={null}
-        zoomingIn={false}
         onBack={onBack}
       />,
     );

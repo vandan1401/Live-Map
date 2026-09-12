@@ -37,10 +37,6 @@ interface Props {
   // Returns to the colony picker (owner feedback, 2026-08-15 iPhone session: opening a
   // colony was previously one-way). App.tsx owns selectedColonyId and clears it here.
   onBack: () => void;
-  // From App.tsx's useColonyOpenSplash (owner ask, 2026-09-10) — true once MapLoadingScreen's
-  // own zoom has started; threaded straight through to useColonyCanvas.ts, which drives the
-  // map's own real Leaflet zoom-in on the same tick (useColonyOpenZoom.ts).
-  zoomingIn: boolean;
 }
 
 export function ColonyMap({
@@ -51,7 +47,6 @@ export function ColonyMap({
   selectZoomRefWidthPx,
   selectZoomRefHeightPx,
   onBack,
-  zoomingIn,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   // docs/plans/28.md Backlog #1: read by useColonyCanvas.ts to fade this out on zoom;
@@ -95,7 +90,6 @@ export function ColonyMap({
     selectedId,
     activeStatuses,
     showStatus,
-    zoomingIn,
     onSelect: useCallback((svgId: string | null) => setSelectedId(svgId), []),
     setOffline,
     setFreshnessLabel,

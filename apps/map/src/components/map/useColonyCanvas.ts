@@ -12,7 +12,6 @@ import { createColonyClickHandler } from "./colonyClickHandler.ts";
 import { StatusTransitions } from "./statusTransitions.ts";
 import { usePlotDimensions, type PlotDimensions } from "./usePlotDimensions.ts";
 import { useFlyToSelectedPlot } from "./useFlyToSelectedPlot.ts";
-import { useColonyOpenZoom } from "./useColonyOpenZoom.ts";
 import { colonyLatLngBounds, ZOOM_DETAIL_MARGIN } from "./view.ts";
 import { loadGrass } from "./loadGrass.ts";
 import { useCornerPlots } from "./useCornerPlots.ts";
@@ -35,7 +34,6 @@ interface Args {
   selectedId: string | null;
   activeStatuses: ReadonlySet<string>;
   showStatus: boolean; // StatusToggle.tsx, ColonyMap.tsx
-  zoomingIn: boolean; // App.tsx's useColonyOpenSplash mapZooming — see useColonyOpenZoom.ts
   onSelect: (svgId: string | null) => void;
   setOffline: (offline: boolean) => void;
   setFreshnessLabel: (label: string) => void;
@@ -61,7 +59,6 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
     selectedId,
     activeStatuses,
     showStatus,
-    zoomingIn,
     onSelect,
     backdropVignetteRef,
   } = args;
@@ -141,10 +138,6 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
     defaultZoomRef.current = map.getBoundsZoom(bounds);
     fitZoomRef.current = map.getBoundsZoom(colonyLatLngBounds(model.width, model.height));
     if (backdrop) applyBackdropMinZoom(map, backdrop); // must run before reading minZoom below
-    // Parks the map zoomed all the way out at the same centre, hidden behind
-    // MapLoadingScreen's splash — see useColonyOpenZoom.ts for why and for the animation
-    // back up to this fit view.
-    map.setView(map.getCenter(), map.getMinZoom(), { animate: false });
 
     let cancelled = false;
 
@@ -190,12 +183,10 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
 
     // The layer redraws itself on move/zoom; only this knows whether labels are allowed at
     // the new zoom, so the detail threshold is re-evaluated here. Skipped mid-flight
-    // (useColonyOpenZoom.ts's openZoomTo, useFlyToSelectedPlot.ts's flyTo): a non-animated
-    // setView fires 'zoomend' on every single rAF frame of a flight, so without this guard
-    // pushState — a real recompute over every plot's status, not a cheap no-op — ran on
-    // every frame in addition to the redraw the flight already triggers directly. Confirmed
-    // as a real, sustained fps cost during the 4.5s colony-open zoom, not just theoretical
-    // (the click-to-focus flyTo's own 400ms was too short for the same waste to be visible).
+    // (useFlyToSelectedPlot.ts's flyTo): a non-animated setView fires 'zoomend' on every
+    // single rAF frame of that flight, so without this guard pushState — a real recompute
+    // over every plot's status, not a cheap no-op — ran on every frame in addition to the
+    // redraw the flight already triggers directly (D-041).
     const onZoom = () => {
       if (!layerRef.current?.isFlying()) pushState.current();
     };
@@ -240,7 +231,6 @@ export function useColonyCanvas(args: Args): CanvasMapHandle {
   }, [selectedId, activeStatuses, showStatus]);
 
   useFlyToSelectedPlot(mapRef, modelRef, layerRef, selectedId, selectZoomRefWidthPx, selectZoomRefHeightPx);
-  useColonyOpenZoom(mapRef, layerRef, defaultZoomRef, zoomingIn);
 
   usePlotDimensions(client, colonyId, selectedId, dimensionsRef, useCallback(() => pushState.current(), []));
   useCornerPlots(client, colonyId, cornerPlotsRef, useCallback(() => pushState.current(), []));

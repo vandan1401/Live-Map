@@ -1,6 +1,9 @@
 # D-043: Colony-open zoom-in drives Leaflet's own native animated zoom
 
-**Status:** accepted
+**Status:** superseded by D-044 (2026-09-12, same day) — the owner decided against a
+map-side zoom-in entirely, not just against this particular mechanism for it. This decision
+is kept as the record of what was tried and why, in case a future session considers a
+map-side zoom-in again — read D-044 first regardless.
 **Date:** 2026-09-12
 
 ## Decision

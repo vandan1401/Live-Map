@@ -9,7 +9,6 @@ import { createColonyCanvasLayer, type ColonyCanvasLayer } from "./colonyCanvasL
 import { createColonyClickHandler } from "./colonyClickHandler.ts";
 import type { PlotDimensions } from "./usePlotDimensions.ts";
 import { useFlyToSelectedPlot } from "./useFlyToSelectedPlot.ts";
-import { useColonyOpenZoom } from "./useColonyOpenZoom.ts";
 import { colonyLatLngBounds, ZOOM_DETAIL_MARGIN } from "./view.ts";
 import { loadGrass } from "./loadGrass.ts";
 import { attachMapBackdrop, applyBackdropMinZoom, resolveBackdropFit } from "./useMapBackdrop.ts";
@@ -41,7 +40,6 @@ interface Args {
   statuses: Record<string, string>;
   selectedId: string | null;
   dimensions: PlotDimensions | null;
-  zoomingIn: boolean; // PublicColonyView.tsx's own mapZooming — see useColonyOpenZoom.ts
   onSelect: (svgId: string | null) => void;
   // docs/plans/26.md — COL-ZOOM-REF extent; null/null falls back to the fixed SELECT_ZOOM.
   selectZoomRefWidthPx: number | null;
@@ -50,7 +48,7 @@ interface Args {
 }
 
 export function usePublicColonyCanvas(args: Args): void {
-  const { containerRef, colonyId, svg, selectedId, zoomingIn, onSelect, backdropVignetteRef } = args;
+  const { containerRef, colonyId, svg, selectedId, onSelect, backdropVignetteRef } = args;
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<ColonyCanvasLayer | null>(null);
   const modelRef = useRef<ColonyModel | null>(null);
@@ -173,9 +171,6 @@ export function usePublicColonyCanvas(args: Args): void {
       defaultZoomRef.current = map.getBoundsZoom(bounds);
       fitZoomRef.current = map.getBoundsZoom(colonyLatLngBounds(model.width, model.height));
       if (backdrop) applyBackdropMinZoom(map, backdrop);
-      // Parks the map zoomed all the way out at this same centre, hidden behind
-      // MapLoadingScreen's splash — see useColonyOpenZoom.ts.
-      map.setView(map.getCenter(), map.getMinZoom(), { animate: false });
       pushState.current();
     };
     // jsdom (unit tests only — every real browser this app targets has supported
@@ -196,8 +191,7 @@ export function usePublicColonyCanvas(args: Args): void {
     if (resizeObserver) resizeObserver.observe(el);
     else fit();
 
-    // Skipped mid-flight — see useColonyCanvas.ts's own onZoom for why (a real, confirmed
-    // fps cost during the colony-open zoom, not just a theoretical one).
+    // Skipped mid-flight — see useColonyCanvas.ts's own onZoom for why (useFlyToSelectedPlot's flyTo, D-041).
     const onZoom = () => {
       if (!layerRef.current?.isFlying()) pushState.current();
     };
@@ -234,5 +228,4 @@ export function usePublicColonyCanvas(args: Args): void {
     args.selectZoomRefWidthPx,
     args.selectZoomRefHeightPx,
   );
-  useColonyOpenZoom(mapRef, layerRef, defaultZoomRef, zoomingIn);
 }
