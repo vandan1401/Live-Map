@@ -57,6 +57,29 @@ the tree builds locally — a commit of the index alone ships a broken build. **
 every `??` file, grep the tracked half of the diff for an import of it; a refactor that
 extracts a helper is the shape that produces exactly one untracked file.**
 
+**7th, 2026-09-12 (plan 31) — the plan-12 shape exactly, same non-goal file.** Plan 31 §4
+names "`contract/` … untouched" and §3 says "if implementing this surfaces a need for one,
+stop and report rather than improvising it inline". The diff nonetheless adds a whole
+`colony.backdrop` object to `contract/colony.schema.json` + `contract/SPEC.md` +
+`lib/db/types.ts`, and a new `applyManifestBackdrop()` DB write in `ColonyUploadScreen.tsx`,
+none of which appears in §2's tasks A–F. `PROGRESS.md` got no `## Deferred` entry. Every
+other finding in that pass lived in the unplanned half (pipeline never emits the field;
+`?? ""` attribution; replace overwrites tuned alignment; zero tests). **Rule confirmed twice
+on the same file: `contract/**` in the diff of a plan that lists it as a non-goal is a
+finding before you read a single line of it — and the unplanned half is where the real bugs
+are, both times.**
+
+**8th, 2026-09-13 (plan 32) — the mirror image: the plan's own §3/§4 name a path its §2
+commissions.** `docs/plans/32.md` §2 task H is an entire section of work in
+`tools/pipeline/`, while §3 (line 234) still reads "…and `tools/pipeline` stay untouched"
+and §4 (line 253) "`create_colony_from_manifest()`, `tools/pipeline`, any other manifest
+field — untouched" — leftovers from the draft before task H was appended. So my own rule
+("a §4 non-goal in the diff is a finding") fires on work the plan explicitly ordered, and a
+future session reading §4 will read task H's commit as scope creep. **Rule: when a plan has
+clearly grown a late task (owner quote dated after the plan's own header date, task letter
+out of sequence), diff §2's path list against §3/§4 before treating a §4 hit as a finding —
+and report the contradiction itself.**
+
 **How to apply:** every review, first tool call. If untracked files exist and are in scope
 for the plan, read them directly rather than reviewing only what the diff showed, and say
 in the report that the supplied diff was incomplete. Conversely, diff every changed file

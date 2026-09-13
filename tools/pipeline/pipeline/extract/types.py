@@ -8,6 +8,7 @@ touching anything downstream (tier-2.md, "format code stays at the edge").
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 Point = tuple[float, float]
 
@@ -59,6 +60,14 @@ class ColonyConfig:
     number_range: tuple[int, int]
     north_deg: float | None
     source: dict[str, str]
+    # Optional. A hand-aligned aerial-photo backdrop has no DXF source, so it can never be
+    # derived -- it is declared once in colonies/<id>.json and build_manifest() copies it
+    # through verbatim, unchanged, on every export: nothing in the drawing computes,
+    # constrains, or validates it (unlike select_zoom, which looks similar but is genuinely
+    # derived from COL-ZOOM-REF, not passed through). Defaulted (rather than required) so
+    # the 7 existing ColonyConfig(...) call sites that predate this field keep working
+    # unchanged.
+    backdrop: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)

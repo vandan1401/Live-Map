@@ -141,6 +141,19 @@ Occurrences so far:
     return;` is the tell — the `!image` case silently shares the cancel path, which does
     nothing on purpose.**
 
+14. 2026-09-12 (plan 31) — the *fourteenth* shape: **a `.then()` with no `.catch()` behind an
+    already-committed write, rendering a loading panel with no way out**.
+    `ColonyUploadScreen.tsx`'s new backdrop-stage effect does
+    `fetchColonyById(client, stage.colonyId).then((row) => setBackdropColony(row))`.
+    `fetchColonyById` *throws* on a Postgres error and *resolves `null`* when the row is not
+    visible — both leave `backdropColony === null`, and the null render is a bare
+    `.colony-upload-overlay` with "Loading…" and **no close button** (the "×" lives in the
+    other branch). The colony is already created and `verified: true` at that point, so the
+    user is locked out of an overlay over a successful upload. **Check: a loading placeholder
+    reached only after a successful write must carry the same dismiss affordance as the panel
+    it replaces, and every `.then()` in a new effect needs its `.catch()` and its
+    `row === null` branch.**
+
 **How to apply:** the fix is a nullable initial value plus an explicit "not yet" render
 ("Not synced yet"), or deriving initial state from the real signal at effect start rather
 than a hopeful literal. Related: [[review-vacuous-acceptance-tests]].

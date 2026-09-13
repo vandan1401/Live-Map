@@ -11,6 +11,11 @@ interface Props {
   client: SupabaseClient;
   colony: ColonyRow;
   onClose: () => void;
+  // docs/plans/31.md: optional context line shown above the usual hint paragraph — used
+  // when this screen is reached as a step right after ColonyUploadScreen.tsx's own
+  // create/replace succeeds, to say so. Omitted (and rendered as nothing) for any other
+  // caller.
+  introMessage?: string;
 }
 
 // Same "paint immediately, decode async" primitive admin-portal/static/backdropEditor.js's
@@ -32,12 +37,13 @@ function readImageDimensions(file: File): Promise<{ width: number; height: numbe
   });
 }
 
-// docs/plans/30.md: reachable from ColonyPicker.tsx (any signed-in org member, D-007 — no
-// role gating), calling lib/colony/colonyBackdrop.ts's two functions directly with the
+// docs/plans/30.md + docs/plans/31.md: reached as a step right after
+// ColonyUploadScreen.tsx's own create/replace succeeds (any signed-in org member, D-007 —
+// no role gating), calling lib/colony/colonyBackdrop.ts's two functions directly with the
 // authenticated app client, relying on that migration's Storage/colonies RLS. Reuses
 // colony-upload.css's overlay classes — same full-screen-panel shape as
 // ColonyUploadScreen.tsx, no new CSS.
-export function ColonyBackdropScreen({ client, colony, onClose }: Props) {
+export function ColonyBackdropScreen({ client, colony, onClose, introMessage }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<{ message: string; isError: boolean } | null>(null);
@@ -110,9 +116,16 @@ export function ColonyBackdropScreen({ client, colony, onClose }: Props) {
           ×
         </button>
         <h2 className="colony-upload-title">Backdrop — {colony.name}</h2>
+        {introMessage && <p className="colony-upload-summary">{introMessage}</p>}
         <p className="colony-upload-hint">
           A synthetic aerial photo shown under this colony's plots. Optional — most colonies
           have none.
+        </p>
+        <p className="colony-upload-hint">
+          If this colony's <code>colony.json</code> declares a <code>backdrop</code> block
+          (D-049), that value wins on the next upload/replace — copy any change you make
+          below back into <code>tools/pipeline/colonies/&lt;id&gt;.json</code>, or it will be
+          silently reverted next time this colony is re-exported.
         </p>
 
         <label className="colony-upload-field">

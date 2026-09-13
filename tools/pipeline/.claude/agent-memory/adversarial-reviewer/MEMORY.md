@@ -1,0 +1,1 @@
+- [CANONICAL STORE IS AT THE REPO ROOT](../../../../../.claude/agent-memory/adversarial-reviewer/MEMORY.md) — read and write `<repo>/.claude/agent-memory/adversarial-reviewer/` instead of this directory; reviews here span both halves of the repo, so the memory must too. Do not duplicate entries into this folder.

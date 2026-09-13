@@ -200,6 +200,88 @@ Three checks that have each caught a real defect:
     **Grep `NAVIGATION.md` for every function name in the diff's changed-files list, not just
     renamed/deleted ones.**
 
+20. **2026-09-12 (plan 31) — `contract/SPEC.md` declares a manifest field with no producer.**
+    The new `colony.backdrop` block is described as "the source of truth for the backdrop's
+    alignment/appearance", but `tools/pipeline/pipeline/export/manifest.py::build_manifest`
+    never emits it (checked: `colony_out` has 8 keys plus optional `select_zoom`), so the only
+    way it enters a `colony.json` is a hand-edit — which the next `make export` overwrites
+    wholesale, i.e. invariant 6 / D-118 ("no stage may hold a correction a rerun would
+    silently discard"), and invariant 1's "changing the contract means changing both halves in
+    one commit". **Rule: for every new optional field a diff adds to `colony.schema.json`,
+    grep the pipeline's emitter for the key. A field only the app writes/reads is either a
+    DB column or a rerun-losable hand-edit, never a manifest field.**
+
+21. **2026-09-13 (plans 31+32) — row 269 stale for the *third* consecutive plan, and the
+    escape hatch the docs name is removed by the other half of the same diff.** Two shapes
+    in one pass:
+    (a) `NAVIGATION.md:269` still says "Two callers today: … `features/colony-picker/
+    ColonyBackdropScreen.tsx`" after the file moved to `features/colony-upload/` and
+    `applyManifestBackdrop` became a third caller; `NAVIGATION.md:187` still documents the
+    per-row "Backdrop" button/`onBackdrop` the same diff deleted; `PROGRESS.md`'s `## Current`
+    still names "owner clicks 'Backdrop' on a real colony" as the next action. Item 19's rule
+    has now failed three plans running on the same row — **treat any diff touching
+    `colonyBackdrop.ts` or a `features/**` file move as requiring a NAVIGATION grep, not
+    optional.**
+    (b) `contract/SPEC.md` + the schema `description` tell the operator "omit the key entirely
+    on a routine geometry-fix replace to leave an existing backdrop untouched" — but task H of
+    the same plan makes `build_manifest()` emit `backdrop` on *every* export once
+    `colonies/<id>.json` declares it, so the documented opt-out is unreachable and the UI form
+    (kept, per §4, as the way to adjust values) is silently reverted on the next
+    re-export+upload. **Rule: when a diff adds a second writer for a value, check that the
+    escape hatch the docs promise is still reachable from the *new* pipeline, not just from
+    the one that existed when the sentence was written.**
+
+22. **2026-09-13 (plan 32, build pass) — fixing a false analogy introduced a *new* false
+    superlative in the same sentence.** Item 21(b)/`review_comments_outrun_code`'s "the same
+    way `select_zoom` is" was correctly repaired, but the replacement text now claims
+    `backdrop` is "**the only** field in `colony.json` that comes from the colony config
+    rather than the drawing" — `build_manifest()` (`export/manifest.py:76-83`) copies
+    `config.id`, `config.name` and `dict(config.source)` straight from the same
+    `colonies/<id>.json`. Repeated verbatim in 5 places (`contract/colony.schema.json:51`
+    description, `contract/SPEC.md:119`, `extract/types.py:66`, `PROGRESS.md:31`,
+    `docs/cad-layer-standard.md:181` as "unlike every other field above"), and
+    `DECISIONS.md:90`'s D-123 row still says "mirroring `select_zoom`'s passthrough" while
+    D-123's own body (line 47) explains select_zoom is *derived*, not a passthrough.
+    **Rule: a superlative in a doc ("the only", "the first", "unlike every other") is a
+    claim about a set — enumerate the set from the producer function before accepting it.
+    And when a review forces a doc rewrite, re-check the replacement sentence: the rewrite
+    is written from the same memory that produced the original error.**
+
+23. **2026-09-13, plans 31+32 — the superlative moved rather than went away.** #22's "the
+    only field from the config" was repaired, and in the same diff `NAVIGATION.md`'s
+    colony-onboarding row gained a new one: `ColonyBackdropScreen.tsx` is "the only
+    reachable entry point for setting a colony's backdrop image/alignment now that the
+    picker's per-row button is gone". `apps/map/admin-portal/backdropRoutes.ts` +
+    `static/backdropEditor.js` still exist and still write the same 8 columns with the
+    service-role key — and the *same NAVIGATION row two entries below* lists them as a
+    caller. Consequence beyond the doc: D-049's "copy your UI tweak back into
+    `colonies/<id>.json` or the next export/upload reverts it" warning was added to
+    `contract/SPEC.md`, the schema `description`, `docs/cad-layer-standard.md` and
+    `ColonyBackdropScreen.tsx`'s hint — but **not** to the admin-portal editor, which is the
+    other UI whose edits D-049 now silently reverts.
+    **Rule: when a diff removes one entry point, grep for the others before writing "the
+    only" — and when a warning is added to one write path, list every caller of the
+    underlying function and check each got it.**
+
+24. **2026-09-13 (plan 32, next pass) — #23 was reported and *not* fixed; both halves of it
+    are still in the tree.** `NAVIGATION.md:191` still ends "…the only reachable entry point
+    for setting a colony's backdrop image/alignment now that the picker's per-row button is
+    gone", while rows 269 and 280 of the same file still document
+    `apps/map/admin-portal/backdropRoutes.ts` + `static/backdropEditor.js` as live writers of
+    the same 8 columns (both files exist; `server.ts:25` imports `handleBackdropRoute`). And
+    `grep -rn "D-049\|colony.json" apps/map/admin-portal/` is still empty — the "copy your
+    tweak back into `colonies/<id>.json` or the next export reverts it" warning landed in
+    `contract/SPEC.md`, the schema `description`, `docs/cad-layer-standard.md` and
+    `ColonyBackdropScreen.tsx`'s hint, but not in the other UI it applies to.
+    **Rule: a doc finding is not closed until re-grepped in the next pass — a review that
+    triggers four documentation edits will look "addressed" while the fifth site, the one in
+    a different language/directory (here plain JS under `admin-portal/`), is silently
+    skipped. Re-run the previous pass's grep verbatim.**
+    *CLOSED 2026-09-13, next pass: `NAVIGATION.md:191` now reads "the only **in-app** entry
+    point … (the admin portal's own backdrop editor, row below, still writes the same
+    columns)", and `backdropEditor.js:76-85` carries the D-049 copy-it-back warning. Both
+    re-grepped. Keep the rule; do not re-litigate this instance.*
+
 **How to apply:** on any review that touches `CLAUDE.md`, `.claude/settings.json`, or a
 skill file, open `.claude/hooks/guard.sh` and `_json.sh` and check the greps in the same
 pass. This has now recurred ten times — worth a CLAUDE.md line or a guard.sh self-test.

@@ -5,6 +5,7 @@
 // since docs/plans/30.md's RLS/grant additions, with an ordinary signed-in org member's
 // authenticated client (ColonyBackdropScreen.tsx).
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { ColonyManifestBackdrop } from "../db/types.ts";
 
 const BACKDROP_BUCKET = "colony-backdrops";
 
@@ -100,4 +101,41 @@ export async function updateColonyBackdropTransform(
     .maybeSingle();
   if (error) throw new Error(`updateColonyBackdropTransform failed: ${error.message}`);
   if (!updated) throw new Error(`updateColonyBackdropTransform: colony "${colonyId}" not found, or you do not have access to it.`);
+}
+
+export type ApplyManifestBackdropResult =
+  | { applied: false }
+  | { applied: true; ok: true }
+  | { applied: true; ok: false; message: string };
+
+// docs/plans/32.md, D-049: colony.json's own `backdrop` block is authoritative when
+// present — a second caller of updateColonyBackdropTransform above, this one driven by an
+// upload's parsed manifest instead of ColonyBackdropScreen.tsx's form. Returns a result
+// rather than throwing so a bad manifest-driven write never blocks the upload it belongs
+// to (ColonyUploadScreen.tsx still lands the user on the backdrop stage either way).
+export async function applyManifestBackdrop(
+  client: SupabaseClient,
+  colonyId: string,
+  backdrop: ColonyManifestBackdrop | undefined,
+): Promise<ApplyManifestBackdropResult> {
+  if (!backdrop) return { applied: false };
+  try {
+    await updateColonyBackdropTransform(client, colonyId, {
+      x: backdrop.transform.x,
+      y: backdrop.transform.y,
+      scale: backdrop.transform.scale,
+      rotateDeg: backdrop.transform.rotate_deg,
+      darkenAlpha: backdrop.darken_alpha,
+      enabledOnAdmin: backdrop.enabled_on_admin,
+      enabledOnPublic: backdrop.enabled_on_public,
+      attribution: backdrop.attribution,
+    });
+    return { applied: true, ok: true };
+  } catch (error) {
+    return {
+      applied: true,
+      ok: false,
+      message: error instanceof Error ? error.message : "Could not apply colony.json's backdrop alignment.",
+    };
+  }
 }

@@ -22,9 +22,6 @@ interface Props {
   // Opens ColonyUploadScreen (docs/plans/11.md, D-025) — every signed-in family member is
   // an equal admin (D-007), so no role gating here.
   onUpload: () => void;
-  // Opens ColonyBackdropScreen for one colony (docs/plans/30.md) — same D-007 "no role
-  // gating" posture as onUpload above.
-  onBackdrop: (colonyId: string) => void;
   // Signs the current session out (owner ask, 2026-08-25: there was no way to switch
   // accounts on a shared device once signed in — App.tsx's signOut() was reachable only
   // from its own internal stale/invalid-session cases, never from a button).
@@ -34,7 +31,7 @@ interface Props {
 // Owner's original design: a list of colonies on open, tapping one opens its map.
 // `colonies` is pre-filtered to `verified: true` by App.tsx (see loadVerifiedColonies,
 // D-108) — this component never re-checks that, it just renders what it's given.
-export function ColonyPicker({ colonies, orgName, onSelect, freshnessLabel, onUpload, onBackdrop, onLogout }: Props) {
+export function ColonyPicker({ colonies, orgName, onSelect, freshnessLabel, onUpload, onLogout }: Props) {
   const heading = orgName ?? DEFAULT_HEADING;
 
   if (colonies.length === 0) {
@@ -71,9 +68,6 @@ export function ColonyPicker({ colonies, orgName, onSelect, freshnessLabel, onUp
               {colony.name}
             </button>
             <ShareLinkButton token={colony.public_token} />
-            <button type="button" className="colony-picker-share" onClick={() => onBackdrop(colony.id)}>
-              Backdrop
-            </button>
           </li>
         ))}
       </ul>

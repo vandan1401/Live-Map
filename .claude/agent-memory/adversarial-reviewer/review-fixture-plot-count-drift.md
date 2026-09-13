@@ -24,6 +24,25 @@ would drift." A fixture traced by hand from a photo **cannot** be reproduced by 
 are specified against has no achievable target. The plan's §4 wrote `tools/pipeline` off as
 "unrelated to this task" — that unwritten assumption *was* the finding.
 
+**2nd shape, 2026-09-13 (plan 32) — the doc's worked example *is* the fixture's own config
+file.** `docs/cad-layer-standard.md`'s "Colony config" JSON block is
+`tools/pipeline/colonies/shree-vatika-2.json` verbatim (same `id`, `name`,
+`expected_plots: 26`, same `source`), and the diff added a `backdrop` block to that example
+— while D-123 and plan 32 §2 H explicitly require the real `shree-vatika-2.json` **not** to
+declare one, because the golden fixture export must stay byte-identical. The doc the owner
+follows in AutoCAD now instructs them to edit the one config where the edit changes shared
+fixture output. **Rule: when a doc's example config/manifest carries the fixture colony's
+own id, any field added to the example is an instruction to change the fixture — check the
+real file and the plan's own "fixture must stay unchanged" clause against each other.**
+*CLOSED 2026-09-13, next pass: the example was swapped to `bharatkshetra`'s real config
+(verified field-by-field against `tools/pipeline/colonies/bharatkshetra.json`) plus an
+explicit "Never add a `backdrop` key to `tools/pipeline/colonies/shree-vatika-2.json`
+itself". Note `contract/SPEC.md`'s `colony.json` example still carries `"id":
+"shree-vatika-2"` and also gained a `backdrop` block — **not** the same hazard, because that
+example already diverges from the real fixture in `viewbox` (720 vs 1390), `select_zoom`
+(fixture has none) and `source.file` ("..."), so it reads as illustrative. Check that
+divergence before flagging it.*
+
 **How to apply:** treat "which repo-wide claims does this fixture underwrite?" as a
 standing question, the same way [[review-fixture-geometry-unchecked]] treats "which derived
 values could have been typed by hand?". `grep -rn "45 plot\|demo-plan" --include=*.md .`

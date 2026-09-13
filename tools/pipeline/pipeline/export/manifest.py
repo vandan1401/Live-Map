@@ -88,6 +88,11 @@ def build_manifest(
             "ref_width_px": round(width_px, 2),
             "ref_height_px": round(height_px, 2),
         }
+    if config.backdrop is not None:
+        # A backdrop has no DXF source -- this is a verbatim passthrough of whatever the
+        # colony config declares, not a derived value. contract/colony.schema.json's own
+        # schema validation (run_qa's first check) is what catches a malformed value.
+        colony_out["backdrop"] = config.backdrop
 
     return {
         "colony": colony_out,

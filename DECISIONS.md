@@ -59,6 +59,7 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-046 | A flight's per-frame tick calls Leaflet's internal `_move()`, not the public `setView()` — one real `setView` only on the flight's last frame, mirroring TouchZoom's own live-pinch-then-settle shape | accepted |
 | D-047 | Colony backdrop raster + alignment move from a Vite static import + checked-in JSON to a Supabase Storage object + `colonies.backdrop_*` columns, uploadable via the admin portal — narrows D-034's "resolved client-side" precedent to just the remaining `labels` field | superseded by D-048 (write-path only; the Storage/columns mechanism itself stands) |
 | D-048 | Colony backdrop is also writable by an ordinary signed-in org member from inside the app, via narrow column-level `colonies` grants + Storage RLS reused by the same functions D-047 introduced — the admin portal's own write path is kept, not replaced | accepted |
+| D-049 | Colony backdrop alignment can also be declared in `colony.json` itself, alongside `select_zoom`; when present it is authoritative on every create/replace, overwriting the colony's current alignment — omitting the key is the only way to leave it untouched. Reuses D-047/D-048's write path unchanged (a second caller, not a new mechanism) | accepted |
 
 ## tools/pipeline
 
@@ -86,6 +87,7 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-120 | `px_per_ft` is derived at export time (`1000 / site_width_ft`), never read from colony config | accepted |
 | D-121 | Verify page's `make serve` targets serve the repo root, not just `verify/` | accepted |
 | D-122 | A `COL-FEATURE-NO` label unmatched to any ring is a road/pathway annotation, not a matching error; per-kind feature-label visibility is a pipeline-side toggle, not something `apps/map` filters | accepted |
+| D-123 | `ColonyConfig` gains an optional `backdrop` field, read from `colonies/<id>.json` and copied verbatim into the exported manifest by `build_manifest()` — the pipeline propagates a hand-declared backdrop through every re-export without ever deriving one, since a backdrop has no DXF source (unlike `select_zoom`, which is genuinely derived from `COL-ZOOM-REF`, this is a plain passthrough) | accepted |
 
 ## Both
 

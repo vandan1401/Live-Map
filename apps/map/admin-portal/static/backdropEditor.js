@@ -73,6 +73,17 @@ function buildBackdropRow(colony) {
     fieldRow.appendChild(wrapper);
   }
 
+  // docs/plans/32.md, D-049: if this colony's tools/pipeline/colonies/<id>.json declares
+  // a `backdrop` block, that config wins on the next upload/replace — a save made here
+  // must be copied back into that file, or it is silently reverted next export. Same
+  // warning as ColonyBackdropScreen.tsx's own hint text, in-app.
+  const backdropJsonHint = document.createElement("p");
+  backdropJsonHint.className = "backdrop-editor-hint";
+  backdropJsonHint.textContent =
+    "If this colony's colony.json declares a backdrop block (D-049), that value wins on " +
+    "the next upload/replace — copy any change you make here back into " +
+    "tools/pipeline/colonies/<id>.json, or it will be silently reverted next export.";
+
   const saveButton = document.createElement("button");
   saveButton.textContent = "Save alignment";
   saveButton.addEventListener("click", async () => {
@@ -95,6 +106,7 @@ function buildBackdropRow(colony) {
 
   td.appendChild(fileInput);
   td.appendChild(uploadButton);
+  td.appendChild(backdropJsonHint);
   td.appendChild(fieldRow);
   td.appendChild(saveButton);
   tr.appendChild(td);

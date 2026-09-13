@@ -101,6 +101,37 @@ Occurrences so far:
     seven-field form is a silent deletion, and the plan's own "values to re-enter after the
     regression window" list is where the omission shows up first.**
 
+11. 2026-09-12 (plan 31) — the `?? ""` came back one plan after #10 fixed it, now on the
+    *read* side of the manifest. `contract/colony.schema.json`'s new `colony.backdrop` makes
+    `attribution` the one optional key, and `ColonyUploadScreen.tsx`'s `applyManifestBackdrop`
+    writes `attribution: backdrop.attribution ?? ""` into `backdrop_attribution` — so a
+    manifest that declares a backdrop but omits the credit *overwrites* an existing non-empty
+    ODbL credit with the empty string that #10 was raised to eliminate, silently, on every
+    re-upload. `colonyBackdrop.ts:69-74` documents that field as "a real attribution
+    obligation, not decorative" and cites #10 by date. **Rule: when a credit column gains a
+    *new* writer, the new writer must be unable to blank it — make the field required in the
+    schema or omit it from the update payload when absent; never `?? ""`.**
+
+12. 2026-09-13 (plan 32, review pass) — **the credit degraded in a worked *example*, one file
+    away from the code, at the moment a new mechanism made that example authoritative.**
+    D-049/D-123 make `tools/pipeline/colonies/<id>.json` the authoritative writer of
+    `colonies.backdrop_attribution` on every export+upload. The diff's new worked example in
+    `docs/cad-layer-standard.md` (and `contract/SPEC.md`) declares
+    `"attribution": "OpenStreetMap contributors (ODbL)"` — the *tile* credit, not the
+    Produced-Work notice `docs/plans/28.md:286` deliberately chose for this raster
+    ("Backdrop and place/road labels contain information from OpenStreetMap © OpenStreetMap
+    contributors (ODbL)"), after #9 made exactly that distinction. Amplifiers: the doc says
+    "this example is `bharatkshetra`'s own real config" and the other four backdrop values
+    (x 864 / y 283 / scale 0.105 / darken 0.65) **are** bharatkshetra's real values
+    (`git show HEAD~3:apps/map/src/config/mapBackdrop.json`), so the string reads as real
+    too; and plan 29 deleted `attribution` from `mapBackdrop.json`, so this doc is now the
+    **only** place in the tree an operator can find any credit string at all (`grep -rn
+    "OpenStreetMap"` → only tests, this doc, SPEC, and plan 28's prose).
+    **Rule: when a diff adds a config *example* for a field that carries a licence/provenance
+    obligation, diff the example's value against the real value the project already chose,
+    and check whether any file still holds that real value — an example is a default once the
+    only other copy has been deleted.**
+
 **How to apply:** the fix is always the same — make the guarantee structural (pass the actor
 as a required prop from the component that already enforces it) or refuse the write. Related:
 [[review-vacuous-acceptance-tests]], [[review-gitignored-provenance]].

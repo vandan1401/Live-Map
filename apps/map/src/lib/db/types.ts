@@ -160,6 +160,17 @@ export interface ColonyManifestPlot {
   is_corner: boolean;
 }
 
+// docs/plans/32.md, D-049: the shape of colony.json's optional backdrop block, exported so
+// lib/colony/colonyBackdrop.ts's applyManifestBackdrop() can take one without redeclaring
+// it. attribution is required — no `?? ""` anywhere it's read, see ColonyManifest.backdrop.
+export interface ColonyManifestBackdrop {
+  transform: { x: number; y: number; scale: number; rotate_deg: number };
+  darken_alpha: number;
+  enabled_on_admin: boolean;
+  enabled_on_public: boolean;
+  attribution: string;
+}
+
 export interface ColonyManifest {
   colony: {
     id: string;
@@ -171,6 +182,11 @@ export interface ColonyManifest {
     // rectangle. Unlike viewbox/scale/north_deg/etc. (deliberately never read by this app,
     // see the comment above ColonyManifestPlot), this one the app does consume.
     select_zoom?: { ref_width_px: number; ref_height_px: number };
+    // Optional (docs/plans/32.md, D-049) — when present, authoritative for this colony's
+    // backdrop alignment: applied on every create/replace, overwriting whatever the colony
+    // currently has. attribution is required, not `?? ""` anywhere it's read — an omitted
+    // credit must fail schema validation, never silently blank the column.
+    backdrop?: ColonyManifestBackdrop;
   };
   plots: ColonyManifestPlot[];
 }

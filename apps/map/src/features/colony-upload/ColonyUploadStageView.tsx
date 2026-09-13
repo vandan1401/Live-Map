@@ -8,11 +8,24 @@ export type Stage =
   | { kind: "uploading"; manifest: ColonyManifest; svg: string; replace: boolean }
   | { kind: "exists"; manifest: ColonyManifest; svg: string }
   | { kind: "orphan"; missingSvgIds: string[] }
-  | { kind: "done"; colonyId: string }
+  // docs/plans/31.md: reached on a successful create/replace, in place of the old "done"
+  // stage — ColonyUploadScreen.tsx intercepts this kind itself (renders
+  // ColonyBackdropScreen.tsx directly) and never passes it down to this component; see
+  // StageViewStage below. `intro` is computed once, at the transition into this stage, so
+  // it can say whether the manifest declared its own backdrop alignment and whether
+  // applying it succeeded — recomputing that from separate booleans at render time would
+  // duplicate the same branching twice.
+  | { kind: "backdrop"; colonyId: string; intro: string }
   | { kind: "failed"; message: string };
 
+// This component only ever renders the stages that stay inside the shared
+// overlay/panel — "backdrop" is handled by ColonyUploadScreen.tsx before it ever reaches
+// here (docs/plans/31.md). Excluding it from Props.stage lets the final fallback branch
+// below narrow to exactly {kind: "failed"} instead of needing its own dead branch.
+type StageViewStage = Exclude<Stage, { kind: "backdrop" }>;
+
 interface Props {
-  stage: Stage;
+  stage: StageViewStage;
   jsonFile: File | null;
   svgFile: File | null;
   confirmed: boolean;
@@ -23,7 +36,6 @@ interface Props {
   onRetry: () => void;
   onConfirmedChange: (value: boolean) => void;
   onUpload: (manifest: ColonyManifest, svg: string, replace: boolean) => void;
-  onDone: () => void;
 }
 
 // Pure rendering per Stage — split out of ColonyUploadScreen.tsx to stay under the
@@ -41,7 +53,6 @@ export function ColonyUploadStageView({
   onRetry,
   onConfirmedChange,
   onUpload,
-  onDone,
 }: Props) {
   if (stage.kind === "picking") {
     return (
@@ -164,17 +175,6 @@ export function ColonyUploadStageView({
         </p>
         <button type="button" className="colony-upload-retry" onClick={onRetry}>
           Choose other files
-        </button>
-      </>
-    );
-  }
-
-  if (stage.kind === "done") {
-    return (
-      <>
-        <p className="colony-upload-summary">"{stage.colonyId}" is live.</p>
-        <button type="button" className="colony-upload-confirm" onClick={onDone}>
-          Done
         </button>
       </>
     );

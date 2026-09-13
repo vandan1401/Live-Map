@@ -142,22 +142,35 @@ here, never in code (`spec/00-rules.md`).
 
 ```json
 {
-  "id": "shree-vatika-2",
-  "name": "Shree Vatika Phase 2",
+  "id": "bharatkshetra",
+  "name": "Bharatkshetra",
   "units": "ft",
-  "expected_plots": 26,
-  "blocks": ["A"],
+  "expected_plots": 70,
+  "blocks": ["E", "L"],
+  "default_block": null,
   "number_width": 2,
   "number_range": [1, 60],
   "north_deg": null,
   "source": {
-    "file": "shree-vatika-2-as-sold.dwg",
-    "revision": "Rev D (as sold)",
-    "plan_date": "2019-11-04",
+    "file": "bharatkshetra-working-web.dxf",
+    "revision": "working",
+    "plan_date": "2026-08-29",
     "method": "dxf"
+  },
+  "backdrop": {
+    "transform": { "x": 864, "y": 283, "scale": 0.105, "rotate_deg": 0 },
+    "darken_alpha": 0.65,
+    "enabled_on_admin": true,
+    "enabled_on_public": true,
+    "attribution": "Backdrop and place/road labels contain information from OpenStreetMap © OpenStreetMap contributors (ODbL)"
   }
 }
 ```
+
+This example is `bharatkshetra`'s own real config (with an illustrative `backdrop` block
+added) — deliberately not `shree-vatika-2`, the shared fixture `fixtures/shree-vatika-2/`
+depends on byte-for-byte (CLAUDE.md's "one shared colony, deliberately" rule). Never add a
+`backdrop` key to `tools/pipeline/colonies/shree-vatika-2.json` itself.
 
 `expected_plots` is what makes M14's QA gate able to catch a plot you missed while cleaning
 up. Fill it in from the sanctioned layout, not from what the drawing appears to contain.
@@ -170,6 +183,14 @@ which is most of them. `north_deg: null` means "read it from `COL-NORTH`".
 correct in AutoCAD, and no geometry check catches it. Declaring the range the colony's
 numbering actually spans turns it into a hard error. Set it generously; it exists to catch
 a typo, not to enforce contiguity, and gaps in numbering are fine.
+
+`backdrop` is optional and has no source in the drawing at all — a plain passthrough with
+nothing here to compute, constrain, or validate it against. Declare it once to have every
+future export carry it into `colony.json` verbatim (D-049/D-123, `contract/SPEC.md`). Once
+declared here, this file is the value's home: an alignment tweak made afterwards in the
+app's own backdrop screen must
+be copied back into this block, or the next export/upload silently reverts it. Delete the
+block to hand the value back to the app's UI permanently.
 
 ## Two rules before you touch a drawing
 

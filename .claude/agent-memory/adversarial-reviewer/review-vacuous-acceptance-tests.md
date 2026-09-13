@@ -209,6 +209,26 @@ regression test has to compare the value — recording `setMaxBounds` as the bar
 `"setMaxBounds"` documents that a call happened and nothing about whether it was right.**
 Related: [[review-prototype-envelope-mismatch]].
 
+**18th recurrence, 2026-09-13 (plans 31+32) — recurrence #9's `make golden` finding, verbatim,
+three weeks later.** `tools/pipeline/tests/test_golden.py` is *still* a 15-line
+`@pytest.mark.skip(reason="pipeline/export/ not built yet — M13")` stub whose body is
+`raise NotImplementedError`, even though `pipeline/export/` has existed and `orchestrate_export`
+has worked since M13. `make golden` = `pytest -q -k golden` = **`1 passed, 1 skipped`**, and the
+one that passes is `test_geom.py::test_area_sqft_matches_golden_manifest_within_one_percent`.
+`gate: verify golden`, so the whole-repo gate never reproduces `fixtures/shree-vatika-2/` from
+its DXF — CLAUDE.md states that reproduction as a rule ("the pipeline's golden test must
+reproduce both from `colony.dxf` in the same directory"). Plan 32's §5 acceptance criterion
+("golden fixture output stays byte-identical") and the new `PROGRESS.md` `## Current` entry
+("`mingw32-make -C tools/pipeline golden` byte-identical") both cite it as passed evidence.
+`git status fixtures/` being clean proves nothing either — nothing regenerated them.
+**Rule: a permanently-skipped stub is a green target forever. Any `make <target>` cited as
+evidence must be re-run with `-rs`/`-v` and the skip lines read; and when a review has already
+flagged a skipped test once, re-check it every pass rather than assuming it was fixed.**
+*Partly closed 2026-09-13, next pass: `PROGRESS.md`'s `## Current` now carries an explicit
+"Correction against this entry's own first draft" retracting the byte-identity claim and
+citing `git status fixtures/` instead. The stub itself is still skipped — the open item is
+`test_golden.py`, not the claim. Re-verified: `pytest -q -rs` → 133 passed, 1 skipped.*
+
 **How to apply:** the local Supabase Docker stack is usually up
 (`docker exec supabase_db_colony-map psql -U postgres -d postgres -c "..."`). Postgres's
 `CONTEXT:` line names the exact failing SQL statement — one command settles it. For a
