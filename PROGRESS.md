@@ -1762,6 +1762,37 @@
 
 ## Log
 
+### 2026-09-13 — Backdrop upload consolidated onto the colony-upload screen, any image format (Tier 1, docs/plans/33.md + 34.md, D-049)
+
+- Done: backdrop JPEG/PNG/WebP/GIF upload is now a third optional input directly on
+  `ColonyUploadScreen`'s picking stage, uploaded in the same action as `colony.json`/
+  `colony.svg`; the separate post-upload `ColonyBackdropScreen.tsx` is deleted, not kept
+  as a fallback — `colony.json`'s `backdrop` block (D-049) is the only alignment path now.
+  A new migration fixes the storage RLS policies (hardcoded to `.jpg`) to accept any
+  extension. `bharatkshetra`'s lost alignment config was restored.
+- Next: owner applies `20260913000000_colony_backdrop_any_image_format.sql` to production
+  (same checklist as every prior migration, see Deferred); re-upload bharatkshetra's real
+  backdrop image for real (the JPEG used to verify this locally was a converted stand-in
+  from `experiments/map-texture-poc/`, not the original).
+- Surprises: moving `readImageDimensions`/`readBackdropImageFile` into the shared
+  `colonyBackdrop.ts` broke `pnpm typecheck` project-wide via `tsc -b`'s project-reference
+  build (Node-only `tsconfig.node.json` also compiles that file, transitively, through
+  `admin-portal/backdropRoutes.ts`'s import) — invisible checking `tsconfig.app.json`
+  alone; fixed by splitting the DOM-only helpers into their own file. Separately, the
+  storage-RLS `.jpg`-only regex bug was found live by the owner testing a non-jpg upload,
+  not caught by any of this session's own test-writing — the org-scoping half of those
+  policies was exercised by the live test suite, but no test ever tried a non-jpg upload
+  against the real policies (both `colonyBackdrop.test.ts`'s new format tests were unit
+  tests against `detectImageFormat` in isolation, not against the real Storage RLS).
+- Verified: full gate — `pnpm typecheck`/`pnpm lint` clean, `pnpm exec vitest run
+  --no-file-parallelism` 291/295 (4 pre-existing anon-grant-drift failures, documented,
+  unrelated to this diff — no `subscribePlots` flake this run), `pnpm build` clean,
+  `dist/` clean of `admin-portal`; `tools/pipeline` `pytest -q` 133/1 skipped,
+  `test_contract.py` 4/4 — both byte-identical to baseline. Live Storage-RLS tests
+  (`colonyBackdrop.test.ts` + `colonyBackdropRls.test.ts`) 17/17 both before and after the
+  RLS-policy fix, plus a real end-to-end upload confirmed working by the owner in the
+  running app. `/review` skipped this session per owner instruction.
+
 ### 2026-09-12 — Colony backdrop also reachable from the app itself (Tier 1, docs/plans/30.md, D-048)
 
 - Done: a new migration opens narrow, column-scoped RLS write access (Storage + 11
@@ -3337,6 +3368,21 @@ on a real phone. Not verified by anyone: the five visual behaviours in `## Curre
 
 ## Deferred
 
+- **`20260913000000_colony_backdrop_any_image_format.sql` has only been applied to the
+  local Docker Supabase, not to the real production Supabase project.** Same
+  DB-before-deploy ordering as every prior migration (see `## Current`'s dated entry for
+  the full mechanism) — owner applies via Dashboard SQL Editor, then confirms live with a
+  real non-`.jpg` backdrop upload against production (a `.jpg` upload would still "work"
+  against the old, unpatched policy, since `.jpg` was always the one extension it
+  recognized — only a `.png`/`.webp`/`.gif` upload actually proves the fix landed).
+- **The real `bharatkshetra.jpg` binary was never restored to the repo.** It was deleted
+  from `apps/map/src/assets/` in an earlier session (the backdrop-storage rework) and
+  never re-uploaded since. The alignment values are back
+  (`tools/pipeline/colonies/bharatkshetra.json`'s `backdrop` block), and the owner
+  confirmed a working end-to-end upload using a converted stand-in
+  (`experiments/map-texture-poc/bharatkshetra_composite_final.png` → `.jpg`, gitignored,
+  local-only) — but that stand-in is not necessarily the real photo the colony should
+  ship with. Whoever has the original should re-upload it for real through the app.
 - ~~Owner ask, 2026-09-12, not built: let `colony.json` declare a colony's backdrop
   alignment directly...~~ **Resolved 2026-09-13, docs/plans/32.md, D-049.** Built properly
   this time, both open questions from the reverted attempt answered on purpose: **JSON is

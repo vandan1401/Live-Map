@@ -60,6 +60,8 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-047 | Colony backdrop raster + alignment move from a Vite static import + checked-in JSON to a Supabase Storage object + `colonies.backdrop_*` columns, uploadable via the admin portal — narrows D-034's "resolved client-side" precedent to just the remaining `labels` field | superseded by D-048 (write-path only; the Storage/columns mechanism itself stands) |
 | D-048 | Colony backdrop is also writable by an ordinary signed-in org member from inside the app, via narrow column-level `colonies` grants + Storage RLS reused by the same functions D-047 introduced — the admin portal's own write path is kept, not replaced | accepted |
 | D-049 | Colony backdrop alignment can also be declared in `colony.json` itself, alongside `select_zoom`; when present it is authoritative on every create/replace, overwriting the colony's current alignment — omitting the key is the only way to leave it untouched. Reuses D-047/D-048's write path unchanged (a second caller, not a new mechanism) | accepted |
+| D-050 | Backdrop image upload lives on the colony-upload picking screen, in the same action as `colony.json`/`colony.svg` — the separate post-upload `ColonyBackdropScreen.tsx` is deleted, not kept as a fallback; there is no in-app manual alignment-editing UI any more (only D-049's `colony.json` path) | accepted |
+| D-051 | Backdrop upload accepts any image format (JPEG/PNG/WebP/GIF) via magic-number detection, not JPEG-only — storage path becomes `<colonyId>.<ext>`, a format-changing re-upload removes the old object, and the Storage RLS policies' colony-id extraction is generalized to strip any extension, not just `.jpg` | accepted |
 
 ## tools/pipeline
 
