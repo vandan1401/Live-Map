@@ -6,12 +6,16 @@ import {
   validateColonyManifest,
 } from "../../lib/colony/parseColonyManifest.ts";
 import { createColonyFromManifest } from "../../lib/colony/createColonyFromManifest.ts";
-import { applyManifestBackdrop } from "../../lib/colony/colonyBackdrop.ts";
-import { fetchColonyById } from "../../lib/db/colonies.ts";
+import {
+  applyManifestBackdrop,
+  composeBackdropIntro,
+  uploadColonyBackdropImage,
+  type BackdropImageResult,
+} from "../../lib/colony/colonyBackdrop.ts";
+import { readBackdropImageFile } from "../../lib/colony/backdropImageFile.ts";
 import { renderColonyPreview } from "../../components/map/renderColonyPreview.ts";
-import type { ColonyManifest, ColonyRow } from "../../lib/db/types.ts";
+import type { ColonyManifest } from "../../lib/db/types.ts";
 import { ColonyUploadStageView, type Stage } from "./ColonyUploadStageView.tsx";
-import { ColonyBackdropScreen } from "./ColonyBackdropScreen.tsx";
 
 interface Props {
   client: SupabaseClient;
@@ -27,49 +31,9 @@ export function ColonyUploadScreen({ client, onClose }: Props) {
   const [stage, setStage] = useState<Stage>({ kind: "picking" });
   const [jsonFile, setJsonFile] = useState<File | null>(null);
   const [svgFile, setSvgFile] = useState<File | null>(null);
+  const [backdropFile, setBackdropFile] = useState<File | null>(null);
   const [confirmed, setConfirmed] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
-  // docs/plans/31.md: the freshly-created/replaced colony's own row, fetched once the
-  // "backdrop" stage is reached — create_colony_from_manifest() only returns { colonyId },
-  // not a full row, and ColonyBackdropScreen needs the real backdrop_* values to prefill
-  // (defaults for a brand-new colony, or a replace's already-tuned ones).
-  const [backdropColony, setBackdropColony] = useState<ColonyRow | null>(null);
-
-  useEffect(() => {
-    if (stage.kind !== "backdrop") {
-      setBackdropColony(null);
-      return;
-    }
-    let cancelled = false;
-    const colonyId = stage.colonyId;
-    fetchColonyById(client, colonyId)
-      .then((row) => {
-        if (cancelled) return;
-        if (!row) {
-          // The colony was just created/replaced by this same screen — a null result
-          // right after that means something is genuinely wrong, not a normal case to
-          // paper over. Route to "failed" (the normal overlay/panel, with its own close
-          // button) rather than leaving the "Loading…" panel below up forever
-          // (/review finding, 2026-09-12: a fetch error/null previously had no way out).
-          setStage({
-            kind: "failed",
-            message: `Colony "${colonyId}" was created, but could not be re-loaded to set its backdrop. Check the colony list — it should still be there.`,
-          });
-          return;
-        }
-        setBackdropColony(row);
-      })
-      .catch((error: unknown) => {
-        if (cancelled) return;
-        setStage({
-          kind: "failed",
-          message: error instanceof Error ? error.message : "Could not load the colony after upload.",
-        });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [client, stage]);
 
   // D-025's verification gate. This must render through the SAME renderer as the map
   // (docs/plans/18.md): it is the only thing a human sees before `verified: true` is
@@ -134,23 +98,34 @@ export function ColonyUploadScreen({ client, onClose }: Props) {
   };
 
   // docs/plans/32.md, D-049: colony.json's own `backdrop` block, when present, is
-  // authoritative — applied here, unconditionally, on every create and every replace,
-  // before the "backdrop" stage renders. Omitting `backdrop` from the manifest must never
-  // call applyManifestBackdrop's underlying write at all (its own `applied: false` early
-  // return) — that is what makes "leave untouched" actually true on a routine replace.
+  // authoritative — applied here, unconditionally, on every create and every replace.
+  // docs/plans/33.md: the backdrop image, when picked on the picking stage, uploads here
+  // too, in the same action — both are non-blocking (own try/catch, never fail the whole
+  // upload) since the colony row above is already the one irreversible write that matters.
+  // Omitting `backdrop` from the manifest must never call applyManifestBackdrop's
+  // underlying write at all (its own `applied: false` early return) — that is what makes
+  // "leave untouched" actually true on a routine replace.
   const upload = (manifest: ColonyManifest, svg: string, replace: boolean) => {
     setStage({ kind: "uploading", manifest, svg, replace });
     createColonyFromManifest(client, manifest, svg, replace)
       .then(async (result) => {
         if (result.ok) {
           const backdropResult = await applyManifestBackdrop(client, result.colonyId, manifest.colony.backdrop);
-          const intro =
-            !backdropResult.applied
-              ? `Colony "${result.colonyId}" is live. Optionally set its backdrop below.`
-              : backdropResult.ok
-                ? `Colony "${result.colonyId}" is live. Its backdrop alignment from colony.json has been applied — attach the image below.`
-                : `Colony "${result.colonyId}" is live. Could not apply colony.json's backdrop alignment (${backdropResult.message}) — set it manually below.`;
-          setStage({ kind: "backdrop", colonyId: result.colonyId, intro });
+          let imageResult: BackdropImageResult = null;
+          if (backdropFile) {
+            try {
+              const image = await readBackdropImageFile(backdropFile);
+              await uploadColonyBackdropImage(client, result.colonyId, image);
+              imageResult = { ok: true };
+            } catch (error) {
+              imageResult = {
+                ok: false,
+                message: error instanceof Error ? error.message : "Could not upload the backdrop image.",
+              };
+            }
+          }
+          const intro = composeBackdropIntro({ colonyId: result.colonyId, backdropResult, imageResult });
+          setStage({ kind: "done", intro });
         } else if (result.reason === "colony_exists") {
           // Reset — reaching this stage requires confirmed === true from the prior
           // Upload click; without this the "Replace" checkbox would arrive pre-ticked
@@ -176,27 +151,6 @@ export function ColonyUploadScreen({ client, onClose }: Props) {
       });
   };
 
-  // docs/plans/31.md: the "backdrop" stage renders ColonyBackdropScreen directly, its own
-  // full overlay, instead of the shared panel below — closing it closes the whole upload
-  // flow (the same `onClose` this screen already received), no separate "done" confirmation.
-  if (stage.kind === "backdrop") {
-    if (!backdropColony) {
-      return (
-        <div className="colony-upload-overlay">
-          <div className="colony-upload-panel">
-            <button type="button" className="colony-upload-close" aria-label="Close" onClick={onClose}>
-              ×
-            </button>
-            <p className="colony-upload-summary">Loading…</p>
-          </div>
-        </div>
-      );
-    }
-    return (
-      <ColonyBackdropScreen client={client} colony={backdropColony} introMessage={stage.intro} onClose={onClose} />
-    );
-  }
-
   return (
     <div className="colony-upload-overlay">
       <div className="colony-upload-panel">
@@ -216,6 +170,7 @@ export function ColonyUploadScreen({ client, onClose }: Props) {
           previewRef={previewRef}
           onJsonFile={setJsonFile}
           onSvgFile={setSvgFile}
+          onBackdropFile={setBackdropFile}
           onContinue={validateAndContinue}
           onRetry={() => setStage({ kind: "picking" })}
           onConfirmedChange={setConfirmed}

@@ -1,19 +1,41 @@
 import { afterAll, describe, expect, it } from "vitest";
-import { uploadColonyBackdropImage, updateColonyBackdropTransform, isJpegBuffer } from "./colonyBackdrop.ts";
+import { uploadColonyBackdropImage, updateColonyBackdropTransform, detectImageFormat } from "./colonyBackdrop.ts";
 import { createScratchOrg, serviceRoleClient } from "../auth/testHelpers.ts";
 import { insertColony, fetchColonyById } from "../db/colonies.ts";
 
-describe("isJpegBuffer", () => {
-  it("accepts a real JPEG magic number", () => {
-    expect(isJpegBuffer(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]))).toBe(true);
+// docs/plans/34.md: owner ask — allow any image format, not JPEG-only.
+describe("detectImageFormat", () => {
+  it("recognizes a real JPEG magic number", () => {
+    expect(detectImageFormat(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]))).toEqual({
+      ext: "jpg",
+      contentType: "image/jpeg",
+    });
   });
 
-  it("rejects a PNG magic number", () => {
-    expect(isJpegBuffer(new Uint8Array([0x89, 0x50, 0x4e, 0x47]))).toBe(false);
+  it("recognizes a real PNG magic number", () => {
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    expect(detectImageFormat(png)).toEqual({ ext: "png", contentType: "image/png" });
+  });
+
+  it("recognizes a real WebP magic number", () => {
+    // "RIFF" + 4 length bytes (ignored) + "WEBP"
+    const webp = new Uint8Array([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50]);
+    expect(detectImageFormat(webp)).toEqual({ ext: "webp", contentType: "image/webp" });
+  });
+
+  it("recognizes a real GIF magic number (both GIF87a and GIF89a)", () => {
+    const gif89a = new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x39, 0x61]);
+    const gif87a = new Uint8Array([0x47, 0x49, 0x46, 0x38, 0x37, 0x61]);
+    expect(detectImageFormat(gif89a)).toEqual({ ext: "gif", contentType: "image/gif" });
+    expect(detectImageFormat(gif87a)).toEqual({ ext: "gif", contentType: "image/gif" });
+  });
+
+  it("rejects an unrecognized magic number", () => {
+    expect(detectImageFormat(new Uint8Array([0x00, 0x01, 0x02, 0x03]))).toBeNull();
   });
 
   it("rejects an empty buffer", () => {
-    expect(isJpegBuffer(new Uint8Array([]))).toBe(false);
+    expect(detectImageFormat(new Uint8Array([]))).toBeNull();
   });
 });
 
@@ -37,6 +59,11 @@ afterAll(async () => {
 const TINY_JPEG_BASE64 =
   "/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACP/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AVN//2Q==";
 
+// docs/plans/33.md: readBackdropImageFile/readImageDimensions moved to
+// backdropImageFile.ts (own DOM-dependent module, kept out of this file so
+// admin-portal/backdropRoutes.ts's Node-only import of this file still typechecks) — see
+// backdropImageFile.test.ts for their tests.
+
 async function scratchColony() {
   const admin = serviceRoleClient();
   const orgId = await createScratchOrg();
@@ -53,12 +80,14 @@ async function scratchColony() {
   return { admin, colonyId };
 }
 
+const JPEG_FORMAT = { ext: "jpg", contentType: "image/jpeg" };
+
 describe("uploadColonyBackdropImage", () => {
   it("uploads to Storage and records the three image columns, leaving transform untouched", async () => {
     const { admin, colonyId } = await scratchColony();
     const bytes = Buffer.from(TINY_JPEG_BASE64, "base64");
 
-    await uploadColonyBackdropImage(admin, colonyId, { bytes, imageWidth: 1, imageHeight: 1 });
+    await uploadColonyBackdropImage(admin, colonyId, { bytes, imageWidth: 1, imageHeight: 1, format: JPEG_FORMAT });
 
     const row = await fetchColonyById(admin, colonyId);
     expect(row?.backdrop_storage_path).toBe(`${colonyId}.jpg`);
@@ -73,7 +102,7 @@ describe("uploadColonyBackdropImage", () => {
     const { admin, colonyId } = await scratchColony();
     const bytes = Buffer.from(TINY_JPEG_BASE64, "base64");
 
-    await uploadColonyBackdropImage(admin, colonyId, { bytes, imageWidth: 1, imageHeight: 1 });
+    await uploadColonyBackdropImage(admin, colonyId, { bytes, imageWidth: 1, imageHeight: 1, format: JPEG_FORMAT });
     await updateColonyBackdropTransform(admin, colonyId, {
       x: 100,
       y: 200,
@@ -85,7 +114,7 @@ describe("uploadColonyBackdropImage", () => {
       attribution: "OpenStreetMap contributors (ODbL)",
     });
 
-    await uploadColonyBackdropImage(admin, colonyId, { bytes, imageWidth: 2, imageHeight: 2 });
+    await uploadColonyBackdropImage(admin, colonyId, { bytes, imageWidth: 2, imageHeight: 2, format: JPEG_FORMAT });
 
     const row = await fetchColonyById(admin, colonyId);
     expect(row?.backdrop_image_width).toBe(2);
@@ -93,6 +122,29 @@ describe("uploadColonyBackdropImage", () => {
     expect(row?.backdrop_transform_x).toBe(100);
     expect(row?.backdrop_transform_scale).toBe(0.5);
     expect(row?.backdrop_enabled_on_admin).toBe(true);
+  }, 15_000);
+
+  // docs/plans/34.md: a re-upload in a *different* format changes the storage path
+  // (colonyId.jpg -> colonyId.png) — proves the old object is actually removed, not left
+  // as an orphan (spec/00-rules.md's orphans check).
+  it("a re-upload in a different format removes the old object, not just adds a new one", async () => {
+    const { admin, colonyId } = await scratchColony();
+    const jpegBytes = Buffer.from(TINY_JPEG_BASE64, "base64");
+    const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+
+    await uploadColonyBackdropImage(admin, colonyId, { bytes: jpegBytes, imageWidth: 1, imageHeight: 1, format: JPEG_FORMAT });
+    await uploadColonyBackdropImage(admin, colonyId, {
+      bytes: pngBytes,
+      imageWidth: 2,
+      imageHeight: 2,
+      format: { ext: "png", contentType: "image/png" },
+    });
+
+    const row = await fetchColonyById(admin, colonyId);
+    expect(row?.backdrop_storage_path).toBe(`${colonyId}.png`);
+
+    const { data: oldObject } = await admin.storage.from("colony-backdrops").download(`${colonyId}.jpg`);
+    expect(oldObject).toBeNull();
   }, 15_000);
 });
 

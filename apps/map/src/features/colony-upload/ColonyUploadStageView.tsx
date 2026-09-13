@@ -8,30 +8,23 @@ export type Stage =
   | { kind: "uploading"; manifest: ColonyManifest; svg: string; replace: boolean }
   | { kind: "exists"; manifest: ColonyManifest; svg: string }
   | { kind: "orphan"; missingSvgIds: string[] }
-  // docs/plans/31.md: reached on a successful create/replace, in place of the old "done"
-  // stage — ColonyUploadScreen.tsx intercepts this kind itself (renders
-  // ColonyBackdropScreen.tsx directly) and never passes it down to this component; see
-  // StageViewStage below. `intro` is computed once, at the transition into this stage, so
-  // it can say whether the manifest declared its own backdrop alignment and whether
-  // applying it succeeded — recomputing that from separate booleans at render time would
-  // duplicate the same branching twice.
-  | { kind: "backdrop"; colonyId: string; intro: string }
+  // docs/plans/33.md: replaces the old "backdrop" stage (a separate full-screen editing
+  // step, ColonyBackdropScreen.tsx, deleted this plan) — a successful create/replace now
+  // ends here, in this same panel. `intro` is composed once, at the transition into this
+  // stage, by colonyBackdrop.ts's composeBackdropIntro (covers colony.json's alignment
+  // outcome and the inline image upload's outcome together).
+  | { kind: "done"; intro: string }
   | { kind: "failed"; message: string };
 
-// This component only ever renders the stages that stay inside the shared
-// overlay/panel — "backdrop" is handled by ColonyUploadScreen.tsx before it ever reaches
-// here (docs/plans/31.md). Excluding it from Props.stage lets the final fallback branch
-// below narrow to exactly {kind: "failed"} instead of needing its own dead branch.
-type StageViewStage = Exclude<Stage, { kind: "backdrop" }>;
-
 interface Props {
-  stage: StageViewStage;
+  stage: Stage;
   jsonFile: File | null;
   svgFile: File | null;
   confirmed: boolean;
   previewRef: RefObject<HTMLDivElement | null>;
   onJsonFile: (file: File | null) => void;
   onSvgFile: (file: File | null) => void;
+  onBackdropFile: (file: File | null) => void;
   onContinue: () => void;
   onRetry: () => void;
   onConfirmedChange: (value: boolean) => void;
@@ -49,6 +42,7 @@ export function ColonyUploadStageView({
   previewRef,
   onJsonFile,
   onSvgFile,
+  onBackdropFile,
   onContinue,
   onRetry,
   onConfirmedChange,
@@ -75,6 +69,15 @@ export function ColonyUploadStageView({
             onChange={(event) => onSvgFile(event.target.files?.[0] ?? null)}
           />
         </label>
+        <label className="colony-upload-field">
+          Backdrop image (optional)
+          <input
+            type="file"
+            accept="image/*"
+            aria-label="Choose backdrop image"
+            onChange={(event) => onBackdropFile(event.target.files?.[0] ?? null)}
+          />
+        </label>
         <button
           type="button"
           className="colony-upload-continue"
@@ -85,6 +88,10 @@ export function ColonyUploadStageView({
         </button>
       </>
     );
+  }
+
+  if (stage.kind === "done") {
+    return <p className="colony-upload-summary">{stage.intro}</p>;
   }
 
   if (stage.kind === "parse-error") {

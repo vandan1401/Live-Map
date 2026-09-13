@@ -7,63 +7,54 @@ afterEach(() => {
   cleanup();
 });
 
-// docs/plans/31.md: a successful upload now also fetches the fresh colony row (for the
-// chained backdrop step) via client.from("colonies")...maybeSingle(). docs/plans/32.md
-// (task E, a named /review finding against the previous attempt): a blind "resolve
-// anything" proxy cannot prove a manifest-driven backdrop write sends the right payload,
-// so this fake distinguishes .select() (fetchColonyById's read) from .update()
-// (applyManifestBackdrop's write) and lets a test record the .update() call's argument.
-const FAKE_COLONY_ROW = {
-  id: "test-colony",
-  org_id: "org-test-1",
-  name: "Test Colony",
-  verified: true,
-  source_file: null,
-  generated: null,
-  svg: "<svg></svg>",
-  created_at: new Date("2020-01-01").toISOString(),
-  public_token: null,
-  select_zoom_ref_width_px: null,
-  select_zoom_ref_height_px: null,
-  backdrop_storage_path: null,
-  backdrop_image_width: null,
-  backdrop_image_height: null,
-  backdrop_transform_x: 0,
-  backdrop_transform_y: 0,
-  backdrop_transform_scale: 1,
-  backdrop_transform_rotate_deg: 0,
-  backdrop_darken_alpha: 0,
-  backdrop_enabled_on_admin: false,
-  backdrop_enabled_on_public: false,
-  backdrop_attribution: "",
-};
-
-// A fresh chain per .from("colonies") call, matching real supabase-js — fetchColonyById's
-// .select("*").eq(...).maybeSingle() and applyManifestBackdrop's own
-// .update({...}).eq(...).select("id").maybeSingle() must not share mutable state.
-// `updateSpy`, when given, is invoked with .update()'s exact payload.
-function createFakeSupabaseClient(updateSpy?: (payload: Record<string, unknown>) => void): SupabaseClient {
+// docs/plans/32.md (task E, a named /review finding against the previous attempt): a
+// blind "resolve anything" proxy cannot prove a manifest-driven backdrop write sends the
+// right payload, so this fake records .update()'s exact argument via `updateSpy`.
+// docs/plans/33.md: also fakes `.storage.from(...).upload(...)`, recorded via
+// `storageUploadSpy`, for the inline backdrop-image upload path.
+function createFakeSupabaseClient(
+  updateSpy?: (payload: Record<string, unknown>) => void,
+  storageUploadSpy?: (path: string) => void,
+): SupabaseClient {
   function makeChain() {
-    let updated = false;
     const chain = {
       update: (payload: Record<string, unknown>) => {
-        updated = true;
         updateSpy?.(payload);
         return chain;
       },
       select: () => chain,
       eq: () => chain,
-      maybeSingle: () =>
-        Promise.resolve(
-          updated ? { data: { id: "test-colony" }, error: null } : { data: FAKE_COLONY_ROW, error: null },
-        ),
+      maybeSingle: () => Promise.resolve({ data: { id: "test-colony" }, error: null }),
     };
     return chain;
   }
   return {
     rpc: () => Promise.resolve({ data: { ok: true, colony_id: "test-colony" }, error: null }),
     from: () => makeChain(),
+    storage: {
+      from: () => ({
+        upload: (path: string) => {
+          storageUploadSpy?.(path);
+          return Promise.resolve({ data: { path }, error: null });
+        },
+        remove: () => Promise.resolve({ data: null, error: null }),
+      }),
+    },
   } as unknown as SupabaseClient;
+}
+
+// A tiny, real, valid 1x1 JPEG — same fixture as colonyBackdrop.test.ts's TINY_JPEG_BASE64,
+// duplicated here rather than shared since this file's imports are all fakes/DOM helpers.
+const TINY_JPEG_BASE64 =
+  "/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACP/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AVN//2Q==";
+
+function backdropJpegFile(): File {
+  const bytes = Uint8Array.from(atob(TINY_JPEG_BASE64), (c) => c.charCodeAt(0));
+  return new File([bytes], "backdrop.jpg", { type: "image/jpeg" });
+}
+
+function notAJpegFile(): File {
+  return new File(["not a jpeg"], "backdrop.jpg", { type: "image/jpeg" });
 }
 
 const VALID_MANIFEST = {
@@ -111,13 +102,18 @@ function svgFile(content: string): File {
   return new File([content], "colony.svg", { type: "image/svg+xml" });
 }
 
-async function chooseFilesAndContinue(json: unknown, svg: string) {
+async function chooseFilesAndContinue(json: unknown, svg: string, backdrop?: File) {
   fireEvent.change(screen.getByLabelText("Choose colony.json"), {
     target: { files: [jsonFile(json)] },
   });
   fireEvent.change(screen.getByLabelText("Choose colony.svg"), {
     target: { files: [svgFile(svg)] },
   });
+  if (backdrop) {
+    fireEvent.change(screen.getByLabelText("Choose backdrop image"), {
+      target: { files: [backdrop] },
+    });
+  }
   fireEvent.click(screen.getByText("Continue"));
 }
 
@@ -157,10 +153,10 @@ describe("ColonyUploadScreen", () => {
     expect(screen.getByText(/in manifest but not svg: plot-A-01/)).toBeInTheDocument();
   });
 
-  // docs/plans/31.md: the whole point of this plan — a successful upload chains straight
-  // into the backdrop step (ColonyBackdropScreen), it does not just show a "done" message
-  // and stop.
-  it("chains into the backdrop step after a successful upload, without closing the flow", async () => {
+  // docs/plans/33.md: a successful upload lands on the terminal "done" summary in this
+  // same panel — it does not auto-close, so the message (and any backdrop outcome) stays
+  // visible until the user clicks the panel's own close button.
+  it("shows the done summary after a successful upload, without closing the flow", async () => {
     const onClose = vi.fn();
     render(<ColonyUploadScreen client={createFakeSupabaseClient()} onClose={onClose} />);
 
@@ -168,9 +164,70 @@ describe("ColonyUploadScreen", () => {
     fireEvent.click(await waitFor(() => screen.getByLabelText("I compared this against the site plan")));
     fireEvent.click(screen.getByText("Upload"));
 
-    await waitFor(() => expect(screen.getByText(/Backdrop — Test Colony/)).toBeInTheDocument());
-    expect(screen.getByText(/Colony "test-colony" is live/)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/Colony "test-colony" is live/)).toBeInTheDocument());
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  // docs/plans/33.md — the owner's actual ask: the backdrop image sits on the same
+  // picking screen as colony.json/colony.svg and uploads in the same action, no separate
+  // screen or extra step. jsdom never actually decodes image bytes (no real onload), so
+  // Image/URL are stubbed here — see colonyBackdrop.test.ts's readBackdropImageFile tests
+  // for the same reasoning.
+  it("uploads a backdrop image chosen on the picking screen as part of the same upload", async () => {
+    class FakeImage {
+      naturalWidth = 10;
+      naturalHeight = 10;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      set src(_value: string) {
+        queueMicrotask(() => this.onload?.());
+      }
+    }
+    vi.stubGlobal("Image", FakeImage);
+    vi.stubGlobal("URL", { ...URL, createObjectURL: () => "blob:fake", revokeObjectURL: () => {} });
+
+    try {
+      const storageUploadSpy = vi.fn();
+      render(<ColonyUploadScreen client={createFakeSupabaseClient(undefined, storageUploadSpy)} onClose={vi.fn()} />);
+
+      await chooseFilesAndContinue(VALID_MANIFEST, VALID_SVG, backdropJpegFile());
+      fireEvent.click(await waitFor(() => screen.getByLabelText("I compared this against the site plan")));
+      fireEvent.click(screen.getByText("Upload"));
+
+      await waitFor(() => expect(screen.getByText(/backdrop image was uploaded/)).toBeInTheDocument());
+      expect(storageUploadSpy).toHaveBeenCalledWith("test-colony.jpg");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("never gates Continue or Upload on the backdrop file's absence", async () => {
+    render(<ColonyUploadScreen client={createFakeSupabaseClient()} onClose={vi.fn()} />);
+
+    // chooseFilesAndContinue with no backdrop arg already exercises "Continue" with no
+    // backdrop file chosen — reaching "ready" proves it wasn't blocked.
+    await chooseFilesAndContinue(VALID_MANIFEST, VALID_SVG);
+    const uploadButton = await waitFor(() => screen.getByText("Upload") as HTMLButtonElement);
+    fireEvent.click(screen.getByLabelText("I compared this against the site plan"));
+    expect(uploadButton).not.toBeDisabled();
+  });
+
+  // A failed image upload (unrecognized magic number here) must not fail the whole upload
+  // or the already-created colony — same non-blocking precedent as a bad manifest-driven
+  // alignment.
+  it("still completes the upload when the chosen backdrop file is not a recognized image format", async () => {
+    render(<ColonyUploadScreen client={createFakeSupabaseClient()} onClose={vi.fn()} />);
+
+    await chooseFilesAndContinue(VALID_MANIFEST, VALID_SVG, notAJpegFile());
+    fireEvent.click(await waitFor(() => screen.getByLabelText("I compared this against the site plan")));
+    fireEvent.click(screen.getByText("Upload"));
+
+    await waitFor(() => expect(screen.getByText(/Colony "test-colony" is live/)).toBeInTheDocument());
+    expect(
+      screen.getByText(
+        /Could not upload the backdrop image \(That file is not a recognized image format \(JPEG, PNG, WebP, or GIF\)\.\)/,
+      ),
+    ).toBeInTheDocument();
   });
 
   // docs/plans/32.md task E, the exact /review gap named against the previous attempt: a
@@ -210,7 +267,7 @@ describe("ColonyUploadScreen", () => {
     fireEvent.click(await waitFor(() => screen.getByLabelText("I compared this against the site plan")));
     fireEvent.click(screen.getByText("Upload"));
 
-    await waitFor(() => expect(screen.getByText(/Backdrop — Test Colony/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/Colony "test-colony" is live/)).toBeInTheDocument());
     expect(updateSpy).not.toHaveBeenCalled();
   });
 });

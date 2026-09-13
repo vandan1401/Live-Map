@@ -2,6 +2,99 @@
 
 ## Current
 
+- **Real bug found by the owner testing plan 34 live: any non-`.jpg` backdrop upload
+  failed outright with "new row violates row-level security policy" (2026-09-13, Tier 1,
+  `20260913000000_colony_backdrop_any_image_format.sql`).** Root cause:
+  `20260912020000_colony_backdrop_authenticated_write.sql`'s three `storage.objects`
+  policies extract the colony id from the object name with
+  `substring(name from '^(.*)\.jpg$')` to check org ownership — hardcoded to `.jpg` from
+  when that was the only format ever uploaded. Plan 34 (same session, just before this)
+  made `uploadColonyBackdropImage` store at `<colonyId>.<ext>` for any detected format,
+  but didn't touch these policies — so a `.png`/`.webp`/`.gif` upload's object name never
+  matches the regex, `exists(...)` is false, and the whole INSERT/UPDATE fails RLS even
+  though the caller's org genuinely matches (proved by the *alignment* update succeeding
+  in the same request, via a different, unaffected policy). Fixed by `ALTER POLICY` on
+  the same three policies, generalizing the regex to `'^(.*)\.[^.]+$'` (strip whatever
+  extension is present — colony ids are plain slugs, never contain a literal `.`, same
+  assumption the original regex already made). Applied directly to the local Docker
+  Postgres (`docker exec supabase_db_colony-map psql ...`, confirmed via
+  `pg_get_expr(polqual, ...)` that all three now read the new regex); re-ran
+  `colonyBackdrop.test.ts` + `colonyBackdropRls.test.ts` after, still 17/17.
+  **Needs the owner's own production apply, same as every prior migration** — Dashboard
+  SQL Editor, this file, `NOTIFY pgrst, 'reload schema';` isn't actually needed here (no
+  RPC signature changed, only RLS policy expressions), but confirm live with a real
+  non-jpg backdrop upload against production once applied.
+
+- **The backdrop upload now accepts any image format (JPEG/PNG/WebP/GIF), not JPEG-only
+  (2026-09-13, Tier 1, docs/plans/34.md).** Owner, mid-session, testing plan 33's new
+  inline picker: "one more thing .png is not allowed please allow every image format."
+  `colonyBackdrop.ts::isJpegBuffer` replaced by `detectImageFormat()` (magic-number
+  detection, same JPEG/PNG/WebP/GIF87a/89a set), `uploadColonyBackdropImage` now stores at
+  `<colonyId>.<ext>` instead of a fixed `.jpg` and removes the old Storage object when a
+  re-upload changes format (verified live against the real local Storage bucket — a
+  jpg-then-png re-upload actually deletes the old `.jpg`, not just adds a new object).
+  Both the inline picker (`ColonyUploadStageView.tsx`) and admin-portal's own upload form
+  now use `accept="image/*"`. **Separately, found and fixed while testing:**
+  `tools/pipeline/colonies/bharatkshetra.json` and its already-exported
+  `tools/pipeline/out/bharatkshetra/colony.json` had no `backdrop` block at all — restored
+  bharatkshetra's last known-good alignment (`x:864, y:283, scale:0.105, darkenAlpha:0.65`,
+  enabled on both surfaces, OSM attribution — the same values this file's own 2026-09-12
+  entries record) into both, hand-patching the already-exported file since `backdrop` is a
+  pure config passthrough with no DXF/geometry dependency (validated against
+  `contract/colony.schema.json` directly — no DXF available to Claude to re-run a real
+  `make export`). The actual `bharatkshetra.jpg` binary itself was never restored to the
+  repo (deleted from `src/assets/` in an earlier session) — owner chose to convert
+  `experiments/map-texture-poc/bharatkshetra_composite_final.png` to
+  `experiments/map-texture-poc/bharatkshetra.jpg` as a stand-in for testing.
+  **Verified:** `pnpm typecheck`/`pnpm lint` clean; jsdom unit tests 11/11 + 6/6; live
+  Storage-integration tests 17/17. `/review` skipped this session per owner instruction
+  ("dont spawn review agent it takes too much time to review for small changes").
+
+- **The backdrop image upload now sits directly on the colony-upload picking screen, as a
+  third optional file input below `colony.json`/`colony.svg`, uploaded in the same action
+  (2026-09-13, Tier 1, docs/plans/33.md, D-049).** The owner's repeatedly-stated ask across
+  plans 29-32 — the image belongs on the same screen as the other two files, not a separate
+  step — was still not built until this plan: plan 31 had chained a successful create/replace
+  into a *separate* full-screen `ColonyBackdropScreen.tsx`, and this plan deletes that screen
+  entirely (owner, mid-build: "remove the old backdrop upload setup and screen") rather than
+  keep it as a fallback.
+  - `ColonyUploadStageView.tsx`'s `"picking"` stage gained a third `<input type="file"
+    accept="image/jpeg">`, never gating `Continue`/`Upload`. `ColonyUploadScreen.tsx`'s
+    `upload()` now also calls `uploadColonyBackdropImage` (existing function, unchanged
+    call shape) when a backdrop file was chosen, in its own try/catch — a failed image
+    upload never blocks or fails the colony create/replace, same non-blocking precedent
+    `applyManifestBackdrop` already set for a bad manifest-driven alignment.
+  - The old `{kind: "backdrop"}` stage is replaced by a terminal `{kind: "done", intro}`
+    stage rendered in the same panel — `intro` composed by a new pure
+    `colonyBackdrop.ts::composeBackdropIntro()` covering both the manifest-alignment
+    outcome and the inline image-upload outcome in one sentence.
+  - **There is now no in-app manual alignment-editing UI anywhere** — `colony.json`'s
+    `backdrop` block (D-049) is the only way to set/change x/y/scale/rotate/darken/
+    attribution; fixing alignment means editing `tools/pipeline/colonies/<id>.json` and
+    re-uploading as a replace. `admin-portal`'s separate backdrop form is untouched (a
+    different app, not reachable by ordinary users).
+  - `readImageDimensions`/`readBackdropImageFile` moved to a **new file**,
+    `apps/map/src/lib/colony/backdropImageFile.ts` — found while wiring this in:
+    `colonyBackdrop.ts` is imported by `admin-portal/backdropRoutes.ts`, which typechecks
+    under `tsconfig.node.json` (Node-only lib, no DOM); putting `Image`/`URL
+    .createObjectURL` there broke `pnpm typecheck` across the whole project via `tsc -b`'s
+    project-reference build (not visible checking `tsconfig.app.json` alone — this is why
+    it's worth re-checking `pnpm typecheck` specifically, not just `tsc -p
+    tsconfig.app.json`, after touching anything `colonyBackdrop.ts`-adjacent).
+  - **Verified:** `pnpm typecheck` and `pnpm lint` clean; `pnpm exec vitest run
+    src/features/colony-upload/ColonyUploadScreen.test.tsx
+    src/lib/colony/backdropImageFile.test.ts` 11/11 (includes 3 new tests: inline image
+    upload succeeds as part of one upload action, Continue/Upload never gated by the
+    file's absence, a non-JPEG file still completes the colony upload with a failure
+    message); full suite `pnpm exec vitest run --no-file-parallelism` 286/291 — the same
+    5 pre-existing failures already on record below (4 anon-grant-drift + 1
+    `subscribePlots` flake), none touching this diff. `wc -l` on all four touched/new
+    files: 182/191/170/45, all under the 250-line cap.
+  - `/review` was explicitly skipped this session (owner: "dont spawn review agent it
+    takes too much time to review for small changes") — noted here since this is
+    Tier 1 and the repo's own rule calls for it; worth a `/review` pass later if anything
+    about this surfaces again.
+
 - **The per-row "Backdrop" button from the entry below is gone; backdrop is now reached
   only via colony upload/replace, and `colony.json` can declare its alignment directly
   (2026-09-12/13, Tier 1, docs/plans/31.md + 32.md, D-049/D-123).** Two changes, same

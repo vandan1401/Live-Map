@@ -13,5 +13,12 @@
     "revision": "working",
     "plan_date": "2026-08-29",
     "method": "dxf"
+  },
+  "backdrop": {
+    "transform": { "x": 864, "y": 283, "scale": 0.105, "rotate_deg": 0 },
+    "darken_alpha": 0.65,
+    "enabled_on_admin": true,
+    "enabled_on_public": true,
+    "attribution": "OpenStreetMap contributors (ODbL)"
   }
 }

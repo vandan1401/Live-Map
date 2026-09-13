@@ -41,7 +41,7 @@ describe("colonyBackdrop — authenticated (non-service-role) client (docs/plans
     createdColonyIds.push(colonyId);
     const bytes = Buffer.from(TINY_JPEG_BASE64, "base64");
 
-    await uploadColonyBackdropImage(user.client, colonyId, { bytes, imageWidth: 1, imageHeight: 1 });
+    await uploadColonyBackdropImage(user.client, colonyId, { bytes, imageWidth: 1, imageHeight: 1, format: { ext: "jpg", contentType: "image/jpeg" } });
 
     const admin = serviceRoleClient();
     const firstRow = await fetchColonyById(admin, colonyId);
@@ -50,7 +50,7 @@ describe("colonyBackdrop — authenticated (non-service-role) client (docs/plans
 
     // The replace path (Storage's UPDATE-on-conflict policy) — not exercised by a single
     // upload above (/review finding, 2026-09-12: "the Storage replace path has no test").
-    await uploadColonyBackdropImage(user.client, colonyId, { bytes, imageWidth: 2, imageHeight: 2 });
+    await uploadColonyBackdropImage(user.client, colonyId, { bytes, imageWidth: 2, imageHeight: 2, format: { ext: "jpg", contentType: "image/jpeg" } });
     const secondRow = await fetchColonyById(admin, colonyId);
     expect(secondRow?.backdrop_image_width).toBe(2);
 
@@ -65,7 +65,7 @@ describe("colonyBackdrop — authenticated (non-service-role) client (docs/plans
     const bytes = Buffer.from(TINY_JPEG_BASE64, "base64");
 
     await expect(
-      uploadColonyBackdropImage(userA.client, colonyIdB, { bytes, imageWidth: 1, imageHeight: 1 }),
+      uploadColonyBackdropImage(userA.client, colonyIdB, { bytes, imageWidth: 1, imageHeight: 1, format: { ext: "jpg", contentType: "image/jpeg" } }),
     ).rejects.toThrow();
 
     const admin = serviceRoleClient();
@@ -81,7 +81,7 @@ describe("colonyBackdrop — authenticated (non-service-role) client (docs/plans
     const bytes = Buffer.from(TINY_JPEG_BASE64, "base64");
 
     await expect(
-      uploadColonyBackdropImage(user.client, "no-such-colony-id", { bytes, imageWidth: 1, imageHeight: 1 }),
+      uploadColonyBackdropImage(user.client, "no-such-colony-id", { bytes, imageWidth: 1, imageHeight: 1, format: { ext: "jpg", contentType: "image/jpeg" } }),
     ).rejects.toThrow();
 
     await deleteScratchUser(user);

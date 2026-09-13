@@ -3,7 +3,7 @@
 // server.ts's handleApi falls through to its own 404 for everything else.
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { uploadColonyBackdropImage, updateColonyBackdropTransform, isJpegBuffer } from "../src/lib/colony/colonyBackdrop.ts";
+import { uploadColonyBackdropImage, updateColonyBackdropTransform, detectImageFormat } from "../src/lib/colony/colonyBackdrop.ts";
 import { HttpError, sendJson, readJsonBody, requireString, requireStringAllowEmpty, requireNumber, requireBoolean } from "./httpHelpers.ts";
 
 // docs/plans/29.md: 15MB is >25x the real shipped bharatkshetra.jpg (535KB) — generous
@@ -39,13 +39,14 @@ export async function handleBackdropRoute(
     const imageWidth = requireNumber(body, "imageWidth");
     const imageHeight = requireNumber(body, "imageHeight");
     const bytes = Buffer.from(imageBase64, "base64");
-    if (!isJpegBuffer(bytes)) {
-      throw new HttpError(400, "Uploaded file is not a JPEG.");
+    const format = detectImageFormat(bytes);
+    if (!format) {
+      throw new HttpError(400, "Uploaded file is not a recognized image format (JPEG, PNG, WebP, or GIF).");
     }
     if (bytes.length > MAX_BACKDROP_UPLOAD_BYTES) {
       throw new HttpError(400, `Uploaded file exceeds the ${MAX_BACKDROP_UPLOAD_BYTES}-byte limit.`);
     }
-    await uploadColonyBackdropImage(client, backdropImageMatch[1], { bytes, imageWidth, imageHeight });
+    await uploadColonyBackdropImage(client, backdropImageMatch[1], { bytes, imageWidth, imageHeight, format });
     sendJson(res, 200, { ok: true });
     return true;
   }

@@ -16,13 +16,13 @@ function buildBackdropRow(colony) {
 
   const fileInput = document.createElement("input");
   fileInput.type = "file";
-  fileInput.accept = "image/jpeg";
+  fileInput.accept = "image/*";
   const uploadButton = document.createElement("button");
   uploadButton.textContent = "Upload image";
   uploadButton.addEventListener("click", async () => {
     const file = fileInput.files && fileInput.files[0];
     if (!file) {
-      setStatus("choose a JPEG file first", true);
+      setStatus("choose an image file first", true);
       return;
     }
     try {
