@@ -80,6 +80,22 @@ clearly grown a late task (owner quote dated after the plan's own header date, t
 out of sequence), diff §2's path list against §3/§4 before treating a §4 hit as a finding —
 and report the contradiction itself.**
 
+**9th, 2026-09-18 (plan 35) — recurrence #6's single-untracked-import shape, tripled, plus a
+plan whose §3 forbids the very files the diff carries.** `git status --short` showed three
+`??` paths, all load-bearing for *tracked, modified* files: `src/components/map/
+statusFillAlpha.ts` (imported by the modified `drawColony.ts`), `tsconfig.worker.json`
+(referenced by the modified `tsconfig.json`), and the whole `worker/` dir (`main =
+"worker/index.ts"` in the modified `wrangler.toml`). A commit of the tracked half alone is a
+red `tsc -b`. Separately: plan 35 is a 2-file DB change, but `git diff HEAD` also carried the
+entire unreviewed hash→path + Cloudflare-Worker rework (`publicLinkUrl.ts`, `App.tsx`,
+`ShareLinkButton.tsx`, `index.html`, `wrangler.toml`, `package.json`, admin-portal, scripts)
+— which plan 35 §3 explicitly pins as "do not modify". Both of that half's real bugs (the
+duplicate `og:` tags, the missing `worker/theme.test.ts`) were in the unplanned part, again.
+**Rule: when the plan itself says "there is unrelated WIP in the tree, don't touch it", say
+in the report that the two must be committed separately — the plan's own §3 is the argument,
+and a Tier-1 WIP that rides in on a Tier-1 migration commit never gets its own `/plan` or
+`/review`.**
+
 **How to apply:** every review, first tool call. If untracked files exist and are in scope
 for the plan, read them directly rather than reviewing only what the diff showed, and say
 in the report that the supplied diff was incomplete. Conversely, diff every changed file

@@ -84,6 +84,9 @@ describe("createColonyFromManifest — live integration", () => {
     const colony = await fetchColonyById(user.client, colonyId);
     expect(colony?.verified).toBe(true);
     expect(colony?.svg).toBe(SVG);
+    // Plan 35: create_colony_from_manifest generates a public_token immediately — no
+    // separate admin-portal/generate-public-link.ts step needed for a brand-new colony.
+    expect(colony?.public_token).not.toBeNull();
 
     const plots = await fetchPlotsByColony(user.client, colonyId);
     expect(plots).toHaveLength(1);
@@ -136,6 +139,7 @@ describe("createColonyFromManifest — live integration", () => {
     const colonyId = newColonyId();
     await createColonyFromManifest(user.client, manifest(colonyId, [plot("plot-A-01")]), SVG, false);
     const before = await fetchPlotBySvgId(user.client, colonyId, "plot-A-01");
+    const beforeColony = await fetchColonyById(user.client, colonyId);
     await applyPlotTransition(user.client, {
       plotId: before!.id,
       fromStatus: "available",
@@ -159,6 +163,24 @@ describe("createColonyFromManifest — live integration", () => {
     expect(after?.status).toBe("booked");
     expect(after?.owner_name).toBe("Real Buyer");
     expect(after?.updated_by).not.toBe("import");
+
+    // Plan 35: a replace must never rotate an existing public_token out from under
+    // whoever already has the link.
+    const afterColony = await fetchColonyById(user.client, colonyId);
+    expect(afterColony?.public_token).toBe(beforeColony?.public_token);
+  }, 15_000);
+
+  it("a replace never touches public_token — a deliberately revoked link stays revoked (Plan 35, /review finding 1)", async () => {
+    const colonyId = newColonyId();
+    await createColonyFromManifest(user.client, manifest(colonyId, [plot("plot-A-01")]), SVG, false);
+
+    // Simulate revokePublicLink() having been called on this colony.
+    const admin = serviceRoleClient();
+    await admin.from("colonies").update({ public_token: null }).eq("id", colonyId);
+
+    await createColonyFromManifest(user.client, manifest(colonyId, [plot("plot-A-01")]), SVG, true);
+    const afterReplace = await fetchColonyById(user.client, colonyId);
+    expect(afterReplace?.public_token).toBeNull();
   }, 15_000);
 
   it("refuses a replace that would drop an existing plot's history, writing nothing", async () => {

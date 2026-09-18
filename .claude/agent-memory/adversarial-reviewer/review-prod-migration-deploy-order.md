@@ -36,6 +36,16 @@ with the diff's own new message — `colony "<id>" not found, or you do not have
 `## Deferred`; and ask what the app's new error text asserts when the migration is missing
 ([[review-error-vs-empty-conflation]]).**
 
+**Recurrence, 4th: 2026-09-18 (plan 35)** — `20260918000000_colony_upload_auto_public_link.sql`
+(new body for `create_colony_from_manifest` + a one-time backfill `update`). `PROGRESS.md`'s
+`## Current` says "Not yet done: … the owner's own production apply via the Dashboard SQL
+Editor"; `## Deferred` (line 3398) was not touched. Note what the missing entry costs *here*:
+the migration's `comment on function create_colony_from_manifest is …` has no argument list,
+so it aborts with "function name is not unique" if production still carries an older overload
+— the kind of one-line pre-check (`select proname, pronargs from pg_proc where proname =
+'create_colony_from_manifest'`) that the M16/M17 Deferred entries spell out and a `## Current`
+paragraph never does.
+
 **How to apply:** for any migration touching a function the app already calls in
 production, (1) grep PROGRESS.md for the new migration's filename — if it is absent from
 `## Deferred`, that is the finding, with "add the entry in the same shape as the M16/M17

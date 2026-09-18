@@ -157,6 +157,20 @@ guarantee, the private caller supplies it. **Rule: when a fix is applied at the 
 re-read the *exported* function's doc comment — it was written before the fix and still
 promises the pre-fix behaviour to the next caller.**
 
+**16th recurrence, 2026-09-18 (plan 35's diff, the unplanned Worker half) — two again, one of
+them the exact "`ls` the file" shape as #10b.** (a) `apps/map/index.html:29-31` introduces
+four static `og:`/`twitter:` tags under a comment reading "Generic default for every path
+this Worker doesn't rewrite … a /public/<token> link gets the real colony name … injected
+server-side **instead**". `worker/index.ts:58-67` *appends* its tags to `<head>`; it never
+removes the static ones, so the rewritten document carries two `og:title`s with the generic
+one first. The comment describes replacement, the code does substitution-by-addition.
+(b) `worker/theme.ts:28` cites "colonyTheme.test.ts-equivalent coverage is
+worker/theme.test.ts" — `ls apps/map/worker/` shows no such file, and `readVar`'s
+`;`-terminated regex + `Number(readVar(...))` (fine today only because
+`--colony-plot-stroke-width` happens to be unitless) is precisely the fragile part it claims
+is covered. **Rule unchanged and now 3-for-3: any comment naming a test file, ls it; any
+comment saying "instead"/"replaced by", check for the removal, not just the addition.**
+
 **How to apply:** for CSS especially, do the specificity/cascade arithmetic yourself rather
 than accepting a comment's claim about which rule wins — `!important` scoped to one selector
 says nothing about selectors it does not match. Related:
