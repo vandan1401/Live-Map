@@ -1,12 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getAppConfig } from "../config/appConfig.ts";
 import { createDbClient } from "./client.ts";
 
-// The only place import.meta.env.VITE_SUPABASE_* is read. Never imported from
+// The only place the browser's Supabase URL/key is resolved (runtime /config.js first, then the
+// build-time VITE_SUPABASE_* values — see lib/config/appConfig.ts). Never imported from
 // scripts/import-seed.ts — that runs under tsx, not Vite, and builds its own client
 // from process.env via createDbClient directly.
 export function getBrowserDbClient(): SupabaseClient {
-  return createDbClient(
-    import.meta.env.VITE_SUPABASE_URL,
-    import.meta.env.VITE_SUPABASE_ANON_KEY,
-  );
+  const { supabaseUrl, supabaseAnonKey } = getAppConfig();
+  return createDbClient(supabaseUrl, supabaseAnonKey);
 }
