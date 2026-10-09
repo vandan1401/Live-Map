@@ -1,0 +1,9 @@
+# Never commit real configuration or credentials
+.env
+.env.*
+!.env.example
+cloudflared/*
+!cloudflared/config.yml.example
+!cloudflared/.gitkeep
+logs/
+.last_version

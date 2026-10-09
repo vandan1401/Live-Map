@@ -1,0 +1,116 @@
+# Our layer on top of the vendored official Supabase stack (see UPSTREAM.md).
+# Selected through COMPOSE_FILE in .env, so a plain `docker compose ...` in this directory
+# always uses: docker-compose.yml : docker-compose.kong.yml : docker-compose.pg15.yml : this file.
+#
+# Exposure model (docs/selfhost/README.md):
+#   * Nothing publishes a port on the LAN or the internet. Every published port is bound to
+#     127.0.0.1 on the host.
+#   * Public traffic arrives only through `cloudflared` (outbound tunnel) and only for the app
+#     host and the four Supabase API path prefixes (cloudflared/config.yml.example).
+#   * The super-admin portal, Studio (through Kong) and SSH are reached over Tailscale only:
+#     `tailscale serve` forwards tailnet ports to these loopback ports (README, "Tailscale").
+
+services:
+  # Kong: loopback only. Studio's dashboard route lives on this gateway too, which is why the
+  # tunnel never points at "everything", only at the path allow-list.
+  api-gw:
+    ports: !override
+      - "127.0.0.1:8000:8000/tcp"
+
+  # Not used by this app (no Edge Functions, no image transforms, no direct pooler access).
+  # A profile that is never enabled keeps them out of `up`; fewer containers, less RAM, and
+  # no published Postgres/pooler ports (the base stack publishes Supavisor on 5432/6543).
+  functions:
+    profiles: ["unused"]
+  imgproxy:
+    profiles: ["unused"]
+  supavisor:
+    profiles: ["unused"]
+
+  storage:
+    depends_on: !override
+      db:
+        condition: service_healthy
+      rest:
+        condition: service_started
+    environment:
+      ENABLE_IMAGE_TRANSFORMATION: "false"
+    volumes:
+      - ${DATA_DIR}/storage:/var/lib/storage:z
+
+  db:
+    volumes:
+      # Same container path as the base file's data volume, so this replaces it: data lives on
+      # the SSD at a documented path, not inside the repo checkout.
+      - ${DATA_DIR}/db:/var/lib/postgresql/data:Z
+
+  # Applies apps/map/supabase/migrations to this database; runs once and exits. update.sh runs
+  # it explicitly; `up` also runs it so a fresh install gets its schema.
+  migrator:
+    image: ghcr.io/${GHCR_OWNER}/naksha-migrator:${RELEASE_VERSION}
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+      storage:
+        condition: service_healthy
+      rest:
+        condition: service_started
+    environment:
+      PGHOST: ${POSTGRES_HOST}
+      PGPORT: ${POSTGRES_PORT}
+      PGDATABASE: ${POSTGRES_DB}
+      PGUSER: postgres
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+
+  app:
+    image: ghcr.io/${GHCR_OWNER}/naksha-app:${RELEASE_VERSION}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:80/tcp"
+    environment:
+      # The browser talks to the PUBLIC api hostname, never to an internal address.
+      APP_SUPABASE_URL: ${SUPABASE_PUBLIC_URL}
+      APP_SUPABASE_ANON_KEY: ${ANON_KEY}
+      APP_DEPLOYMENT_MODE: selfhosted
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # The super-admin service: the only place the service-role key is used. Reachable over
+  # Tailscale only (loopback publish + `tailscale serve`), and absent from cloudflared's ingress.
+  admin:
+    image: ghcr.io/${GHCR_OWNER}/naksha-admin:${RELEASE_VERSION}
+    restart: unless-stopped
+    depends_on:
+      api-gw:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3001:3001/tcp"
+    environment:
+      ADMIN_HOST: 0.0.0.0 # inside the container; the host side is loopback-only (see ports)
+      ADMIN_PORT: "3001"
+      SUPABASE_URL: http://api-gw:8000
+      SUPABASE_ANON_KEY: ${ANON_KEY}
+      SUPABASE_SERVICE_ROLE_KEY: ${SERVICE_ROLE_KEY}
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:3001/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Outbound-only tunnel to Cloudflare; no inbound port on the router. Credentials and the
+  # ingress rules are mounted from ./cloudflared (never in git).
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.0
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
+    depends_on:
+      - app
+      - api-gw
+    volumes:
+      - ./cloudflared:/etc/cloudflared:ro

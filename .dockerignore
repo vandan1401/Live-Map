@@ -1,0 +1,17 @@
+# The image builds use the repo root as context; keep it small and keep secrets out of it.
+**/node_modules
+**/dist
+.git
+.github
+**/.env
+**/.env.*
+!**/.env.example
+tools
+seed
+spec
+docs
+apps/map/supabase/.branches
+apps/map/supabase/.temp
+deploy/selfhost/volumes
+deploy/selfhost/logs
+deploy/selfhost/cloudflared

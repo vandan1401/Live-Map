@@ -1,0 +1,26 @@
+# Copy to config.yml and fill in. Created on the server, never committed:
+#   cloudflared tunnel login                      (once; browser step on your laptop)
+#   cloudflared tunnel create naksha-<client>     (writes <TUNNEL_ID>.json credentials)
+#   cloudflared tunnel route dns naksha-<client> <APP_HOST>
+#   cloudflared tunnel route dns naksha-<client> <API_HOST>
+# Put <TUNNEL_ID>.json next to this file. Both hostnames must be single-level subdomains.
+#
+# The super-admin service (port 3001), Studio and Postgres are deliberately NOT listed: this
+# file is the whole public surface. Anything not matched below gets a 404.
+
+tunnel: <TUNNEL_ID>
+credentials-file: /etc/cloudflared/<TUNNEL_ID>.json
+
+ingress:
+  # The web app (the nginx container).
+  - hostname: <APP_HOST>
+    service: http://app:80
+
+  # Supabase API: ONLY these four path prefixes reach Kong. /pg/, the Studio dashboard,
+  # /functions/, /graphql/ and everything else on this hostname fall through to the 404 rule.
+  # Realtime websockets (/realtime/v1/websocket) work through the tunnel.
+  - hostname: <API_HOST>
+    path: ^/(auth/v1|rest/v1|realtime/v1|storage/v1)(/|$)
+    service: http://api-gw:8000
+
+  - service: http_status:404
