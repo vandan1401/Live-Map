@@ -1,0 +1,4 @@
+# Shell scripts, Dockerfiles and compose/config files run on Linux: never let Git write CRLF.
+* text=auto eol=lf
+*.sh text eol=lf
+*.sql text eol=lf
