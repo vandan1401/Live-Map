@@ -13,7 +13,8 @@
     "import:seed": "tsx scripts/import-seed.ts",
     "create-user": "tsx scripts/create-user.ts",
     "generate-public-link": "tsx scripts/generate-public-link.ts",
-    "admin-portal": "tsx admin-portal/server.ts"
+    "admin-portal": "tsx admin-portal/server.ts",
+    "grant-super-admin": "tsx scripts/grant-super-admin.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

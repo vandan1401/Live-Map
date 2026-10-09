@@ -7,6 +7,18 @@
 // queries, not the Admin API); organization/colony table reads reuse lib/db as normal.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { InvalidUsernameError, usernameToEmail } from "../src/lib/auth/username.ts";
+import { HttpError } from "./httpHelpers.ts";
+import { isSuperAdminUser } from "./auth.ts";
+
+// docs/plans/36.md: pinned at 8, enforced server-side for create AND reset.
+export const MIN_PASSWORD_LENGTH = 8;
+const BAN_FOREVER = "876000h"; // ~100 years; reversible with "none"
+
+export function validatePassword(password: string): void {
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    throw new HttpError(400, `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+  }
+}
 
 const LIST_USERS_PAGE_SIZE = 200;
 
@@ -54,6 +66,7 @@ export async function createOrgUser(
   args: CreateOrgUserArgs,
 ): Promise<{ id: string }> {
   const email = usernameToEmail(args.username); // throws InvalidUsernameError on a bad username
+  validatePassword(args.password);
   const { data, error } = await client.auth.admin.createUser({
     email,
     password: args.password,
@@ -85,6 +98,68 @@ export async function reassignUserOrg(
     app_metadata: merged,
   });
   if (updateError) throw new Error(`reassignUserOrg failed to update user: ${updateError.message}`);
+}
+
+export interface AdminUser extends OrgUser {
+  orgId: string | null;
+  isSuperAdmin: boolean;
+  deactivated: boolean;
+}
+
+export async function listAllUsers(client: SupabaseClient): Promise<AdminUser[]> {
+  const users: AdminUser[] = [];
+  for (let page = 1; ; page++) {
+    const { data, error } = await client.auth.admin.listUsers({ page, perPage: LIST_USERS_PAGE_SIZE });
+    if (error) throw new Error(`listAllUsers failed: ${error.message}`);
+    for (const user of data.users) {
+      const bannedUntil = (user as { banned_until?: string | null }).banned_until;
+      users.push({
+        id: user.id,
+        email: user.email ?? "",
+        displayName: (user.app_metadata?.display_name as string | undefined) ?? null,
+        orgId: (user.app_metadata?.org_id as string | undefined) ?? null,
+        isSuperAdmin: isSuperAdminUser(user),
+        deactivated: !!bannedUntil && new Date(bannedUntil).getTime() > Date.now(),
+      });
+    }
+    if (data.users.length < LIST_USERS_PAGE_SIZE) break;
+  }
+  return users;
+}
+
+// The guard every user-changing action passes through: the target must exist, must not be
+// another super admin, and (unless allowSelf) must not be the caller.
+export async function loadManageableUser(
+  client: SupabaseClient,
+  actorId: string,
+  targetId: string,
+  allowSelf: boolean,
+): Promise<{ id: string; email: string }> {
+  const { data, error } = await client.auth.admin.getUserById(targetId);
+  if (error || !data.user) throw new HttpError(404, "No such user.");
+  const user = data.user;
+  if (isSuperAdminUser(user) && user.id !== actorId) {
+    throw new HttpError(403, "Super-admin accounts cannot be changed from the portal.");
+  }
+  if (!allowSelf && user.id === actorId) {
+    throw new HttpError(403, "You cannot do this to your own account.");
+  }
+  return { id: user.id, email: user.email ?? "" };
+}
+
+export async function resetUserPassword(client: SupabaseClient, userId: string, password: string): Promise<void> {
+  const { error } = await client.auth.admin.updateUserById(userId, { password });
+  if (error) throw new Error(`resetUserPassword failed: ${error.message}`);
+}
+
+export async function setUserActive(client: SupabaseClient, userId: string, active: boolean): Promise<void> {
+  const { error } = await client.auth.admin.updateUserById(userId, { ban_duration: active ? "none" : BAN_FOREVER });
+  if (error) throw new Error(`setUserActive failed: ${error.message}`);
+}
+
+export async function deleteUser(client: SupabaseClient, userId: string): Promise<void> {
+  const { error } = await client.auth.admin.deleteUser(userId);
+  if (error) throw new Error(`deleteUser failed: ${error.message}`);
 }
 
 export { InvalidUsernameError };

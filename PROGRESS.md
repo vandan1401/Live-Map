@@ -3441,6 +3441,16 @@ on a real phone. Not verified by anyone: the five visual behaviours in `## Curre
 
 ## Deferred
 
+- **2026-10-08, self-host branch `selfhost/private-instance` (docs/plans/36.md, 37.md):**
+  (a) Before the first admin-portal run after this ships, the SaaS owner must apply
+  `20261008000000_admin_audit_log.sql` by hand in the Supabase SQL Editor AND run
+  `pnpm grant-super-admin <username>` against that project -- the portal now fails closed
+  (every sign-in refused) if the audit table is missing or no user has the role.
+  (b) Expect a merge conflict when this branch meets the main tree's uncommitted
+  `admin-portal/static/portal.js` edits: this branch deliberately does not touch `portal.js`,
+  but `static/index.html`/`portal.css` also changed. (c) Google Fonts are loaded from
+  fonts.googleapis.com in `index.html`; a self-hosted instance should bundle them.
+
 - **`20260918000000_colony_upload_auto_public_link.sql` has only been applied to the local
   Docker Supabase, not to the real production Supabase project.** Same DB-before-deploy
   ordering as every prior migration — owner applies via Dashboard SQL Editor. Before

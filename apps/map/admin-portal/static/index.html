@@ -7,7 +7,7 @@
 </head>
 <body>
   <h1>Admin portal</h1>
-  <p class="hint">Local, owner-run tool — create organizations, add people, manage a colony's public link.</p>
+  <p class="hint">Owner-only tool (sign-in required) — create organizations, add people, manage a colony's public link.</p>
 
   <section>
     <h2>Organizations</h2>
@@ -44,9 +44,28 @@
     </table>
   </section>
 
-  <p id="status-line"></p>
+  <section>
+    <h2>All users</h2>
+    <table id="all-users-table">
+      <thead><tr><th>Display name</th><th>Email</th><th>State</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
 
+  <section>
+    <h2>Audit log</h2>
+    <table id="audit-table">
+      <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Outcome</th><th>Target</th><th>From</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <p id="status-line"></p>
+  <p><button type="button" onclick="adminSignOut()">Sign out</button></p>
+
+  <script src="auth.js"></script>
   <script src="backdropEditor.js"></script>
   <script src="portal.js"></script>
+  <script src="adminTools.js"></script>
 </body>
 </html>

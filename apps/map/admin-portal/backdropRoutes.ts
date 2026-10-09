@@ -1,10 +1,11 @@
 // docs/plans/29.md: the two colony-backdrop admin-portal routes, split out of server.ts
-// (invariant 7, 250-line cap). Returns false for any pathname/method it doesn't own, so
-// server.ts's handleApi falls through to its own 404 for everything else.
-import type { IncomingMessage, ServerResponse } from "node:http";
+// (invariant 7, 250-line cap). Returns false for any pathname/method it doesn't own. It does
+// the work but never answers: app.ts sends the response only after the audit row is written
+// (docs/plans/36.md).
+import type { IncomingMessage } from "node:http";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { uploadColonyBackdropImage, updateColonyBackdropTransform, detectImageFormat } from "../src/lib/colony/colonyBackdrop.ts";
-import { HttpError, sendJson, readJsonBody, requireString, requireStringAllowEmpty, requireNumber, requireBoolean } from "./httpHelpers.ts";
+import { HttpError, readJsonBody, requireString, requireStringAllowEmpty, requireNumber, requireBoolean } from "./httpHelpers.ts";
 
 // docs/plans/29.md: 15MB is >25x the real shipped bharatkshetra.jpg (535KB) — generous
 // headroom for a bigger colony's aerial photo, small enough that a wrong-file mistake fails
@@ -26,7 +27,6 @@ function rejectIfTooLarge(req: IncomingMessage): void {
 
 export async function handleBackdropRoute(
   req: IncomingMessage,
-  res: ServerResponse,
   pathname: string,
   method: string,
   client: SupabaseClient,
@@ -47,7 +47,6 @@ export async function handleBackdropRoute(
       throw new HttpError(400, `Uploaded file exceeds the ${MAX_BACKDROP_UPLOAD_BYTES}-byte limit.`);
     }
     await uploadColonyBackdropImage(client, backdropImageMatch[1], { bytes, imageWidth, imageHeight, format });
-    sendJson(res, 200, { ok: true });
     return true;
   }
 
@@ -64,7 +63,6 @@ export async function handleBackdropRoute(
       enabledOnPublic: requireBoolean(body, "enabledOnPublic"),
       attribution: requireStringAllowEmpty(body, "attribution"),
     });
-    sendJson(res, 200, { ok: true });
     return true;
   }
 
