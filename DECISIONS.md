@@ -99,3 +99,4 @@ is deliberate — it makes the origin of a cross-reference obvious at a glance.
 | D-201 | One repo, not two — the contract is a shared schema, not mirrored prose | accepted |
 | D-202 | Blockless plot IDs (`plot-{NN}`, `block: ""`) — a required, empty-string field, not an optional or omitted one | accepted |
 | D-203 | Per-colony click-to-focus zoom is authored by the owner in AutoCAD (`COL-ZOOM-REF`), not derived automatically from site or plot scale | accepted |
+| D-204 | A backup is restored by building a FRESH stack and loading only the data of `public`/`auth`/`storage` into it, never by `pg_restore --clean` over the live database | accepted |
