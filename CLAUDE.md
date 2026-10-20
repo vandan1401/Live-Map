@@ -52,8 +52,12 @@ that script rather than inlining a pipe.
    identity; a correction is made there and survives by construction. No pipeline stage may
    hold a correction a rerun would silently discard (D-118, superseding D-107).
 7. **No source file over 250 lines.** Enforced by `.claude/hooks/filesize.sh`.
-8. **No auth until M8.** RLS is permissive; the anon key grants full read and write. Do not
-   deploy to a public URL before M8. The guard hook blocks it (D-011).
+8. **Auth is live; the public link is the one open door.** Public deployment is permitted
+   (D-021 superseded D-011). Every tenant table is RLS-scoped to the authenticated user's own
+   org (D-030) and signup is disabled; the anon key cannot read or write plots. The only
+   unauthenticated read is `get_public_colony(token)`, and that token is its entire access
+   control (D-031): never log it or print it in reports, revoke with `revokePublicLink()`.
+   Self-hosted instances follow the same rules (`deploy/selfhost/README.md`).
 
 ## Risk tiers
 
