@@ -111,3 +111,27 @@
   border: none;
   padding: 0.5rem;
 }
+
+/* docs/plans/39.md: opposite corner from Log out so the two never overlap on a narrow phone. */
+.colony-picker-change-password {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--colony-site-boundary);
+  background: none;
+  border: none;
+  padding: 0.5rem;
+}
+
+/* Cancel inside the change-password card: in normal flow, unlike the corner-pinned picker buttons. */
+.change-password-cancel {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--colony-site-boundary);
+  background: none;
+  border: none;
+  padding: 0.5rem;
+  margin-top: 0.25rem;
+}

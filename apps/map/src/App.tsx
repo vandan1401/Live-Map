@@ -6,6 +6,7 @@ import { MapLoadingScreen } from "./components/MapLoadingScreen";
 import { ColonyPicker } from "./features/colony-picker/ColonyPicker";
 import { ColonyUploadScreen } from "./features/colony-upload/ColonyUploadScreen";
 import { LoginScreen } from "./features/auth/LoginScreen";
+import { ChangePasswordDialog } from "./features/auth/ChangePasswordDialog";
 import { PublicColonyView } from "./features/public-colony/PublicColonyView";
 import { InstallInstructions } from "./features/pwa-install/InstallInstructions";
 import { hasSeenInstallInstructions, isStandaloneDisplay } from "./pwa/installInstructionsSeen";
@@ -42,6 +43,8 @@ function App() {
   // docs/plans/11.md, D-025 — the colony-upload overlay, opened from ColonyPicker's
   // "Upload a colony" button, same sibling-overlay pattern as showInstallInstructions.
   const [showUpload, setShowUpload] = useState(false);
+  // docs/plans/39.md — the self-service change-password dialog, same sibling-overlay pattern.
+  const [showChangePassword, setShowChangePassword] = useState(false);
   const [selectedColonyId, setSelectedColonyId] = useState<string | null>(null);
   const { openToken, showSplash, bumpOpen, finishSplash } = useColonyOpenSplash();
 
@@ -51,11 +54,14 @@ function App() {
       return;
     }
     client.auth.getSession().then(({ data }) => setSession(data.session));
+    // docs/plans/39.md /review: a dialog left open when the session ends must not reappear for
+    // the next person who signs in on this device (see the onAuthStateChange handler below).
     // Reacts to sign-in, sign-out (including the TTL check below calling signOut()
     // itself), and a failed token refresh (e.g. a revoked account) — any of these
     // updates `session`, which drives the LoginScreen/picker/map gate below.
     const { data: subscription } = client.auth.onAuthStateChange((_event, newSession) => {
       setSession(newSession);
+      if (!newSession) setShowChangePassword(false);
     });
     return () => subscription.subscription.unsubscribe();
   }, [client]);
@@ -127,6 +133,19 @@ function App() {
     );
   }
 
+  // The email is what the current password is verified against; a session without one never
+  // gets the button (getDisplayName's own stance on identity-less sessions).
+  const email = session.user.email ?? null;
+  if (showChangePassword && email) {
+    return (
+      <ChangePasswordDialog
+        client={client}
+        email={email}
+        onClose={() => setShowChangePassword(false)}
+      />
+    );
+  }
+
   if (!selectedColonyId) {
     // `navigator.onLine` here, not a hardcoded `false` — the network can come back while
     // colonyListSavedAt is still set (a reconnect refetch can fail transiently), and the
@@ -144,6 +163,7 @@ function App() {
         }}
         onUpload={() => setShowUpload(true)}
         onLogout={() => void signOut(client)}
+        onChangePassword={email ? () => setShowChangePassword(true) : undefined}
         freshnessLabel={freshnessLabel}
       />
     );

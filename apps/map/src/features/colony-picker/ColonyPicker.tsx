@@ -26,17 +26,34 @@ interface Props {
   // accounts on a shared device once signed in — App.tsx's signOut() was reachable only
   // from its own internal stale/invalid-session cases, never from a button).
   onLogout: () => void;
+  // docs/plans/39.md: opens the self-service change-password dialog. Optional so a caller with
+  // no signed-in email (App.tsx passes none then) simply shows no button.
+  onChangePassword?: () => void;
 }
 
 // Owner's original design: a list of colonies on open, tapping one opens its map.
 // `colonies` is pre-filtered to `verified: true` by App.tsx (see loadVerifiedColonies,
 // D-108) — this component never re-checks that, it just renders what it's given.
-export function ColonyPicker({ colonies, orgName, onSelect, freshnessLabel, onUpload, onLogout }: Props) {
+export function ColonyPicker({
+  colonies,
+  orgName,
+  onSelect,
+  freshnessLabel,
+  onUpload,
+  onLogout,
+  onChangePassword,
+}: Props) {
   const heading = orgName ?? DEFAULT_HEADING;
+  const changePasswordButton = onChangePassword && (
+    <button type="button" className="colony-picker-change-password" onClick={onChangePassword}>
+      Change password
+    </button>
+  );
 
   if (colonies.length === 0) {
     return (
       <div className="colony-picker-overlay">
+        {changePasswordButton}
         <button type="button" className="colony-picker-logout" onClick={onLogout}>
           Log out
         </button>
@@ -52,6 +69,7 @@ export function ColonyPicker({ colonies, orgName, onSelect, freshnessLabel, onUp
 
   return (
     <div className="colony-picker-overlay">
+      {changePasswordButton}
       <button type="button" className="colony-picker-logout" onClick={onLogout}>
         Log out
       </button>
