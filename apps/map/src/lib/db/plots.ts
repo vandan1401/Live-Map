@@ -1,6 +1,29 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { BulkImportResult, BulkImportRow, PlotInsert, PlotRow, PlotStatus } from "./types.ts";
 
+// PostgREST caps any one response at max_rows (1000 — supabase/config.toml, and the hosted
+// default), silently, with no error. A colony past that lost every row beyond the cap: the
+// plots had no entry in the status map, so the painter drew them in bare plot-base colour
+// beside correctly tinted neighbours (colony 1599, 2026-10-27). Every fetcher that reads a
+// whole colony pages through this instead of trusting one request.
+// PAGE_SIZE equals that cap: a larger request is truncated to it anyway, a smaller one just
+// costs more round trips. The loop stops on an EMPTY page, not a short one, so it stays
+// correct if a project ever lowers max_rows below PAGE_SIZE.
+const PAGE_SIZE = 1000;
+
+async function fetchAllPages<T>(
+  what: string,
+  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<T[]> {
+  const rows: T[] = [];
+  for (;;) {
+    const { data, error } = await page(rows.length, rows.length + PAGE_SIZE - 1);
+    if (error) throw new Error(`${what} failed: ${error.message}`);
+    if (!data || data.length === 0) return rows;
+    rows.push(...data);
+  }
+}
+
 export async function insertPlots(
   client: SupabaseClient,
   plots: PlotInsert[],
@@ -16,14 +39,13 @@ export async function fetchPlotStatuses(
   client: SupabaseClient,
   colonyId: string,
 ): Promise<Record<string, PlotStatus>> {
-  const { data, error } = await client
-    .from("plots")
-    .select("svg_id, status")
-    .eq("colony_id", colonyId);
-  if (error) throw new Error(`fetchPlotStatuses failed: ${error.message}`);
+  // Ordered: range() paging over an unordered query can skip or repeat rows between pages.
+  const data = await fetchAllPages<{ svg_id: string; status: string }>("fetchPlotStatuses", (from, to) =>
+    client.from("plots").select("svg_id, status").eq("colony_id", colonyId).order("svg_id").range(from, to),
+  );
 
   const statuses: Record<string, PlotStatus> = {};
-  for (const row of data ?? []) {
+  for (const row of data) {
     statuses[row.svg_id as string] = row.status as PlotStatus;
   }
   return statuses;
@@ -38,13 +60,10 @@ export async function fetchCornerPlotIds(
   client: SupabaseClient,
   colonyId: string,
 ): Promise<Set<string>> {
-  const { data, error } = await client
-    .from("plots")
-    .select("svg_id")
-    .eq("colony_id", colonyId)
-    .eq("is_corner", true);
-  if (error) throw new Error(`fetchCornerPlotIds failed: ${error.message}`);
-  return new Set((data ?? []).map((row) => row.svg_id as string));
+  const data = await fetchAllPages<{ svg_id: string }>("fetchCornerPlotIds", (from, to) =>
+    client.from("plots").select("svg_id").eq("colony_id", colonyId).eq("is_corner", true).order("svg_id").range(from, to),
+  );
+  return new Set(data.map((row) => row.svg_id));
 }
 
 // Full rows for a colony (M6) — search (owner/broker/number) and the share summary
@@ -63,13 +82,9 @@ export async function fetchPlotsByColony(
   // A blockless plot's svg_id is "plot-{NN}" (docs/plans/15.md) — lexically before every
   // "plot-A-…" id (ASCII "0" < "A"), so blockless plots sort as a group ahead of every
   // lettered block rather than interleaved by number. Accepted, not fixed (plan 15 §3).
-  const { data, error } = await client
-    .from("plots")
-    .select("*")
-    .eq("colony_id", colonyId)
-    .order("svg_id");
-  if (error) throw new Error(`fetchPlotsByColony failed: ${error.message}`);
-  return (data as PlotRow[] | null) ?? [];
+  return fetchAllPages<PlotRow>("fetchPlotsByColony", (from, to) =>
+    client.from("plots").select("*").eq("colony_id", colonyId).order("svg_id").range(from, to),
+  );
 }
 
 // Full row for the plot detail sheet (M3) — every D-012 field, not just status.
