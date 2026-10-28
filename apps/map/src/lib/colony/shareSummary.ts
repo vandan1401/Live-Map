@@ -4,6 +4,7 @@ import { fetchPlotsByColony } from "../db/plots.ts";
 import { fetchRecentHistoryForPlots } from "../db/plotHistory.ts";
 import { formatPlotLabel, formatRelativeTime, formatStatusLabel } from "../../shared/format.ts";
 import type { PlotStatus } from "../db/types.ts";
+import { DEFAULT_STATUS_KEYS } from "./colonyStatuses.ts";
 
 // Enough to be useful in a WhatsApp message without turning it into a wall of text
 // (spec/06: "counts by status, plus recent changes" — no count pinned by the spec).
@@ -18,7 +19,10 @@ export interface RecentChange {
 
 export interface ShareSummaryData {
   colonyName: string;
+  // docs/plans/40.md: counts by status key, and the keys in the colony's legend order (so the text
+  // lists a colony's own statuses, in its own order, including ones with zero plots).
   counts: Record<PlotStatus, number>;
+  statusKeys: PlotStatus[];
   recentChanges: RecentChange[];
 }
 
@@ -33,10 +37,14 @@ export async function loadShareSummaryData(
     fetchPlotsByColony(client, colonyId),
   ]);
 
-  const counts: Record<PlotStatus, number> = { available: 0, booked: 0, registered: 0 };
+  const statusKeys: PlotStatus[] = colony?.statuses?.map((s) => s.key) ?? [...DEFAULT_STATUS_KEYS];
+  const counts: Record<PlotStatus, number> = Object.fromEntries(statusKeys.map((key) => [key, 0]));
   const labelByPlotId = new Map<string, string>();
   for (const plot of plots) {
-    counts[plot.status] += 1;
+    // A key outside the list should be impossible (the database refuses it), but a silently
+    // uncounted plot would make the totals lie — count it and list it rather than drop it.
+    if (!(plot.status in counts)) statusKeys.push(plot.status);
+    counts[plot.status] = (counts[plot.status] ?? 0) + 1;
     labelByPlotId.set(plot.id, formatPlotLabel(plot));
   }
 
@@ -52,7 +60,7 @@ export async function loadShareSummaryData(
     changedAt: row.changed_at,
   }));
 
-  return { colonyName: colony?.name ?? colonyId, counts, recentChanges };
+  return { colonyName: colony?.name ?? colonyId, counts, statusKeys, recentChanges };
 }
 
 // The literal text block the family pastes into WhatsApp (spec/06) — plain sentence
@@ -68,9 +76,7 @@ export function formatShareSummary(
   const lines = [
     `${data.colonyName} — plot status`,
     "",
-    `${formatStatusLabel("available", statusLabels)}: ${data.counts.available}`,
-    `${formatStatusLabel("booked", statusLabels)}: ${data.counts.booked}`,
-    `${formatStatusLabel("registered", statusLabels)}: ${data.counts.registered}`,
+    ...data.statusKeys.map((key) => `${formatStatusLabel(key, statusLabels)}: ${data.counts[key] ?? 0}`),
   ];
 
   if (data.recentChanges.length > 0) {

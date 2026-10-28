@@ -37,6 +37,7 @@ describe("offlineCache", () => {
         svg: "<svg></svg>",
         created_at: new Date("2020-01-01").toISOString(),
         public_token: null,
+        statuses: null,
         backdrop_storage_path: null,
         backdrop_image_width: null,
         backdrop_image_height: null,

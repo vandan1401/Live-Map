@@ -127,6 +127,32 @@ copied back into that config, or the next `make export`/upload will silently rev
 the stale declaration. Deleting the block from the config is how to hand the value back to
 the UI permanently.
 
+**`statuses` is optional** (docs/plans/40.md) — this colony's plot statuses, in legend order:
+
+```json
+"statuses": [
+  { "key": "available", "label": "Available", "colour": "#e8b84b" },
+  { "key": "booked", "label": "Booked", "colour": "#3b82f6" },
+  { "key": "registered", "label": "Registry done", "colour": "#ff145a" },
+  { "key": "sold_to_investors", "label": "Sold to investors", "colour": "#9333ea" }
+]
+```
+
+Absent means the built-in three above, exactly as before, so every existing colony is
+unchanged. When present: `key` is `^[a-z][a-z0-9_]{0,31}$` and unique; `label` is 1–32
+characters; `colour` is lowercase `#rrggbb`; the list must contain `available` (every new plot
+starts there) and has at most **8** entries (the legend is one row on a phone, and more colours
+stop being distinguishable on the map). `booked` and `registered` keep their built-in rules
+(`available → booked`, `booked → registered | available`, `registered → available`); any other
+key is a custom status that moves freely to and from `available` and between custom statuses —
+never directly to or from `booked`/`registered`, because booking needs a buyer name. The pipeline
+cannot derive this from a drawing: declare it once in `tools/pipeline/colonies/<id>.json` and
+every export carries it through verbatim (like `backdrop`); for a hand-made manifest, write it
+into `colony.json` directly. Re-uploading a manifest whose list drops a key some plot still holds
+is **refused** (`status_in_use`) rather than silently remapped; omitting the key on a re-upload
+leaves the stored list untouched. Shape is enforced by the schema, key uniqueness by the
+pipeline's QA, the database and the app.
+
 **Roads and trees never appear here.** Both are derived — roads by subtraction, trees from a
 per-colony seed — and storing a derived value creates a second source of truth that can
 disagree with the generator.

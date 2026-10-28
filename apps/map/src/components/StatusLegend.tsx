@@ -1,35 +1,32 @@
-import { formatStatusLabel } from "../shared/format.ts";
-import type { PlotStatus } from "../lib/db/types.ts";
-
-const STATUSES: PlotStatus[] = ["available", "booked", "registered"];
+import type { ColonyStatus, PlotStatus } from "../lib/db/types.ts";
 
 interface Props {
   active: Set<PlotStatus>;
   onToggle: (status: PlotStatus) => void;
   onClear: () => void;
-  // Resolved by the caller from presentation.json (docs/plans/27.md) — omitted falls back
-  // to formatStatusLabel's own default text.
-  statusLabels?: Partial<Record<PlotStatus, string>>;
+  // docs/plans/40.md: this colony's status list, in legend order — the label and the swatch
+  // colour both come from it, so a colony's own statuses need no stylesheet change.
+  statuses: readonly ColonyStatus[];
 }
 
 // Presentational only — ColonyMap.tsx owns the active-filter state and applies the
 // resulting dim/highlight to the map itself (spec/06: "tapping 'Available' dims
 // everything else to 20% opacity"). Multi-select, with a clear-all once anything is on.
-export function StatusLegend({ active, onToggle, onClear, statusLabels }: Props) {
+export function StatusLegend({ active, onToggle, onClear, statuses }: Props) {
   return (
     <div className="colony-legend">
-      {STATUSES.map((status) => (
+      {statuses.map(({ key, label, colour }) => (
         <button
-          key={status}
+          key={key}
           type="button"
-          className={`colony-legend-item colony-legend-${status} ${
-            active.has(status) ? "is-active" : ""
+          className={`colony-legend-item colony-legend-${key} ${
+            active.has(key) ? "is-active" : ""
           }`}
-          aria-pressed={active.has(status)}
-          onClick={() => onToggle(status)}
+          aria-pressed={active.has(key)}
+          onClick={() => onToggle(key)}
         >
-          <span className="colony-legend-swatch" />
-          {formatStatusLabel(status, statusLabels)}
+          <span className="colony-legend-swatch" style={{ background: colour }} />
+          {label}
         </button>
       ))}
       {active.size > 0 && (

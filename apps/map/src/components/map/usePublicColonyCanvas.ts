@@ -15,6 +15,7 @@ import { loadGrass } from "./loadGrass.ts";
 import { attachMapBackdrop, applyBackdropMinZoom, resolveBackdropFit } from "./useMapBackdrop.ts";
 import type { MapBackdropController } from "./useMapBackdrop.ts";
 import type { ColonyBackdropFields } from "./mapBackdrops.ts";
+import type { ColonyStatus } from "../../lib/db/types.ts";
 
 // The public link's counterpart to useColonyCanvas.ts (owner ask, 2026-09-01: "exactly copy
 // colony owners ui" for the public link — real pan/zoom, fly-to-plot on selection, and the
@@ -50,11 +51,14 @@ interface Args {
   // docs/plans/29.md: get_public_colony()'s backdrop_* fields, already loaded alongside svg
   // above — no separate fetch.
   colonyBackdropFields: ColonyBackdropFields | null;
+  // docs/plans/40.md: this colony's resolved status list (colours only — the public view has no
+  // legend). Reference-stable by contract: it feeds the mount effect's dependency array.
+  colonyStatuses: readonly ColonyStatus[];
   backdropVignetteRef?: RefObject<HTMLDivElement | null>; // absent/null: useMapBackdrop.ts no-ops
 }
 
 export function usePublicColonyCanvas(args: Args): void {
-  const { containerRef, client, colonyId, svg, selectedId, onSelect, colonyBackdropFields, backdropVignetteRef } = args;
+  const { containerRef, client, colonyId, svg, selectedId, onSelect, colonyBackdropFields, colonyStatuses, backdropVignetteRef } = args;
   const mapRef = useRef<L.Map | null>(null);
   const layerRef = useRef<ColonyCanvasLayer | null>(null);
   const modelRef = useRef<ColonyModel | null>(null);
@@ -99,7 +103,7 @@ export function usePublicColonyCanvas(args: Args): void {
     modelRef.current = model;
     // docs/plans/27.md: writes status colours onto CSS vars resolveColonyTheme() reads below.
     applyStatusColorOverrides(colonyId ?? undefined);
-    const theme = resolveColonyTheme();
+    const theme = resolveColonyTheme(undefined, colonyStatuses);
     const dimensionConfig = resolvePresentationConfig(colonyId ?? undefined).dimension;
     const { backdrop, bounds, minZoom } = resolveBackdropFit(client, colonyBackdropFields, "public", model);
 
@@ -218,7 +222,7 @@ export function usePublicColonyCanvas(args: Args): void {
       modelRef.current = null;
       map.remove();
     };
-  }, [containerRef, client, colonyId, svg, colonyBackdropFields, onSelect, backdropVignetteRef]);
+  }, [containerRef, client, colonyId, svg, colonyBackdropFields, colonyStatuses, onSelect, backdropVignetteRef]);
 
   // Selection, status and dimension changes all repaint without remounting the map — same
   // split useColonyCanvas.ts makes between its mount effect and this one.

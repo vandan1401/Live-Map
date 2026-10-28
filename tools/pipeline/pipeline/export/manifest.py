@@ -93,6 +93,11 @@ def build_manifest(
         # colony config declares, not a derived value. contract/colony.schema.json's own
         # schema validation (run_qa's first check) is what catches a malformed value.
         colony_out["backdrop"] = config.backdrop
+    if config.statuses is not None:
+        # Same posture as backdrop: a declared business value, not derived from the drawing.
+        # Absent from the config -> absent from the manifest, so every existing colony's
+        # export stays byte-identical (the golden test depends on it).
+        colony_out["statuses"] = config.statuses
 
     return {
         "colony": colony_out,

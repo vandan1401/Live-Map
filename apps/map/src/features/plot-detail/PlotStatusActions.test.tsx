@@ -2,6 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { PlotStatusActions } from "./PlotStatusActions.tsx";
 import type { PlotHistoryRow, PlotRow } from "../../lib/db/types.ts";
+import { resolveColonyStatuses } from "../../lib/colony/colonyStatuses.ts";
+import { resolvePresentationConfig } from "../../lib/colony/presentationConfig.ts";
+
+// docs/plans/40.md: the props now carry the colony's resolved list. A colony that declares none
+// resolves to the built-in three with presentation.json's labels/colours — so these tests keep
+// asserting exactly the behaviour they always did.
+const STATUSES = resolveColonyStatuses(null, resolvePresentationConfig("shree-vatika-2"));
 
 afterEach(() => {
   cleanup();
@@ -51,6 +58,7 @@ describe("PlotStatusActions", () => {
   it("only offers legal next statuses as buttons", () => {
     render(
       <PlotStatusActions
+        statuses={STATUSES}
         plot={basePlot}
         history={[historyRow({})]}
         actor="test-actor-a"
@@ -67,6 +75,7 @@ describe("PlotStatusActions", () => {
   it("shows Undo only when the most recent history row is the current actor's own, and there's a prior state", () => {
     const { rerender } = render(
       <PlotStatusActions
+        statuses={STATUSES}
         plot={basePlot}
         history={[historyRow({ changed_by: "test-actor-a" })]}
         actor="test-actor-a"
@@ -80,6 +89,7 @@ describe("PlotStatusActions", () => {
 
     rerender(
       <PlotStatusActions
+        statuses={STATUSES}
         plot={basePlot}
         history={[
           historyRow({ changed_by: "test-actor-a" }),
@@ -95,6 +105,7 @@ describe("PlotStatusActions", () => {
 
     rerender(
       <PlotStatusActions
+        statuses={STATUSES}
         plot={basePlot}
         history={[
           historyRow({ changed_by: "someone-else" }),
@@ -115,6 +126,7 @@ describe("PlotStatusActions", () => {
     // would call applyPlotTransition with a transition it will reject.
     render(
       <PlotStatusActions
+        statuses={STATUSES}
         plot={{ ...basePlot, status: "registered" }}
         history={[
           historyRow({ status: "registered", changed_by: "test-actor-a" }),
@@ -132,6 +144,7 @@ describe("PlotStatusActions", () => {
   it("warns when someone else edited recently, not when the actor edited it themselves", () => {
     const { rerender } = render(
       <PlotStatusActions
+        statuses={STATUSES}
         plot={{ ...basePlot, updated_by: "someone-else", updated_at: new Date().toISOString() }}
         history={[historyRow({})]}
         actor="test-actor-a"
@@ -144,6 +157,7 @@ describe("PlotStatusActions", () => {
 
     rerender(
       <PlotStatusActions
+        statuses={STATUSES}
         plot={{ ...basePlot, updated_by: "test-actor-a", updated_at: new Date().toISOString() }}
         history={[historyRow({})]}
         actor="test-actor-a"
@@ -159,6 +173,7 @@ describe("PlotStatusActions", () => {
     const onChangeStatus = vi.fn();
     render(
       <PlotStatusActions
+        statuses={STATUSES}
         plot={basePlot}
         history={[historyRow({})]}
         actor="test-actor-a"
@@ -182,6 +197,7 @@ describe("PlotStatusActions", () => {
   it("does not show a buyer-name input for transitions other than booking", () => {
     render(
       <PlotStatusActions
+        statuses={STATUSES}
         plot={{ ...basePlot, status: "booked" }}
         history={[historyRow({ status: "booked" })]}
         actor="test-actor-a"

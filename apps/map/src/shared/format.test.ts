@@ -101,3 +101,18 @@ describe("formatActorName", () => {
     expect(formatActorName("Rajesh Shah")).toBe("Rajesh Shah");
   });
 });
+
+describe("formatStatusLabel — custom statuses (docs/plans/40.md)", () => {
+  it("uses the colony's label when it has one", () => {
+    expect(formatStatusLabel("sold_to_investors", { sold_to_investors: "Sold to investors" })).toBe("Sold to investors");
+  });
+
+  it("falls back to the key read as words, not snake_case", () => {
+    expect(formatStatusLabel("sold_to_investors")).toBe("Sold to investors");
+  });
+
+  it("leaves the built-in labels alone", () => {
+    expect(formatStatusLabel("registered")).toBe("Registry done");
+    expect(formatStatusLabel("available")).toBe("Available");
+  });
+});

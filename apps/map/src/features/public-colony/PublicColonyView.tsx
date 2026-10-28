@@ -4,6 +4,8 @@ import { loadPublicColony } from "../../lib/colony/publicColony.ts";
 import { usePublicColonyCanvas } from "../../components/map/usePublicColonyCanvas.ts";
 import { resolveMapBackdropFromRow, type ColonyBackdropFields } from "../../components/map/mapBackdrops.ts";
 import { resolvePublicLinkStatusToggle } from "../../lib/colony/publicLinkConfig.ts";
+import { resolveColonyStatuses } from "../../lib/colony/colonyStatuses.ts";
+import { resolvePresentationConfig } from "../../lib/colony/presentationConfig.ts";
 import { MapLoadingScreen } from "../../components/MapLoadingScreen.tsx";
 import { StatusToggle } from "../../components/StatusToggle.tsx";
 import type { PublicColonyResult } from "../../lib/db/types.ts";
@@ -103,6 +105,13 @@ export function PublicColonyView({ client, token }: Props) {
     () => (found ? { ...found.colony, backdrop_enabled_on_admin: false } : null),
     [found],
   );
+  // docs/plans/40.md: the colony's declared status list (null = default), from the same
+  // get_public_colony() payload. useMemo keyed on `found` for the same reason as the backdrop
+  // fields above: a fresh array every render would remount the map on every plot tap.
+  const colonyStatuses = useMemo(
+    () => resolveColonyStatuses(found?.colony.statuses, resolvePresentationConfig(found?.colony.id)),
+    [found],
+  );
   // docs/plans/28.md, D-036: null for every colony without a live public backdrop —
   // decides whether the vignette/attribution below render at all.
   const backdrop = resolveMapBackdropFromRow(client, colonyBackdropFields, "public");
@@ -116,6 +125,7 @@ export function PublicColonyView({ client, token }: Props) {
     colonyId: found?.colony.id ?? null,
     svg: found?.colony.svg ?? null,
     statuses,
+    colonyStatuses,
     selectedId,
     dimensions,
     onSelect: useCallback((svgId: string | null) => setSelectedId(svgId), []),

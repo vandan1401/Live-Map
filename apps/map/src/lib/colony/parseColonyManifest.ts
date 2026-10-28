@@ -14,6 +14,7 @@ import Ajv2020 from "ajv/dist/2020";
 import colonySchemaRaw from "../../../../../contract/colony.schema.json?raw";
 import { extractSvgPlotIds } from "./svgPlotIds.ts";
 import type { ColonyManifest } from "../db/types.ts";
+import { findDuplicateStatusKeys } from "./colonyStatuses.ts";
 
 const colonySchema = JSON.parse(colonySchemaRaw) as object;
 const ajv = new Ajv2020({ allErrors: true, strict: false });
@@ -23,7 +24,13 @@ export function validateColonyManifest(
   json: unknown,
 ): { ok: true; manifest: ColonyManifest } | { ok: false; errors: string[] } {
   if (validate(json)) {
-    return { ok: true, manifest: json as ColonyManifest };
+    const manifest = json as ColonyManifest;
+    // docs/plans/40.md: JSON Schema cannot say "no two statuses share a key".
+    const duplicates = findDuplicateStatusKeys(manifest.colony.statuses ?? []);
+    if (duplicates.length > 0) {
+      return { ok: false, errors: [`/colony/statuses repeats key(s): ${duplicates.join(", ")}`] };
+    }
+    return { ok: true, manifest };
   }
   const errors = (validate.errors ?? []).map(
     (error) => `${error.instancePath || "(root)"} ${error.message ?? "is invalid"}`,

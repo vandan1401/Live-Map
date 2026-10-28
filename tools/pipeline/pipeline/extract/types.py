@@ -68,6 +68,13 @@ class ColonyConfig:
     # the 7 existing ColonyConfig(...) call sites that predate this field keep working
     # unchanged.
     backdrop: dict[str, Any] | None = None
+    # Optional (docs/plans/40.md). This colony's plot statuses -- [{key, label, colour}], in
+    # legend order -- declared once in colonies/<id>.json and passed through to colony.json
+    # verbatim, the same way backdrop is: nothing in the drawing can derive a business status
+    # list. None = the manifest omits the key and the app uses its built-in three. Shape and
+    # key uniqueness are validated by run_qa(), not here, so one bad config fails at export
+    # with a named error rather than at load.
+    statuses: list[dict[str, Any]] | None = None
 
 
 @dataclass(frozen=True)

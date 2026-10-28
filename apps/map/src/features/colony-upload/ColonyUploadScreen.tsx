@@ -43,7 +43,7 @@ export function ColonyUploadScreen({ client, onClose }: Props) {
     if (stage.kind !== "ready" || !previewRef.current) return;
     const container = previewRef.current;
     container.innerHTML = "";
-    return renderColonyPreview(container, stage.svg, undefined, stage.manifest.colony.id);
+    return renderColonyPreview(container, stage.svg, undefined, stage.manifest.colony.id, stage.manifest.colony.statuses);
   }, [stage]);
 
   const validateAndContinue = () => {
@@ -141,6 +141,20 @@ export function ColonyUploadScreen({ client, onClose }: Props) {
           setStage({
             kind: "failed",
             message: "This colony belongs to a different organization and cannot be replaced.",
+          });
+        } else if (result.reason === "invalid_statuses") {
+          // docs/plans/40.md: the schema check on this screen should already have caught a bad
+          // list, so reaching this means the database disagreed with it — say so plainly.
+          setStage({
+            kind: "failed",
+            message: "This colony's status list was refused by the database. Check the statuses block in colony.json.",
+          });
+        } else if (result.reason === "status_in_use") {
+          // docs/plans/40.md: a replace may not drop a status some plot still holds. Nothing was
+          // written; keep the status in the list, or move those plots to another status first.
+          setStage({
+            kind: "failed",
+            message: `This upload removes the status "${result.status}", but ${result.plotCount} plot(s) in this colony still have it. Keep it in the statuses list, or change those plots first. Nothing was changed.`,
           });
         } else {
           setStage({ kind: "orphan", missingSvgIds: result.missingSvgIds });

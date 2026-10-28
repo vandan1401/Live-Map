@@ -1,16 +1,16 @@
 import { useState } from "react";
-import { isLegalTransition } from "../../lib/plot-status/transitions.ts";
+import { isLegalTransition, legalNextStatuses } from "../../lib/plot-status/transitions.ts";
 import { isRecentlyEdited } from "../../lib/plot-status/recentEdit.ts";
 import { formatActorName, formatStatusLabel } from "../../shared/format.ts";
-import type { PlotHistoryRow, PlotRow, PlotStatus } from "../../lib/db/types.ts";
-
-const ALL_STATUSES: PlotStatus[] = ["available", "booked", "registered"];
+import type { ColonyStatus, PlotHistoryRow, PlotRow, PlotStatus } from "../../lib/db/types.ts";
 
 interface Props {
   plot: PlotRow;
   history: PlotHistoryRow[];
   actor: string;
   saving: boolean;
+  // docs/plans/40.md: the colony's status list — what this plot may move to is derived from it.
+  statuses: readonly ColonyStatus[];
   // ownerName is set only for a fresh available -> booked transition (docs/plans/08.md)
   // — every other status button omits it.
   onChangeStatus: (toStatus: PlotStatus, ownerName?: string) => void;
@@ -25,11 +25,16 @@ interface Props {
 // else's edit from their own device) AND the reverse transition is itself legal — the
 // three-status table has no back-edge from every state (e.g. registered -> booked isn't
 // legal), so an "undo" back past two changes could land on an illegal transition.
-function canUndo(plot: PlotRow, history: PlotHistoryRow[], actor: string): boolean {
+function canUndo(
+  plot: PlotRow,
+  history: PlotHistoryRow[],
+  actor: string,
+  statuses: readonly ColonyStatus[],
+): boolean {
   return (
     history.length >= 2 &&
     history[0].changed_by === actor &&
-    isLegalTransition(plot.status, history[1].status)
+    isLegalTransition(plot.status, history[1].status, statuses)
   );
 }
 
@@ -38,12 +43,13 @@ export function PlotStatusActions({
   history,
   actor,
   saving,
+  statuses,
   statusLabels,
   onChangeStatus,
   onUndo,
 }: Props) {
   const [ownerNameDraft, setOwnerNameDraft] = useState("");
-  const nextStatuses = ALL_STATUSES.filter((status) => isLegalTransition(plot.status, status));
+  const nextStatuses = legalNextStatuses(plot.status, statuses).map((status) => status.key);
   const showRecentEditWarning =
     plot.updated_by !== actor && isRecentlyEdited(plot.updated_at, new Date());
   // available is the only predecessor of booked (transitions.ts) — this is the one and
@@ -91,7 +97,7 @@ export function PlotStatusActions({
             Mark {formatStatusLabel(status, statusLabels)}
           </button>
         ))}
-        {canUndo(plot, history, actor) && (
+        {canUndo(plot, history, actor, statuses) && (
           <button
             type="button"
             className="plot-status-button plot-status-undo"

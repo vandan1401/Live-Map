@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
   ColonyInsert,
   ColonyManifestPlot,
+  ColonyStatus,
   ColonyRow,
   CreateColonyResult,
   PublicColonyResult,
@@ -75,6 +76,8 @@ export async function callCreateColonyFromManifest(
     replace: boolean;
     zoomRefWidthPx?: number;
     zoomRefHeightPx?: number;
+    // docs/plans/40.md: colony.json's optional status list; omitted = leave the stored list alone.
+    statuses?: ColonyStatus[];
   },
 ): Promise<CreateColonyResult> {
   const { data, error } = await client.rpc("create_colony_from_manifest", {
@@ -87,16 +90,23 @@ export async function callCreateColonyFromManifest(
     p_replace: args.replace,
     p_zoom_ref_width_px: args.zoomRefWidthPx ?? null,
     p_zoom_ref_height_px: args.zoomRefHeightPx ?? null,
+    p_statuses: args.statuses ?? null,
   });
   if (error) throw new Error(`callCreateColonyFromManifest failed: ${error.message}`);
   const result = data as
     | { ok: true; colony_id: string }
     | { ok: false; reason: "colony_exists" }
     | { ok: false; reason: "would_orphan_history"; missing_svg_ids: string[] }
-    | { ok: false; reason: "org_mismatch" };
+    | { ok: false; reason: "org_mismatch" }
+    | { ok: false; reason: "invalid_statuses" }
+    | { ok: false; reason: "status_in_use"; status: string; plot_count: number };
   if (result.ok) return { ok: true, colonyId: result.colony_id };
   if (result.reason === "colony_exists") return { ok: false, reason: "colony_exists" };
   if (result.reason === "org_mismatch") return { ok: false, reason: "org_mismatch" };
+  if (result.reason === "invalid_statuses") return { ok: false, reason: "invalid_statuses" };
+  if (result.reason === "status_in_use") {
+    return { ok: false, reason: "status_in_use", status: result.status, plotCount: result.plot_count };
+  }
   return { ok: false, reason: "would_orphan_history", missingSvgIds: result.missing_svg_ids };
 }
 

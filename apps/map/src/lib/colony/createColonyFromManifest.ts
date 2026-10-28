@@ -33,5 +33,6 @@ export async function createColonyFromManifest(
     replace,
     zoomRefWidthPx: manifest.colony.select_zoom?.ref_width_px,
     zoomRefHeightPx: manifest.colony.select_zoom?.ref_height_px,
+    statuses: manifest.colony.statuses,
   });
 }

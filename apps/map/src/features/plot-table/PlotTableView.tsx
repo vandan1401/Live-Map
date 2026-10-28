@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { applyPlotTransition } from "../../lib/plot-status/applyPlotTransition.ts";
-import { resolvePresentationConfig } from "../../lib/colony/presentationConfig.ts";
+import { statusLabelMap } from "../../lib/colony/colonyStatuses.ts";
+import type { ColonyStatus } from "../../lib/db/types.ts";
 import { fetchPlotBySvgId, fetchPlotsByColony } from "../../lib/db/plots.ts";
 import { subscribePlotChanges } from "../../lib/sync/subscribePlots.ts";
 import { BulkImportScreen } from "../bulk-import/BulkImportScreen.tsx";
@@ -11,6 +12,8 @@ import type { PlotRow, PlotStatus } from "../../lib/db/types.ts";
 interface Props {
   client: SupabaseClient;
   colonyId: string;
+  // docs/plans/40.md: resolved once by ColonyMap — this colony's declared list, or the default.
+  statuses: readonly ColonyStatus[];
   onBack: () => void;
 }
 
@@ -34,13 +37,12 @@ const EMPTY_DRAFT: RowDraft = {
 // grid alternative to clicking through the map one plot at a time. Every row's save still
 // goes through applyPlotTransition() independently, exactly like the map's own Save
 // button; no "save all" batching (§3).
-export function PlotTableView({ client, colonyId, onBack }: Props) {
+export function PlotTableView({ client, colonyId, statuses, onBack }: Props) {
   const [plots, setPlots] = useState<PlotRow[] | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [drafts, setDrafts] = useState<Record<string, RowDraft>>({});
   const [showImport, setShowImport] = useState(false);
-  // docs/plans/27.md — per-colony status display names, resolved once per colonyId.
-  const { statusLabels } = resolvePresentationConfig(colonyId);
+  const statusLabels = statusLabelMap(statuses);
 
   useEffect(() => {
     let cancelled = false;
@@ -118,6 +120,7 @@ export function PlotTableView({ client, colonyId, onBack }: Props) {
         toStatus: draft.pendingStatus,
         expectedVersion: plot.version,
         ownerName,
+        statuses,
       });
       if (result.ok) {
         setPlots((prev) => (prev ? prev.map((p) => (p.id === plot.id ? result.plot : p)) : prev));
@@ -194,6 +197,7 @@ export function PlotTableView({ client, colonyId, onBack }: Props) {
                 <PlotTableRow
                   key={plot.id}
                   plot={plot}
+                  statuses={statuses}
                   pendingStatus={draft.pendingStatus}
                   ownerNameDraft={draft.ownerNameDraft}
                   saving={draft.saving}

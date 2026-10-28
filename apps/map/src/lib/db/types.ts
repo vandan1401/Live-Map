@@ -1,7 +1,8 @@
 // Mirrors apps/map/supabase/migrations/20260812120000_m2_schema.sql. Keep field names
 // snake_case — these map directly to Postgres columns via supabase-js.
 
-export type PlotStatus = "available" | "booked" | "registered";
+import type { ColonyStatus, PlotStatus } from "./statusTypes.ts";
+export type { ColonyStatus, PlotStatus };
 
 export type Facing =
   | "north"
@@ -40,6 +41,7 @@ export interface ColonyInsert {
   // migration-can't-backfill artifact like svg's nullability above.
   select_zoom_ref_width_px?: number | null;
   select_zoom_ref_height_px?: number | null;
+  statuses?: ColonyStatus[] | null; // docs/plans/40.md: written by import-seed; the app uses the RPC
 }
 
 export interface ColonyRow extends Omit<ColonyInsert, "svg"> {
@@ -52,6 +54,7 @@ export interface ColonyRow extends Omit<ColonyInsert, "svg"> {
   // insert path writes this; it starts null and is set later, service-role-only, by
   // scripts/generate-public-link.ts.
   public_token: string | null;
+  statuses: ColonyStatus[] | null; // docs/plans/40.md: declared list; null = built-in default
   // docs/plans/29.md: the backdrop raster + its alignment, uploaded via the admin portal —
   // never set on ColonyInsert, every colony gets these via column defaults at creation and
   // a later admin-portal update, never at insert. backdrop_storage_path/image_width/
@@ -187,6 +190,7 @@ export interface ColonyManifest {
     // currently has. attribution is required, not `?? ""` anywhere it's read — an omitted
     // credit must fail schema validation, never silently blank the column.
     backdrop?: ColonyManifestBackdrop;
+    statuses?: ColonyStatus[]; // optional, docs/plans/40.md: absent = default / leaves stored list
   };
   plots: ColonyManifestPlot[];
 }
@@ -197,7 +201,9 @@ export type CreateColonyResult =
   | { ok: false; reason: "would_orphan_history"; missingSvgIds: string[] }
   // docs/plans/21.md phase 1: a replace whose existing colony belongs to a different
   // organization than the caller's own. Not reachable in normal single-org use.
-  | { ok: false; reason: "org_mismatch" };
+  | { ok: false; reason: "org_mismatch" }
+  | { ok: false; reason: "invalid_statuses" }
+  | { ok: false; reason: "status_in_use"; status: string; plotCount: number };
 
 // docs/plans/22.md phase 2: get_public_colony()'s return shape. `found: false` covers a
 // wrong token, a revoked/regenerated token, and a real token whose colony isn't verified
@@ -218,6 +224,7 @@ export type PublicColonyResult =
         id: string;
         name: string;
         svg: string;
+        statuses: ColonyStatus[] | null; // docs/plans/40.md; null = built-in default
         select_zoom_ref_width_px: number | null;
         select_zoom_ref_height_px: number | null;
         backdrop_storage_path: string | null;

@@ -4,6 +4,7 @@ import { applyStatusColorOverrides } from "./applyPresentationColors.ts";
 import { buildGrassPattern, buildRoadEdgePattern, buildRoadPattern } from "./canvasPatterns.ts";
 import { drawColony } from "./drawColony.ts";
 import { fitView } from "./view.ts";
+import type { ColonyStatus } from "../../lib/db/types.ts";
 import grassPhotoUrl from "../../assets/textures/grass-satellite.jpg";
 
 // A still, non-interactive render of a colony, used by the upload screen's confirmation
@@ -38,10 +39,14 @@ export function renderColonyPreview(
   // found in /review: the upload-confirmation preview, invariant 2's one write gate,
   // could otherwise paint colony A's colours while confirming colony B's upload).
   colonyId?: string,
+  // docs/plans/40.md: the manifest's declared status list, so the upload-confirmation preview
+  // paints the colony's own colours (the human confirming a colony is looking at the map exactly
+  // as members will see it, invariant 2's gate). Omitted = the built-in colours, as before.
+  colonyStatuses?: readonly ColonyStatus[],
 ): () => void {
   const model = parseColonyModel(svg);
   applyStatusColorOverrides(colonyId);
-  const theme = resolveColonyTheme();
+  const theme = resolveColonyTheme(undefined, colonyStatuses);
 
   const canvas = document.createElement("canvas");
   canvas.className = "colony-preview-canvas";

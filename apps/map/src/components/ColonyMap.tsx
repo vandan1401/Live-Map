@@ -1,8 +1,9 @@
 import { useCallback, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AnimatePresence } from "framer-motion";
-import type { PlotStatus } from "../lib/db/types.ts";
+import type { ColonyStatus, PlotStatus } from "../lib/db/types.ts";
 import { resolvePresentationConfig } from "../lib/colony/presentationConfig.ts";
+import { resolveColonyStatuses, statusLabelMap } from "../lib/colony/colonyStatuses.ts";
 import { PlotDetailSheet } from "../features/plot-detail/PlotDetailSheet.tsx";
 import { PlotSearch } from "../features/search/PlotSearch.tsx";
 import { ShareSummary } from "../features/share-summary/ShareSummary.tsx";
@@ -37,6 +38,8 @@ interface Props {
   // docs/plans/29.md: the same already-loaded colony row's backdrop_* columns — no
   // separate fetch, same precedent as selectZoomRefWidthPx/HeightPx above.
   colonyBackdropFields: ColonyBackdropFields | null;
+  // docs/plans/40.md: the colony row's declared status list; null = the built-in default.
+  colonyStatuses: ColonyStatus[] | null;
   // Returns to the colony picker (owner feedback, 2026-08-15 iPhone session: opening a
   // colony was previously one-way). App.tsx owns selectedColonyId and clears it here.
   onBack: () => void;
@@ -50,6 +53,7 @@ export function ColonyMap({
   selectZoomRefWidthPx,
   selectZoomRefHeightPx,
   colonyBackdropFields,
+  colonyStatuses: declaredStatuses,
   onBack,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -74,8 +78,19 @@ export function ColonyMap({
   // link, unlike the config-gated toggle there — this one is always offered here).
   const [showStatus, setShowStatus] = useState(false);
 
-  // docs/plans/27.md — per-colony status display names, resolved once per colonyId.
-  const { statusLabels } = resolvePresentationConfig(colonyId);
+  // docs/plans/40.md: this colony's resolved status list — the one place precedence is applied
+  // (colony.json's list > presentation.json's per-colony override > default). Everything below
+  // (legend, detail sheet, table, share summary, map colours) reads it. Cached by CONTENT in a
+  // ref, like backdropFieldsRef below: App.tsx's colony row is a fresh-but-equal object on every
+  // reconnect refetch, and a new array here would remount the map through useColonyCanvas's
+  // mount-effect dependency array.
+  const statusesRef = useRef<{ signature: string; value: ColonyStatus[] }>({ signature: "", value: [] });
+  const resolvedStatuses = resolveColonyStatuses(declaredStatuses, resolvePresentationConfig(colonyId));
+  const statusesSignature = JSON.stringify(resolvedStatuses);
+  if (statusesRef.current.signature !== statusesSignature) {
+    statusesRef.current = { signature: statusesSignature, value: resolvedStatuses };
+  }
+  const statuses = statusesRef.current.value;
   // App.tsx's `colonies.find(...)` (docs/plans/29.md) returns a fresh-but-equal ColonyRow
   // object on every reconnect refetch (useColonyList.ts). A useMemo keyed on the individual
   // scalar fields (rather than [colonyBackdropFields] itself) would fix that churn, but
@@ -108,6 +123,7 @@ export function ColonyMap({
     selectZoomRefWidthPx,
     selectZoomRefHeightPx,
     colonyBackdropFields: stableColonyBackdropFields,
+    colonyStatuses: statuses,
     selectedId,
     activeStatuses,
     showStatus,
@@ -166,9 +182,9 @@ export function ColonyMap({
           active={activeStatuses}
           onToggle={handleToggleStatusFilter}
           onClear={() => setActiveStatuses(new Set())}
-          statusLabels={statusLabels}
+          statuses={statuses}
         />
-        <ShareSummary client={client} colonyId={colonyId} />
+        <ShareSummary client={client} colonyId={colonyId} statusLabels={statusLabelMap(statuses)} />
         <button
           type="button"
           className="colony-share-trigger"
@@ -179,7 +195,7 @@ export function ColonyMap({
       </div>
       {tableViewOpen && (
         <div className="plot-table-overlay">
-          <PlotTableView client={client} colonyId={colonyId} onBack={() => setTableViewOpen(false)} />
+          <PlotTableView client={client} colonyId={colonyId} statuses={statuses} onBack={() => setTableViewOpen(false)} />
         </div>
       )}
       <AnimatePresence>
@@ -187,6 +203,7 @@ export function ColonyMap({
           <PlotDetailSheet
             client={client}
             colonyId={colonyId}
+            statuses={statuses}
             svgId={selectedId}
             onDismiss={() => setSelectedId(null)}
             onPlotStatusChange={handlePlotStatusChange}

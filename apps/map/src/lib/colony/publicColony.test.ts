@@ -98,6 +98,9 @@ describe("get_public_colony — live integration", () => {
         id: colonyId,
         name: "Public Link Scratch Colony",
         svg: expect.any(String),
+        // docs/plans/40.md: the colony's declared status list (labels + colours, no PII/money);
+        // null for this scratch colony, which declares none -> the app uses the built-in default.
+        statuses: null,
         // docs/plans/26.md: the owner-drawn COL-ZOOM-REF extent, pure geometry.
         select_zoom_ref_width_px: 234,
         select_zoom_ref_height_px: 416,

@@ -3,6 +3,13 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { PlotTableView } from "./PlotTableView.tsx";
 import type { PlotRow } from "../../lib/db/types.ts";
+import { resolveColonyStatuses } from "../../lib/colony/colonyStatuses.ts";
+import { resolvePresentationConfig } from "../../lib/colony/presentationConfig.ts";
+
+// docs/plans/40.md: the props now carry the colony's resolved list. A colony that declares none
+// resolves to the built-in three with presentation.json's labels/colours — so these tests keep
+// asserting exactly the behaviour they always did.
+const STATUSES = resolveColonyStatuses(null, resolvePresentationConfig("shree-vatika-2"));
 
 afterEach(() => {
   cleanup();
@@ -57,7 +64,7 @@ function createFakeSupabaseClient(rows: PlotRow[]): SupabaseClient {
 describe("PlotTableView", () => {
   it("renders one row per plot with the full column set", async () => {
     render(
-      <PlotTableView client={createFakeSupabaseClient([plot])} colonyId="shree-vatika-2" onBack={vi.fn()} />,
+      <PlotTableView client={createFakeSupabaseClient([plot])} colonyId="shree-vatika-2" statuses={STATUSES} onBack={vi.fn()} />,
     );
     await waitFor(() => expect(screen.getByText("A-1")).toBeInTheDocument());
     expect(screen.getByText("Plot")).toBeInTheDocument();
@@ -66,7 +73,7 @@ describe("PlotTableView", () => {
 
   it("offers the import-data entry point", async () => {
     render(
-      <PlotTableView client={createFakeSupabaseClient([plot])} colonyId="shree-vatika-2" onBack={vi.fn()} />,
+      <PlotTableView client={createFakeSupabaseClient([plot])} colonyId="shree-vatika-2" statuses={STATUSES} onBack={vi.fn()} />,
     );
     await waitFor(() =>
       expect(screen.getByText("Import initial data (CSV)")).toBeInTheDocument(),

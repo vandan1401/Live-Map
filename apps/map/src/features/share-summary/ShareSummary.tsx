@@ -1,17 +1,18 @@
 import { useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatShareSummary, loadShareSummaryData } from "../../lib/colony/shareSummary.ts";
-import { resolvePresentationConfig } from "../../lib/colony/presentationConfig.ts";
 
 interface Props {
   client: SupabaseClient | null;
   colonyId: string;
+  // docs/plans/40.md: display names for this colony's statuses, resolved once by ColonyMap.
+  statusLabels: Record<string, string>;
 }
 
 // Generated on demand, not kept live — the family pastes this into WhatsApp by hand
 // (spec/06: "do not fight the existing habit"), so a snapshot at the moment they tap
 // the button is exactly what they expect, not a running total.
-export function ShareSummary({ client, colonyId }: Props) {
+export function ShareSummary({ client, colonyId, statusLabels }: Props) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +29,7 @@ export function ShareSummary({ client, colonyId }: Props) {
     }
     loadShareSummaryData(client, colonyId)
       .then((data) =>
-        setText(formatShareSummary(data, new Date(), resolvePresentationConfig(colonyId).statusLabels)),
+        setText(formatShareSummary(data, new Date(), statusLabels)),
       )
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : "Could not build the summary.");

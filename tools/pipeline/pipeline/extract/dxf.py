@@ -56,6 +56,7 @@ def load_colony_config(colony_id: str, colonies_dir: Path) -> ColonyConfig:
             north_deg=data.get("north_deg"),
             source=data["source"],
             backdrop=data.get("backdrop"),
+            statuses=data.get("statuses"),
         )
     except KeyError as exc:
         raise DxfConformanceError(f"{path} is missing required field {exc}") from exc

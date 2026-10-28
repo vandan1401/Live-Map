@@ -71,7 +71,10 @@ export function formatStatusLabel(status: string, labels?: Partial<Record<string
   const override = labels?.[status];
   if (override !== undefined) return override;
   if (status === "registered") return "Registry done";
-  return status.charAt(0).toUpperCase() + status.slice(1);
+  // docs/plans/40.md: a custom key like sold_to_investors reads as words if a colony ever
+  // omits its label (the schema requires one, so this is a safety net, not the normal path).
+  const words = status.replace(/_/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
 // A blockless plot (contract/SPEC.md, docs/plans/15.md) carries block: "" — show just the

@@ -2,6 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { PlotTableRow } from "./PlotTableRow.tsx";
 import type { PlotRow } from "../../lib/db/types.ts";
+import { resolveColonyStatuses } from "../../lib/colony/colonyStatuses.ts";
+import { resolvePresentationConfig } from "../../lib/colony/presentationConfig.ts";
+
+// docs/plans/40.md: the props now carry the colony's resolved list. A colony that declares none
+// resolves to the built-in three with presentation.json's labels/colours — so these tests keep
+// asserting exactly the behaviour they always did.
+const STATUSES = resolveColonyStatuses(null, resolvePresentationConfig("shree-vatika-2"));
 
 afterEach(() => {
   cleanup();
@@ -39,6 +46,7 @@ function renderRow(props: Partial<Parameters<typeof PlotTableRow>[0]> = {}) {
     <table>
       <tbody>
         <PlotTableRow
+          statuses={STATUSES}
           plot={basePlot}
           pendingStatus={null}
           ownerNameDraft=""

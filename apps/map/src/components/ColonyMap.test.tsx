@@ -50,6 +50,7 @@ describe("ColonyMap", () => {
     // browser that refuses a context (private modes, blocked fingerprinting).
     const { getByText } = render(
       <ColonyMap
+        colonyStatuses={null}
         client={createFakeSupabaseClient()}
         actor="test-actor"
         colonyId="shree-vatika-2"
@@ -66,6 +67,7 @@ describe("ColonyMap", () => {
   it("shows the not-to-scale note", () => {
     const { getByText } = render(
       <ColonyMap
+        colonyStatuses={null}
         client={createFakeSupabaseClient()}
         actor="test-actor"
         colonyId="shree-vatika-2"
@@ -83,6 +85,7 @@ describe("ColonyMap", () => {
     const onBack = vi.fn();
     const { getByText } = render(
       <ColonyMap
+        colonyStatuses={null}
         client={createFakeSupabaseClient()}
         actor="test-actor"
         colonyId="shree-vatika-2"

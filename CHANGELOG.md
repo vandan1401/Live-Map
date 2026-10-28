@@ -8,6 +8,21 @@ only after the same change has run on the SaaS for a few days. Migrations are fo
 
 - (nothing yet)
 
+## v1.0.2 — 2026-10-28
+
+- **Per-colony plot statuses** (docs/plans/40.md, D-053). A colony can declare its own status list in
+  `colony.json` (`statuses`: key, label, colour; up to 8; must include `available`), e.g. "Sold to
+  investors". Absent = the built-in Available / Booked / Registry done, unchanged. The pipeline carries
+  it through from `tools/pipeline/colonies/<id>.json`. Re-uploading a colony whose new list drops a
+  status some plot still holds is refused.
+  **Migration:** `20261027000000_colony_statuses.sql` (adds `colonies.statuses`; replaces the closed
+  status CHECK with a format check plus a per-colony membership guard; adds a `p_statuses` argument to
+  `create_colony_from_manifest`, dropping the old overload). **Apply it BEFORE deploying the app** —
+  the new app sends the argument and reads the column; the old app keeps working on the new schema.
+  After applying, reload PostgREST's schema cache and make one live RPC call (D-033).
+  **Also:** do not upload a `colony.json` that has a `statuses` block until every device has reloaded onto
+  the new app — a still-open old bundle throws when someone taps a plot in a custom status.
+
 ## v1.0.1 — 2026-10-27
 
 The first tagged release. Before it, the mini PC ("the box") was built from commits by hand

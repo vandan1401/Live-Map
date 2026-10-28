@@ -2,6 +2,29 @@
 
 ## Current
 
+- **Per-colony plot statuses, declared in `colony.json` (2026-10-27, Tier 1, docs/plans/40.md, D-053,
+  branch `feat/configurable-statuses`, NOT merged).** Owner ask: add "Sold to investors", then make the
+  number of statuses configurable per colony through the upload JSON. A colony's optional `statuses`
+  list (key/label/colour, max 8, must include `available`) now drives the legend, detail sheet, table,
+  share summary, map colours, public view and upload preview; absent = the built-in three, unchanged.
+  Built-ins keep their rules; a custom status moves freely to/from `available` and between customs, never
+  directly to/from booked/registered (the plan's reading of "new ones free" — confirm with the owner).
+  Migration `20261027000000_colony_statuses.sql`: **apply to hosted Supabase BEFORE deploying the app**
+  (new app sends `p_statuses`; without it colony UPLOAD fails, the rest keeps working). Box: update.sh
+  already migrates first. **Verified:** worktree baseline 398 tests / 7 failing (all pre-existing: 2
+  PlotTableView, 3 anon-grant rls, 1 anon createColonyFromManifest, 1 subscribePlots flake); after, 443 /
+  8 failing, the extra one (publicColony exact-shape test) fixed and passing; tsc, oxlint, build clean;
+  pipeline ruff/mypy clean, pytest 144 passed 1 skipped; 9 new live DB tests pass. **Not verified:** nobody
+  has looked at the legend/map colours in a browser. **Decided alone:** colour `#9333ea`; the transition
+  limit above; failures returned as `{ok:false,reason}` (`invalid_statuses`, `status_in_use`) not raised;
+  no new fixture file (the 4-status case is built in tests from the shared one). **Deferred:** the
+  uncommitted OG-preview Worker still hardcodes the three statuses; `anon` can execute
+  `create_colony_from_manifest` (documented anon-grant drift, body still refuses). `/review` found four
+  things, all fixed: validator null/type holes, a transition-vs-replace race (plots are now locked before
+  the `status_in_use` check), the missing Deferred entry, and `import-seed.ts` (now validates against and
+  stores the declared list). **Do not upload a `colony.json` with a `statuses` block until every device has
+  reloaded onto the new app** — a still-open OLD bundle throws on a custom-status plot.
+
 - **Self-hosted private instance: stack first run on the mini PC (2026-10-20, branch `selfhost/private-instance`, not merged).**
   The `deploy/selfhost` stack was built and run for the first time on `naksha-server` (HP ProDesk,
   Docker 29.9.1): 11 containers healthy, 19 migrations applied, signup refused, service-role key
@@ -3464,6 +3487,15 @@ on a real phone. Not verified by anyone: the five visual behaviours in `## Curre
   theme one, if wanted later.
 
 ## Deferred
+
+- **Production migration pending: `20261027000000_colony_statuses.sql` (docs/plans/40.md, D-053).**
+  Not applied anywhere but local Docker. Apply to the hosted Supabase project BEFORE the Cloudflare deploy
+  of the app that sends `p_statuses` (without it colony upload fails; the rest keeps working), then reload
+  PostgREST's schema cache and make one live `create_colony_from_manifest` call (D-033). The box applies it
+  itself in `update.sh` (migrator runs before the containers restart). Old app + new DB works until a colony
+  with custom statuses exists; after that an old, still-open bundle throws on those plots.
+- OG-preview Worker (`apps/map/worker/`, uncommitted owner WIP) hardcodes the three statuses and its copy
+  "available, booked, and registered"; it must read `statuses` from the public payload when committed.
 
 - **2026-10-08, self-host branch `selfhost/private-instance` (docs/plans/36.md, 37.md):**
   (a) Before the first admin-portal run after this ships, the SaaS owner must apply

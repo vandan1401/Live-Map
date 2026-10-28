@@ -59,6 +59,7 @@ def run_qa(
     _check_svg_has_no_styling_attributes(svg)
     _check_id_stability(manifest, out_dir, allow_id_change)
     _check_zoom_ref_within_site(manifest)
+    _check_status_keys_unique(manifest)
 
 
 def _check_matches_contract_schema(manifest: dict[str, Any]) -> None:
@@ -138,6 +139,18 @@ def _check_zoom_ref_within_site(manifest: dict[str, Any]) -> None:
             f"({site_width_px}x{site_height_px} px) -- check for a units mismatch or a "
             "misplaced reference rectangle"
         )
+
+
+def _check_status_keys_unique(manifest: dict[str, Any]) -> None:
+    # JSON Schema cannot say "no two entries share a key" (docs/plans/40.md), so it is checked
+    # here; shape, the `available` requirement and the 8-entry cap are the schema's own job.
+    statuses = manifest["colony"].get("statuses")
+    if statuses is None:
+        return
+    keys = [s["key"] for s in statuses]
+    duplicates = sorted({k for k in keys if keys.count(k) > 1})
+    if duplicates:
+        raise ExportError(f"colony.statuses repeats key(s) {duplicates} -- each key must be unique")
 
 
 def _check_id_stability(

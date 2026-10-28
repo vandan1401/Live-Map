@@ -2,16 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { motion, useDragControls, type PanInfo } from "framer-motion";
 import { loadPlotDetail, type PlotDetail } from "../../lib/colony/plotDetail.ts";
-import { resolvePresentationConfig } from "../../lib/colony/presentationConfig.ts";
+import { statusLabelMap } from "../../lib/colony/colonyStatuses.ts";
 import { applyPlotTransition } from "../../lib/plot-status/applyPlotTransition.ts";
 import { fetchPlotHistory } from "../../lib/db/plotHistory.ts";
-import type { PlotStatus } from "../../lib/db/types.ts";
+import type { ColonyStatus, PlotStatus } from "../../lib/db/types.ts";
 import { PlotDetailContent } from "./PlotDetailContent.tsx";
 import { PlotStatusActions } from "./PlotStatusActions.tsx";
 
 interface Props {
   client: SupabaseClient | null;
   colonyId: string;
+  // docs/plans/40.md: resolved once by ColonyMap — this colony's declared list, or the default.
+  statuses: readonly ColonyStatus[];
   svgId: string;
   onDismiss: () => void;
   // Lets ColonyMap update the SVG's data-status attribute (D-004: status is a DOM
@@ -35,6 +37,7 @@ const COLLAPSE_THRESHOLD = 20;
 export function PlotDetailSheet({
   client,
   colonyId,
+  statuses,
   svgId,
   onDismiss,
   onPlotStatusChange,
@@ -55,8 +58,7 @@ export function PlotDetailSheet({
   // this, a mouse drag past DRAG_THRESHOLD sets `expanded` and the trailing click on
   // the same handle immediately flips it back.
   const didDrag = useRef(false);
-  // docs/plans/27.md — per-colony status display names, resolved once per colonyId.
-  const { statusLabels } = resolvePresentationConfig(colonyId);
+  const statusLabels = statusLabelMap(statuses);
 
   useEffect(() => {
     setDetail(null);
@@ -113,6 +115,7 @@ export function PlotDetailSheet({
         toStatus,
         expectedVersion: detail.plot.version,
         ownerName,
+        statuses,
       });
       if (result.ok) {
         const history = await fetchPlotHistory(client, detail.plot.id);
@@ -188,6 +191,7 @@ export function PlotDetailSheet({
             history={detail.history}
             actor={actor}
             saving={saving}
+            statuses={statuses}
             statusLabels={statusLabels}
             onChangeStatus={(status, ownerName) => void handleChangeStatus(status, ownerName)}
             onUndo={handleUndo}

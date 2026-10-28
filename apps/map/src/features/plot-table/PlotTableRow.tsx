@@ -1,4 +1,4 @@
-import { isLegalTransition } from "../../lib/plot-status/transitions.ts";
+import { legalNextStatuses } from "../../lib/plot-status/transitions.ts";
 import {
   formatActorName,
   formatDate,
@@ -7,12 +7,12 @@ import {
   formatRupees,
   formatStatusLabel,
 } from "../../shared/format.ts";
-import type { PlotRow, PlotStatus } from "../../lib/db/types.ts";
-
-const ALL_STATUSES: PlotStatus[] = ["available", "booked", "registered"];
+import type { ColonyStatus, PlotRow, PlotStatus } from "../../lib/db/types.ts";
 
 interface Props {
   plot: PlotRow;
+  // docs/plans/40.md: the colony's status list — the select offers only its legal next statuses.
+  statuses: readonly ColonyStatus[];
   // null = no pending edit on this row; the select shows plot.status as-is.
   pendingStatus: PlotStatus | null;
   ownerNameDraft: string;
@@ -33,6 +33,7 @@ interface Props {
 // container (PlotTableView.tsx) owns data loading and the applyPlotTransition() call.
 export function PlotTableRow({
   plot,
+  statuses,
   pendingStatus,
   ownerNameDraft,
   saving,
@@ -43,7 +44,7 @@ export function PlotTableRow({
   onOwnerNameChange,
   onSave,
 }: Props) {
-  const nextStatuses = ALL_STATUSES.filter((status) => isLegalTransition(plot.status, status));
+  const nextStatuses = legalNextStatuses(plot.status, statuses).map((status) => status.key);
   const displayedStatus = pendingStatus ?? plot.status;
   // Same rule as PlotStatusActions.tsx's "Buyer name" input: only meaningful (and
   // required) on a fresh available -> booked transition.

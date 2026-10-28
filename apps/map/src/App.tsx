@@ -184,6 +184,7 @@ function App() {
         selectZoomRefWidthPx={selectedColony.select_zoom_ref_width_px ?? null}
         selectZoomRefHeightPx={selectedColony.select_zoom_ref_height_px ?? null}
         colonyBackdropFields={selectedColony}
+        colonyStatuses={selectedColony.statuses}
         onBack={() => setSelectedColonyId(null)}
       />
       {showSplash && (

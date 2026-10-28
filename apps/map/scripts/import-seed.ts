@@ -11,7 +11,7 @@ import { insertPlotHistory } from "../src/lib/db/plotHistory.ts";
 import { insertPlots } from "../src/lib/db/plots.ts";
 import { extractSvgPlotIds } from "../src/lib/colony/svgPlotIds.ts";
 import { parseNullablePaise } from "../src/shared/parsePaise.ts";
-import type { Facing, PlotInsert, PlotStatus } from "../src/lib/db/types.ts";
+import type { ColonyStatus, Facing, PlotInsert, PlotStatus } from "../src/lib/db/types.ts";
 
 declare const process: NodeJS.Process & { loadEnvFile?: (path?: string) => void };
 try {
@@ -55,6 +55,8 @@ interface Manifest {
     verified: boolean;
     generated: string;
     source: { file: string };
+    // docs/plans/40.md: declared status list; the seed CSV is validated against it and it is stored.
+    statuses?: ColonyStatus[];
   };
   plots: Array<{
     svg_id: string;
@@ -130,7 +132,10 @@ function nullablePaise(value: string): number | null {
 const plotInserts: PlotInsert[] = manifest.plots.map((plot) => {
   const seed = csvBySvgId.get(plot.svg_id)!;
   const status = seed.status as PlotStatus;
-  if (!STATUSES.includes(status)) fail(`unrecognised status "${seed.status}" for ${plot.svg_id}`);
+  // This script inserts plots directly (service role), bypassing the RPCs' membership guard, so it
+  // must hold the line itself: only the colony's declared keys (or the built-in three).
+  const allowed: readonly string[] = manifest.colony.statuses?.map((s) => s.key) ?? STATUSES;
+  if (!allowed.includes(status)) fail(`unrecognised status "${seed.status}" for ${plot.svg_id}`);
   if (!FACINGS.includes(plot.facing)) fail(`unrecognised facing "${plot.facing}" for ${plot.svg_id}`);
 
   return {
@@ -176,6 +181,7 @@ async function main() {
     source_file: manifest.colony.source.file,
     generated: manifest.colony.generated,
     svg: svgRaw,
+    statuses: manifest.colony.statuses ?? null,
   }).catch((error: unknown) => fail(`colony insert failed, nothing else attempted: ${errMsg(error)}`));
 
   const insertedPlots = await insertPlots(client, plotInserts).catch((error: unknown) =>

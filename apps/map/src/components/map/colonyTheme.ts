@@ -1,3 +1,6 @@
+import { statusColourMap } from "../../lib/colony/colonyStatuses.ts";
+import type { ColonyStatus } from "../../lib/db/types.ts";
+
 // D-004's enforcement point. Every colour the canvas renderer paints is read from the CSS
 // custom properties in styles/colony-theme.css at runtime — never written as a literal in
 // a draw call. That is what keeps "change one variable, every colony changes" true now
@@ -40,7 +43,13 @@ function read(style: CSSStyleDeclaration, name: string): string {
   return value === "" ? MISSING : value;
 }
 
-export function resolveColonyTheme(root: Element = document.documentElement): ColonyTheme {
+// docs/plans/40.md: `statuses` is the colony's resolved status list. Its colours overlay the three
+// built-in CSS-variable defaults below, so a colony-declared status (or a re-coloured built-in)
+// paints without a stylesheet change; omitted keeps today's behaviour exactly.
+export function resolveColonyTheme(
+  root: Element = document.documentElement,
+  statuses?: readonly ColonyStatus[],
+): ColonyTheme {
   const s = getComputedStyle(root);
   const strokeWidth = Number(s.getPropertyValue("--colony-plot-stroke-width").trim());
   return {
@@ -65,6 +74,7 @@ export function resolveColonyTheme(root: Element = document.documentElement): Co
       available: read(s, "--colony-status-available"),
       booked: read(s, "--colony-status-booked"),
       registered: read(s, "--colony-status-registered"),
+      ...(statuses ? statusColourMap(statuses) : {}),
     },
     featureLabelInk: read(s, "--colony-feature-label-ink"),
     plotLabelInk: read(s, "--colony-plot-label-ink"),

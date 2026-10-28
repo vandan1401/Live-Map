@@ -8,6 +8,7 @@ describe("formatShareSummary", () => {
     const data: ShareSummaryData = {
       colonyName: "Shree Vatika Phase 2",
       counts: { available: 30, booked: 10, registered: 5 },
+      statusKeys: ["available", "booked", "registered"],
       recentChanges: [
         {
           label: "A-01",
@@ -32,9 +33,23 @@ describe("formatShareSummary", () => {
     const data: ShareSummaryData = {
       colonyName: "Shree Vatika Phase 2",
       counts: { available: 45, booked: 0, registered: 0 },
+      statusKeys: ["available", "booked", "registered"],
       recentChanges: [],
     };
 
     expect(formatShareSummary(data, now)).not.toContain("Recent changes");
+  });
+});
+
+describe("formatShareSummary — a colony's own statuses (docs/plans/40.md)", () => {
+  it("lists them in the colony's order with its labels, including a status no plot holds yet", () => {
+    const data: ShareSummaryData = {
+      colonyName: "Colony 1599",
+      counts: { available: 12, sold_to_investors: 3, booked: 0 },
+      statusKeys: ["available", "sold_to_investors", "booked"],
+      recentChanges: [],
+    };
+    const text = formatShareSummary(data, now, { sold_to_investors: "Sold to investors" });
+    expect(text.split("\n").slice(2)).toEqual(["Available: 12", "Sold to investors: 3", "Booked: 0"]);
   });
 });
