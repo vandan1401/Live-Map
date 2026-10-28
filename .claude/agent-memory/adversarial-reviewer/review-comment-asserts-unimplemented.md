@@ -171,6 +171,19 @@ worker/theme.test.ts" — `ls apps/map/worker/` shows no such file, and `readVar
 is covered. **Rule unchanged and now 3-for-3: any comment naming a test file, ls it; any
 comment saying "instead"/"replaced by", check for the removal, not just the addition.**
 
+**2026-10-08 re-review of the same uncommitted Worker WIP: both #16 items were still unfixed
+three weeks later.** I reported them on 2026-09-18 and nothing changed. A finding on WIP
+that never gets its own `/wrap` has no `## Deferred` entry and no owner, so it is lost
+between sessions. **Rule: when re-reviewing unplanned WIP, re-check last pass's findings
+first. If they're still open, tell the user to log them in `PROGRESS.md` → `## Deferred`.**
+
+**17th, 2026-10-20 (plan 38, selfhost tenant export/import).** `tenant-import.ts:5` says "see
+docs/selfhost/ runbook" — the runbook paragraph was a plan §2 deliverable and does not exist
+(`docs/selfhost/` holds only PROGRESS.md). `exportTenant.ts:79-80` says "A write on the source
+after the snapshot means the freeze … was not real", over a check that only compares row
+**counts** — an UPDATE-only write (colony replace, backdrop edit) passes. **Rule unchanged:
+`ls` any doc a comment cites; a "detects X" comment over a counts-only check is the drift.**
+
 **How to apply:** for CSS especially, do the specificity/cascade arithmetic yourself rather
 than accepting a comment's claim about which rule wins — `!important` scoped to one selector
 says nothing about selectors it does not match. Related:

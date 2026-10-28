@@ -1,10 +1,11 @@
 - [Autonomous skill loop](project-autonomous-loop.md) — approval gates removed on purpose; flag the fallout, not the decision.
-- [Review diff blind spots](review-diff-blind-spots.md) — 9x: `diff-head` hides untracked files and sweeps in unplanned work; (9) 3 untracked paths imported by tracked files + a whole Worker rework riding a 2-file migration plan.
+- [Review diff blind spots](review-diff-blind-spots.md) — 12x: `diff-head` hides untracked files, sweeps in unplanned work; (12) 3rd identical pass of Worker WIP vs completed plan 35 — demand plan 36.
 - [Docs vs enforcement drift](review-docs-vs-enforcement-drift.md) — 24x: docs claim a guarantee the runtime lacks; (24 CLOSED 2026-09-13) re-run the previous pass's grep verbatim before re-reporting.
 - [Contract widening consumers](review-contract-widening-consumers.md) — 5x: widening a value's *meaning* breaks its old readers; (5) `fitZoomRef` repointed at a padded fit, silently moving the plot-label threshold.
 - [Line-cap breaches](review-line-cap-breaches.md) — 9x: `filesize.sh` is advisory, oxlint has no `max-lines`; (9) `colonyBackdrop.test.ts` 148 → 272 — "test file gains N cases" is a cap risk. `wc -l` every path in the plan.
-- [Vacuous acceptance tests](review-vacuous-acceptance-tests.md) — 18x: tests passing for the wrong reason; (18) `make golden` is still a `@pytest.mark.skip` stub — re-run every cited target with `-rs` and read the skips.
-- [Prod migration deploy order](review-prod-migration-deploy-order.md) — 4x: prod lags local; **any** new migration with no `## Deferred` entry is a finding (4: a `comment on function` with no arg list needs a prod overload pre-check).
+- [Vacuous acceptance tests](review-vacuous-acceptance-tests.md) — 21x: tests passing for the wrong reason; (21) "other device signed out" is done by GoTrue's updateUser itself, not the step under test.
+- [Prod migration deploy order](review-prod-migration-deploy-order.md) — 6x: prod lags local; **any** new migration with no `## Deferred` entry is a finding (6: old PWA bundle + new status values crashes).
+- [SQL validator null holes](review-sql-validator-null-holes.md) — `bool_and` skips NULL predicates, `->>` turns `true` into text; probe jsonb validators live via docker psql.
 - [Migrations run on an empty DB](review-migration-empty-db-blind-spot.md) — `db reset` replays migrations before any seed, so triggers/nullability/constraints over existing rows are untestable locally.
 - [Non-TypeScript call sites](review-non-ts-call-sites.md) — "tsc caught every call site" misses the Makefile, package.json scripts and hooks; `make db-reseed` broke on a new required CLI arg.
 - [Constants invented outside the plan](review-unpinned-constants.md) — 2x: unpinned constants beside pinned ones; (2) `VIGNETTE_FADE_RANGE` cites a prototype whose real value is 0.678, not 1.2.
@@ -14,10 +15,11 @@
 - [Unstable effect deps](review-unstable-effect-deps.md) — an object literal built in render, threaded into a canvas hook's mount effect, remounts Leaflet every render; no lint rule catches it.
 - [Fixture geometry unchecked](review-fixture-geometry-unchecked.md) — 3x: nothing checks overlap, viewBox drift, or derived `facing`/`is_corner`; recompute them from `colony.svg` yourself.
 - [Fixture plot-count drift](review-fixture-plot-count-drift.md) — 2x: fixture facts hardcoded in prose; (2 CLOSED 2026-09-13) `cad-layer-standard.md`'s example moved off the fixture colony; `contract/SPEC.md`'s is illustrative, not a hazard.
-- [Comments assert what code doesn't do](review-comment-asserts-unimplemented.md) — 16x: intent comments the code doesn't deliver; (16) a comment saying the Worker "rewrites instead" over code that only appends, + a cited `worker/theme.test.ts` that doesn't exist.
-- [Error rendered as empty/invalid data](review-error-vs-empty-conflation.md) — 4x: a `catch` renders "no colonies"/"link revoked"; read what every catch's string asserts. Worth a CLAUDE.md line.
+- [Comments assert what code doesn't do](review-comment-asserts-unimplemented.md) — 17x: intent comments the code doesn't deliver; (17) plan 38 cites a missing runbook; a "source changed" check that counts rows only.
+- [Error rendered as empty/invalid data](review-error-vs-empty-conflation.md) — 6x: a `catch` renders "no colonies"; (6) offline verify reported as "Current password is incorrect". Worth a CLAUDE.md line.
 - [Optimistic defaults](review-optimistic-defaults.md) — 14x: initial state, missing `catch`, frozen age, stuck error flag; (14) a "Loading…" panel with no close button, after a write that already committed.
 - [Unstyled new components](review-unstyled-new-components.md) — 6x: grep new `className`s against `src/styles/*.css`; (6) a corner overlay landed on Leaflet's default zoom control, which no `className` in the diff names.
 - [SW prunes runtime assets](review-sw-asset-prune.md) — `sw.js` deletes any cached `/assets/*` not linked from index.html, every navigation; a 431KB jpg import re-downloads forever. Diff `dist/index.html` vs `dist/assets/`.
 - [DXF reader silent tolerance](review-dxf-reader-silent-tolerance.md) — a plan sentence saying "assumes axis-aligned" with no `raise` behind it; probe the reader with the bad drawing.
 - [Scratch rows leak into UI](review-scratch-rows-leak-into-ui.md) — 5x: tests mint permanent `verified: true` colonies; (5) a correct `afterAll` scoped inside the *old* describe misses the new one.
+- [Live-test timeouts](review-live-test-timeouts.md) — new multi-call local-Supabase tests with no timeout flake past vitest's 5s in the full suite; run it twice.

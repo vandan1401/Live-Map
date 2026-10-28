@@ -26,9 +26,23 @@ Occurrences:
    offline visitor reliably gets the *wrong* sentence. The comment above it justifies the
    merge with the plan's token-ambiguity constraint, which only governs the RPC's
    found/not-found response — see [[review-comment-asserts-unimplemented]] #8.
+6. 2026-10-20, plan 39 (selfhost, change password) — `lib/auth/changePassword.ts` maps
+   *every* non-429 `signInWithPassword` error to "Current password is incorrect." auth-js
+   2.112 returns offline as `AuthRetryableFetchError` status 0 and 5xx/52x likewise, so an
+   offline PWA user is told their password is wrong. The *plan* prescribed "any error →
+   wrong-current", so plan approval did not catch it. **Rule: for auth calls, only
+   `code === "invalid_credentials"` proves a wrong password; check the plan's error table too.**
 
 **How to apply:** for every new `.catch(...)` / `try` in a component, read the string it
 ultimately renders and ask what the thrown error *proves*. If the message asserts something
 about the data (empty, invalid, revoked, unsold) rather than about the attempt (couldn't
 load, check your connection), that is a finding. Four occurrences is enough to be worth a
 CLAUDE.md line — recommend it, don't just re-flag it. Related: [[review-optimistic-defaults]].
+
+5. 2026-10-08, plan 36 (selfhost worktree) — `admin-portal/app.ts:126` and `:147`. The
+   `audited()` wrapper distinguishes success from failure only by *throw vs return*.
+   `regeneratePublicLink` signals "no such colony" with `{ ok: false }` (a return), so the
+   audit log records `ok` for a 404; the backdrop handler `sendJson`s inside the wrapper, so
+   the "ok row failed → 500" rule can never fire. **Rule: wherever a wrapper keys on throw,
+   grep the wrapped functions for result-object failure returns (`ok: false`, `found: false`,
+   `return false`).**

@@ -229,6 +229,23 @@ flagged a skipped test once, re-check it every pass rather than assuming it was 
 citing `git status fixtures/` instead. The stub itself is still skipped — the open item is
 `test_golden.py`, not the claim. Re-verified: `pytest -q -rs` → 133 passed, 1 skipped.*
 
+**20th, 2026-10-20 — plan 38 (selfhost tenant export/import), `roundtrip.live.test.ts`.**
+Criterion 4 "`get_public_colony` with the old token returns the colony" is asserted as
+`public_token is not null` — passes if the token were regenerated. Criterion 6b "force a
+mismatch → rolls back to 0" (the only proof of the all-or-nothing path) and criterion 7 (anon
+reads zero rows) have no test at all; seed is 1 colony/3 plots vs §5's 2 colonies/≥26. **Rule:
+for a migration/copy tool, "preserved" must be asserted as equality to the captured source
+value, never as not-null.**
+
+**21st, 2026-10-20 — plan 39 (selfhost change password), `changePassword.live.test.ts`.**
+"Other device is signed out" is proved by GoTrue itself, not by the code's
+`signOut({scope:"others"})`: probed on local GoTrue v2.197 — `updateUser({password})` alone
+makes the other client's `getUser()` fail `session_not_found` (UpdatePassword →
+LogoutAllExceptMe). And PostgREST still returned **200** for the "signed-out" device's old
+access token afterwards (JWT valid until `exp`). **Rule: before accepting a live test as
+proof of a step, check whether the platform already produces that outcome without the step
+(re-run with the step removed); "signed out" in GoTrue never means "can't hit PostgREST".**
+
 **How to apply:** the local Supabase Docker stack is usually up
 (`docker exec supabase_db_colony-map psql -U postgres -d postgres -c "..."`). Postgres's
 `CONTEXT:` line names the exact failing SQL statement — one command settles it. For a
@@ -236,3 +253,13 @@ rollback test to be real, the forcing input must reach *only* the second stateme
 schema that means `p_note` (goes to `plot_history` alone), never `p_actor` or `p_new_status`
 (both are written to `plots` first). Also check the counterpart: a test can only prove
 "rolled back" if the first statement actually ran.
+
+**19th, 2026-10-08 — plan 36 (selfhost worktree), `admin-portal/adminHttp.test.ts`.** Test
+*titles* claim checks the bodies never make: "leaves plot_history text alone" (no
+`plot_history` query at all) and "refuses to log in a non-admin **and records it**" (no audit
+assertion). Plan §6 says idempotency is "Tested" — no double-delete or duplicate-create test
+exists. The TRUNCATE leg of the grants criterion is untested, and live
+`information_schema.role_table_grants` showed service_role still holding
+UPDATE/DELETE/TRIGGER/REFERENCES despite "grant select, insert only". **Rule: read every
+`it(...)` title as a claim and find the `expect` that backs each clause; for grant criteria,
+query `role_table_grants` in the container, don't trust the migration text.**

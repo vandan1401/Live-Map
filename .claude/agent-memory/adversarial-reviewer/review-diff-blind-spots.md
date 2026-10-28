@@ -96,6 +96,34 @@ in the report that the two must be committed separately — the plan's own §3 i
 and a Tier-1 WIP that rides in on a Tier-1 migration commit never gets its own `/plan` or
 `/review`.**
 
+**10th, 2026-10-08 — the plan-35 WIP reviewed a second time against plan 35, which had
+already shipped (57a93a6, `Status: complete`).** `git diff HEAD` now contained *only* the
+Worker/hash→path rework that plan 35 §3 forbids, so every line of the diff was out of
+scope for the plan it was judged against; no `docs/plans/36.md` exists, and `ogImage.ts`
+still cites "docs/plans/NN.md when written". The same three `??` imports were still
+untracked, and both pass-9 bugs (duplicate `og:` tags, missing `worker/theme.test.ts`) were
+still present. New this pass: `env.ASSETS.fetch("/index.html")` under Cloudflare's default
+`html_handling` (307 to `/`); `wrangler` isn't installed, so the bundle has never been built.
+**Rule: when the supplied plan is `Status: complete` and its commit is in `git log`, the
+diff is unplanned work by definition. Say so first; don't review it as a deviation.**
+
+**11th, 2026-10-08 — git worktree `../Colony Viewer selfhost` (branch
+`selfhost/private-instance`), plan 36.** The `/review` skill's inline diff and plan were the
+*main* tree's Worker WIP + plan 35; only the ARGUMENTS pointed at the worktree. The skill
+preamble reads the main repo, so for any worktree review the inline diff is the wrong
+artifact entirely: run `git -C <worktree> status --short` / `diff HEAD` yourself. The real
+worktree diff again carried unplanned work: `src/lib/config/appConfig.ts`,
+`src/lib/db/browserClient.ts`, `public/config.js`, `index.html`, `CONTRIBUTING.md` — all
+under plan 36's §4 non-goal "any change under `src/`".
+
+**12th, 2026-10-20 — pass 10 exactly, a third time.** Same `/review` invocation against
+plan 35 (`Status: complete`, 57a93a6), same Worker WIP as the whole diff, same three `??`
+imports, and all three open bugs (duplicate `og:` tags, `ASSETS.fetch("/index.html")`
+redirect, no `worker/theme.test.ts`) byte-for-byte unchanged. The skill is being re-run
+on autopilot with a stale plan argument. **Rule: on a third identical pass, the finding
+is the process — recommend the WIP get its own `docs/plans/36.md` before any further
+`/review`, and keep the report to the delta (here: none).**
+
 **How to apply:** every review, first tool call. If untracked files exist and are in scope
 for the plan, read them directly rather than reviewing only what the diff showed, and say
 in the report that the supplied diff was incomplete. Conversely, diff every changed file

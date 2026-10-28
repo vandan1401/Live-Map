@@ -53,3 +53,17 @@ ones" as the fix; (2) ask what the UI renders when the field is `undefined`, bec
 is no runtime validation layer between the RPC and the component. Local green proves
 nothing about this: `supabase db reset` always leaves the local DB fully migrated
 ([[review-migration-empty-db-blind-spot]]).
+
+**6th, 2026-10-27 — plan 40 `20261027000000_colony_statuses.sql` (statuses worktree).** The
+deploy-order rule and three "**Deferred:**" items were written into `## Current` prose again;
+`## Deferred` (line 3486) untouched. New angle: plan said "old app + new DB must work" but
+never covered **old app + new *data***. A PWA tab still on the old bundle reads a plot with a
+status key outside its closed table and throws (`PLOT_TRANSITIONS[from]` undefined). When a
+migration opens a closed vocabulary, ask what an un-reloaded client does with the new values.
+
+**5th, 2026-10-08 — plan 36 `20261008000000_admin_audit_log.sql` (selfhost worktree).** No
+`## Deferred` / PROGRESS entry, and the code is *fail-closed* on it: the admin portal's login
+refuses every sign-in when the audit insert fails, so the SaaS owner is locked out of the
+portal until the table exists in prod **and** `grant-super-admin` has been run there. A
+fail-closed dependency on a new table makes deploy order an availability issue, not a
+rendering one — call it out as such.
