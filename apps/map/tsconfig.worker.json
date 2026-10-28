@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.worker.tsbuildinfo",
+    "target": "es2023",
+    "lib": ["ES2023"],
+    "types": ["@cloudflare/workers-types"],
+    "allowArbitraryExtensions": true,
+    "skipLibCheck": true,
+
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": [
+    "worker",
+    "src/lib/db/client.ts",
+    "src/lib/db/colonies.ts",
+    "src/lib/db/types.ts",
+    "src/lib/colony/publicLinkUrl.ts",
+    "src/shared/plotStatusVisibility.ts",
+    "src/components/map/statusFillAlpha.ts"
+  ]
+}

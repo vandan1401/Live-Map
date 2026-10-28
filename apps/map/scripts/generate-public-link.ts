@@ -50,7 +50,7 @@ async function main() {
 
   console.log(`public link generated for colony "${colonyId}":`);
   console.log(`  token: ${token}`);
-  console.log(`  path:  #/public/${token}  (prepend your deployed app's own domain)`);
+  console.log(`  path:  /public/${token}  (prepend your deployed app's own domain)`);
 }
 
 void main();

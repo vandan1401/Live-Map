@@ -8,6 +8,7 @@ import { roundedPlotPath } from "./plotPath.ts";
 import { fillDecor, pathFor } from "./drawDecor.ts";
 import { drawMapBackdrop } from "./drawBackdrop.ts";
 import type { MapBackdropTransform } from "./mapBackdropTransform.ts";
+import { STATUS_FILL_ALPHA } from "./statusFillAlpha.ts";
 
 // The painter. Ordered exactly as the SVG's paint order was, because SVG has no z-index
 // and neither does canvas — draw order IS the stacking, which is the one thing this
@@ -16,12 +17,6 @@ import type { MapBackdropTransform } from "./mapBackdropTransform.ts";
 // Every colour comes from ColonyTheme, never a literal (D-004). Every number that encodes
 // a trade-off is pinned in docs/plans/18.md §3 and repeated here with its reason.
 
-// Owner, 2026-08-22: superseded 0.38 (itself tuned 2026-08-16 against the old grass-
-// texture-showing-through design). Every plot now paints an opaque --colony-plot-base
-// first (see the per-plot loop below), so this alpha only controls how much of that base
-// shows through the status hue, not how much of the world ground does — the owner's new
-// reference renders show a flat, near-opaque status colour.
-const STATUS_FILL_ALPHA = 0.88;
 // Every other plot dims when one is selected. Opacity only, never a filter.
 const DIM_SELECTED = 0.35;
 // spec/06: the legend filter "dims everything else to 20%".

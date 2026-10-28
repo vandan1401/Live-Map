@@ -117,14 +117,14 @@ async function loadColonies() {
     const verifiedTd = document.createElement("td");
     verifiedTd.textContent = colony.verified ? "yes" : "no";
     const linkTd = document.createElement("td");
-    linkTd.textContent = colony.public_token ? `#/public/${colony.public_token}` : "(none)";
+    linkTd.textContent = colony.public_token ? `/public/${colony.public_token}` : "(none)";
     const actionsTd = document.createElement("td");
     const genButton = document.createElement("button");
     genButton.textContent = "Generate link";
     genButton.addEventListener("click", async () => {
       try {
         const { token } = await api("POST", `/api/colonies/${colony.id}/public-link`);
-        setStatus(`new link for ${colony.name}: #/public/${token}`, false);
+        setStatus(`new link for ${colony.name}: /public/${token}`, false);
         await loadColonies();
       } catch (err) {
         setStatus(err.message, true);

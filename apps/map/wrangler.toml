@@ -3,12 +3,49 @@
 # via `wrangler deploy` reading the [assets] block below -- not `pages_build_output_dir`,
 # which is the older, Pages-specific key and is ignored by this deploy path (found live,
 # 2026-08-22: `wrangler deploy` failed with "Missing entry-point to Worker script or to
-# assets directory" until this was added). No `main` entry -- this is a pure static-asset
-# site, no Worker script involved.
+# assets directory" until this was added).
 name = "live-map"  # matches the Cloudflare project's actual name (dashboard-assigned when
 # the project was first created, before wrangler.toml existed) -- "colony-map" here never
 # matched, though it did not visibly break the deploy
 compatibility_date = "2026-08-21"
+# @supabase/supabase-js touches a couple of Node-shaped globals in code paths this Worker
+# never exercises (only ever calls one anonymous .rpc()) -- kept on so a future import of
+# more of that client doesn't surprise-break at the edge instead of at typecheck time.
+compatibility_flags = ["nodejs_compat"]
+
+# worker/index.ts (2026-09-14, WhatsApp/social link-preview support): a real WhatsApp/etc.
+# unfurler fetches a shared URL server-side and never runs JS, so a rich preview needs
+# per-colony <meta> tags server-side too -- the one thing a pure static site can't do. This
+# is the ONLY dynamic route; every other path (the SPA shell, /assets/*) is served exactly
+# as before, unchanged, straight from [assets] with no Worker involvement (Cloudflare skips
+# the Worker whenever a request matches a real file in ./dist -- see worker/index.ts's own
+# header comment for the fallback path when it doesn't).
+main = "worker/index.ts"
+
+[[rules]]
+type = "CompiledWasm"
+globs = ["**/*.wasm"]
+fallthrough = true
+
+[[rules]]
+type = "Text"
+globs = ["**/*.css"]
+fallthrough = true
 
 [assets]
 directory = "./dist"
+binding = "ASSETS"
+
+# SUPABASE_URL / SUPABASE_ANON_KEY are NOT set here on purpose -- apps/map/.env.production
+# holds the real values and is gitignored (same posture as apps/map/.env itself, per
+# .gitignore's own comment), and this file is committed. This Worker calls exactly one
+# RPC, get_public_colony() (worker/publicShare.ts), with the same publishable anon key the
+# built JS bundle already ships to every browser -- it is not a secret in the
+# `wrangler secret put` sense -- but it still doesn't belong typed into a tracked file.
+#
+# One-time setup before the first `wrangler deploy` of this Worker (values from
+# apps/map/.env.production):
+#   npx wrangler secret put SUPABASE_URL
+#   npx wrangler secret put SUPABASE_ANON_KEY
+# `wrangler secret` values persist on the Cloudflare project across deploys -- this is a
+# one-time step, not a per-deploy one, and never touches this file.

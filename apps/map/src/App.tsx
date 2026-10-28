@@ -82,7 +82,7 @@ function App() {
 
   // docs/plans/22.md phase 2: a public link never needs a session — checked before every
   // authenticated-path branch below (see lib/colony/publicLinkUrl.ts for the URL scheme).
-  const publicToken = parsePublicToken(window.location.hash);
+  const publicToken = parsePublicToken(window.location.pathname, window.location.hash);
   if (publicToken) return <PublicColonyView client={client} token={publicToken} />;
 
   // undefined = still checking for an existing session — a branded splash rather than

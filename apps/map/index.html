@@ -25,6 +25,14 @@
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
     <title>Colony</title>
+    <!-- Generic default for every path this Worker doesn't rewrite (worker/index.ts) — a
+         /public/<token> link gets the real colony name + a live layout preview injected
+         server-side instead, since WhatsApp/etc. fetch a shared link's HTML directly and
+         never run this page's JS. -->
+    <meta property="og:title" content="Colony" />
+    <meta property="og:description" content="Live plot-status map for the colony." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary" />
   </head>
   <body>
     <div id="root"></div>

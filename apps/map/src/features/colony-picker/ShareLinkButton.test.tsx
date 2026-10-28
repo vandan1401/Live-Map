@@ -26,14 +26,14 @@ describe("ShareLinkButton", () => {
       });
     });
 
-    it("copies the full shareable URL (origin + pathname + hash), not just the token", async () => {
+    it("copies the full shareable URL (origin + /public/<token> path), not just the token", async () => {
       render(<ShareLinkButton token="3fa85f64-5717-4562-b3fc-2c963f66afa6" />);
 
       fireEvent.click(screen.getByText("Copy share link"));
 
       await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
       expect(writeText).toHaveBeenCalledWith(
-        `${window.location.origin}${window.location.pathname}#/public/3fa85f64-5717-4562-b3fc-2c963f66afa6`,
+        `${window.location.origin}/public/3fa85f64-5717-4562-b3fc-2c963f66afa6`,
       );
     });
 

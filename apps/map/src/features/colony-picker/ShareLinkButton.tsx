@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { buildPublicLinkHash } from "../../lib/colony/publicLinkUrl.ts";
+import { buildPublicLinkPath } from "../../lib/colony/publicLinkUrl.ts";
 
 interface Props {
   // ColonyRow.public_token — already fetched with every colony row, no new query
@@ -19,7 +19,10 @@ export function ShareLinkButton({ token }: Props) {
   }
 
   async function handleCopy() {
-    const url = `${window.location.origin}${window.location.pathname}${buildPublicLinkHash(token as string)}`;
+    // A real path, not the old hash — worker/index.ts needs the token in the URL a
+    // WhatsApp/etc. unfurler actually fetches so it can build a rich preview
+    // (publicLinkUrl.ts's own header comment has the full story).
+    const url = `${window.location.origin}${buildPublicLinkPath(token as string)}`;
     await navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), COPIED_LABEL_MS);
