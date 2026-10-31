@@ -144,8 +144,8 @@ characters; `colour` is lowercase `#rrggbb`; the list must contain `available` (
 starts there) and has at most **8** entries (the legend is one row on a phone, and more colours
 stop being distinguishable on the map). `booked` and `registered` keep their built-in rules
 (`available → booked`, `booked → registered | available`, `registered → available`); any other
-key is a custom status that moves freely to and from `available` and between custom statuses —
-never directly to or from `booked`/`registered`, because booking needs a buyer name. The pipeline
+key is a custom status that moves freely to and from every other status, built-in or custom
+(docs/plans/41.md, D-054); the buyer name is collected only on a fresh `available → booked`. The pipeline
 cannot derive this from a drawing: declare it once in `tools/pipeline/colonies/<id>.json` and
 every export carries it through verbatim (like `backdrop`); for a hand-made manifest, write it
 into `colony.json` directly. Re-uploading a manifest whose list drops a key some plot still holds

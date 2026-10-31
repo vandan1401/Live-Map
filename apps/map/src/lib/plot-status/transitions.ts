@@ -6,10 +6,10 @@ import type { ColonyStatus, PlotStatus } from "../db/types.ts";
 // this layer, it's a UI-level no-op.
 //
 // The three BUILT-IN keys keep exactly the table below. Any other key is a CUSTOM status (e.g.
-// sold_to_investors) and is "free" within one deliberate limit: it moves to and from
-// `available` and between custom statuses, never directly to or from booked/registered —
-// `available -> booked` is the one place a buyer name is collected (D-018), so a direct edge into
-// booked would bypass it, and registered is only reachable through booked.
+// sold_to_investors) and is free: it moves to and from every status the colony lists, built-in or
+// custom (docs/plans/41.md, D-054 — this lifts docs/plans/40.md's "only through available" limit).
+// A move into or out of a custom status never sends a buyer name, so `owner_name` stays the one the
+// plot was booked for (D-018); the buyer-name prompt belongs to a fresh `available -> booked` only.
 const BUILT_IN_TRANSITIONS: Record<string, readonly string[]> = {
   available: ["booked"],
   booked: ["registered", "available"],
@@ -31,12 +31,9 @@ export function isLegalTransition(
   if (statuses && !(statuses.some((s) => s.key === from) && statuses.some((s) => s.key === to))) {
     return false;
   }
-  const fromBuiltIn = isBuiltIn(from);
-  const toBuiltIn = isBuiltIn(to);
-  if (fromBuiltIn && toBuiltIn) return BUILT_IN_TRANSITIONS[from].includes(to);
-  if (!fromBuiltIn && !toBuiltIn) return true;
-  // One side custom, one built-in: only through `available`.
-  return fromBuiltIn ? from === "available" : to === "available";
+  if (isBuiltIn(from) && isBuiltIn(to)) return BUILT_IN_TRANSITIONS[from].includes(to);
+  // One side custom, one built-in (or both custom): free.
+  return true;
 }
 
 // The statuses a plot currently in `from` may move to, in the colony's legend order.

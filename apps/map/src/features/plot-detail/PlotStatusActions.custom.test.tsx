@@ -4,7 +4,8 @@ import { PlotStatusActions } from "./PlotStatusActions.tsx";
 import type { ColonyStatus, PlotRow } from "../../lib/db/types.ts";
 
 // docs/plans/40.md: a colony that declares its own statuses gets buttons for exactly the moves its
-// list makes legal — custom statuses in, never a direct edge to or from booked/registered.
+// list makes legal. docs/plans/41.md (D-054): a custom status also moves directly to and from
+// booked/registered, and the owner the plot was booked for stays (no buyer-name prompt on those).
 const STATUSES: ColonyStatus[] = [
   { key: "available", label: "Available", colour: "#aa8800" },
   { key: "booked", label: "Booked", colour: "#2244cc" },
@@ -55,16 +56,26 @@ describe("PlotStatusActions — a colony's custom status", () => {
     expect(onChange).toHaveBeenCalledWith("sold_to_investors");
   });
 
-  it("on a sold_to_investors plot offers only 'Mark Available' — never booked or registered", () => {
+  it("on a sold_to_investors plot offers Available, Booked and Registry done, with no buyer-name prompt", () => {
     renderActions("sold_to_investors");
     expect(screen.getByRole("button", { name: "Mark Available" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /Book/i })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Registry done/i })).toBeNull();
+    expect(screen.getByRole("button", { name: "Mark Booked" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Mark Registry done" })).toBeTruthy();
     expect(screen.queryByPlaceholderText("Buyer name")).toBeNull();
   });
 
-  it("a booked plot cannot be marked sold to investors directly", () => {
-    renderActions("booked");
-    expect(screen.queryByRole("button", { name: "Mark Sold to investors" })).toBeNull();
+  it("'Mark Booked' from sold_to_investors sends no owner name, so the booked-for owner stays", () => {
+    const onChange = renderActions("sold_to_investors");
+    fireEvent.click(screen.getByRole("button", { name: "Mark Booked" }));
+    expect(onChange).toHaveBeenCalledWith("booked");
+  });
+
+  it("a booked or registered plot can be marked sold to investors directly, sending no owner name", () => {
+    for (const status of ["booked", "registered"]) {
+      cleanup();
+      const onChange = renderActions(status);
+      fireEvent.click(screen.getByRole("button", { name: "Mark Sold to investors" }));
+      expect(onChange).toHaveBeenCalledWith("sold_to_investors");
+    }
   });
 });

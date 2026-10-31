@@ -52,11 +52,11 @@ export function PlotStatusActions({
   const nextStatuses = legalNextStatuses(plot.status, statuses).map((status) => status.key);
   const showRecentEditWarning =
     plot.updated_by !== actor && isRecentlyEdited(plot.updated_at, new Date());
-  // available is the only predecessor of booked (transitions.ts) — this is the one and
-  // only place a fresh booking is created, so it's the one place that needs a buyer name
-  // (docs/plans/08.md).
-  const canBook = nextStatuses.includes("booked");
-  const otherStatuses = nextStatuses.filter((status) => status !== "booked");
+  // A fresh booking (available -> booked) is the one place a buyer name is collected
+  // (docs/plans/08.md). From a custom status, booked is a plain button that sends no name, so
+  // the owner the plot was booked for stays (D-018, docs/plans/41.md).
+  const canBook = plot.status === "available" && nextStatuses.includes("booked");
+  const otherStatuses = nextStatuses.filter((status) => !(canBook && status === "booked"));
 
   return (
     <div className="plot-status-actions">

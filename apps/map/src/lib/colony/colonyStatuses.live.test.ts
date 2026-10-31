@@ -113,19 +113,32 @@ describe("per-colony statuses — live integration (docs/plans/40.md)", () => {
     );
   });
 
-  it("refuses sold_to_investors -> booked before it ever reaches the database", async () => {
+  it("keeps the booked-for owner and the broker through registered, sold_to_investors and back (docs/plans/41.md)", async () => {
     const colonyId = await upload(INVESTORS);
-    const plot = (await fetchPlotBySvgId(user.client, colonyId, "plot-A-01"))!;
-    const sold = await applyPlotTransition(user.client, {
-      plotId: plot.id, fromStatus: "available", toStatus: "sold_to_investors",
-      expectedVersion: plot.version, statuses: INVESTORS,
-    });
-    if (!sold.ok) throw new Error("setup move failed");
-    const direct = await applyPlotTransition(user.client, {
-      plotId: plot.id, fromStatus: "sold_to_investors", toStatus: "booked",
-      expectedVersion: sold.plot.version, statuses: INVESTORS,
-    });
-    expect(direct).toEqual({ ok: false, reason: "illegal_transition" });
+    let plot = (await fetchPlotBySvgId(user.client, colonyId, "plot-A-01"))!;
+    const { error } = await serviceRoleClient().from("plots").update({ broker_name: "Vikas Patel" }).eq("id", plot.id);
+    if (error) throw new Error(`setup failed to set broker_name: ${error.message}`);
+    plot = (await fetchPlotBySvgId(user.client, colonyId, "plot-A-01"))!;
+
+    // Only the first move names a buyer; every later move omits ownerName, as the UI does.
+    const chain: [string, string, string | undefined][] = [
+      ["available", "booked", "Rajesh Shah"],
+      ["booked", "registered", undefined],
+      ["registered", "sold_to_investors", undefined],
+      ["sold_to_investors", "booked", undefined],
+      ["booked", "sold_to_investors", undefined],
+    ];
+    for (const [from, to, ownerName] of chain) {
+      const moved = await applyPlotTransition(user.client, {
+        plotId: plot.id, fromStatus: from, toStatus: to, expectedVersion: plot.version,
+        ownerName, statuses: INVESTORS,
+      });
+      if (!moved.ok) throw new Error(`${from} -> ${to} refused: ${moved.reason}`);
+      expect(moved.plot.status).toBe(to);
+      expect(moved.plot.owner_name).toBe("Rajesh Shah");
+      expect(moved.plot.broker_name).toBe("Vikas Patel");
+      plot = moved.plot;
+    }
   });
 
   it("the database refuses a key the colony does not list — even from a forged call", async () => {

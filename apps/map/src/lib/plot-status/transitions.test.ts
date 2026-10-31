@@ -68,11 +68,12 @@ describe("isLegalTransition — custom statuses (docs/plans/40.md)", () => {
     expect(isLegalTransition("sold_to_investors", "on_hold", INVESTORS)).toBe(true);
     expect(isLegalTransition("on_hold", "sold_to_investors", INVESTORS)).toBe(true);
   });
-  it("never goes directly to or from booked or registered (booking needs a buyer name)", () => {
-    expect(isLegalTransition("sold_to_investors", "booked", INVESTORS)).toBe(false);
-    expect(isLegalTransition("booked", "sold_to_investors", INVESTORS)).toBe(false);
-    expect(isLegalTransition("sold_to_investors", "registered", INVESTORS)).toBe(false);
-    expect(isLegalTransition("registered", "sold_to_investors", INVESTORS)).toBe(false);
+  it("moves directly to and from booked and registered (docs/plans/41.md, D-054)", () => {
+    expect(isLegalTransition("booked", "sold_to_investors", INVESTORS)).toBe(true);
+    expect(isLegalTransition("registered", "sold_to_investors", INVESTORS)).toBe(true);
+    expect(isLegalTransition("sold_to_investors", "booked", INVESTORS)).toBe(true);
+    expect(isLegalTransition("sold_to_investors", "registered", INVESTORS)).toBe(true);
+    expect(isLegalTransition("booked", "on_hold", INVESTORS)).toBe(true);
   });
   it("a self-move is still illegal for a custom status", () => {
     expect(isLegalTransition("sold_to_investors", "sold_to_investors", INVESTORS)).toBe(false);
@@ -98,7 +99,8 @@ describe("legalNextStatuses", () => {
   const keys = (from: string) => legalNextStatuses(from, INVESTORS).map((s) => s.key);
   it("lists the legal targets in the colony's legend order", () => {
     expect(keys("available")).toEqual(["booked", "sold_to_investors", "on_hold"]);
-    expect(keys("booked")).toEqual(["available", "registered"]);
-    expect(keys("sold_to_investors")).toEqual(["available", "on_hold"]);
+    expect(keys("booked")).toEqual(["available", "registered", "sold_to_investors", "on_hold"]);
+    expect(keys("sold_to_investors")).toEqual(["available", "booked", "registered", "on_hold"]);
+    expect(keys("registered")).toEqual(["available", "sold_to_investors", "on_hold"]);
   });
 });

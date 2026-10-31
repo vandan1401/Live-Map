@@ -2,6 +2,19 @@
 
 ## Current
 
+- **Buyer survives Registry done / Sold to investors (2026-10-31, Tier 1, docs/plans/41.md, D-054, v1.0.3).**
+  Owner ask: a Registry-done plot still shows its owner; a booked/registered plot can be marked Sold to
+  investors directly and keeps the booked-for owner. `isLegalTransition` now lets a custom status move to and
+  from every status; `statusShowsBuyer()` (`lib/plot-status/buyerVisibility.ts`) shows Owner on every status
+  but `available` (detail sheet + search); `PlotStatusActions` asks for a buyer name only on `available ->
+  booked`. No migration (D-018 already kept the owner). **Verified:** tsc, oxlint clean; vitest 458 tests, 7
+  failing (all pre-existing, none in touched files); live chain book -> registered -> investors -> booked
+  keeps owner_name on LOCAL Docker. **Not verified:** nobody has looked at it in a browser. **Decided alone:**
+  owner shown on every non-available status; reverse edges allowed (owner accepted); "person who brought the
+  plot" = the buyer, so no Broker row (owner confirmed). **Accepted cost:** a cancelled booking's owner can
+  re-appear after `available -> sold_to_investors` (owner accepted). Reviewer memory under
+  `.claude/agent-memory/` updated by `/review`.
+
 - **Per-colony plot statuses, declared in `colony.json` (2026-10-27, Tier 1, docs/plans/40.md, D-053,
   branch `feat/configurable-statuses`, NOT merged).** Owner ask: add "Sold to investors", then make the
   number of statuses configurable per colony through the upload JSON. A colony's optional `statuses`
@@ -3487,6 +3500,17 @@ on a real phone. Not verified by anyone: the five visual behaviours in `## Curre
   theme one, if wanted later.
 
 ## Deferred
+
+- **FIXED 2026-10-30, uncommitted: `update.sh` now probes `/rest/v1/plots?limit=0`, and the five
+  `deploy/selfhost/scripts/*.sh` are mode 100755 in the index. The box still has the old copy: sync
+  `update.sh` there before relying on auto-update. Original finding follows.**
+  **`deploy/selfhost/scripts/update.sh` health probe is stale (found 2026-10-29 updating the box to v1.0.2).**
+  Its third probe, `GET :8000/rest/v1/` with the anon key, now returns 403 "You cannot consume this
+  service" on PostgREST v14, so pre-flight aborts "current deployment is not healthy" on a healthy stack.
+  `auto-update.sh` calls `update.sh`, so the nightly auto-update would abort the same way. The box update
+  ran a temp copy probing `/rest/v1/plots?limit=0` instead. Also `scripts/backup.sh` lacks the exec bit
+  on the box (cron uses `bash`, `update.sh` calls it directly): store the mode in git. The box now runs
+  `v1.0.2` with `GHCR_OWNER=vandan1401` (was `local`); `.env.pre-v1.0.2` is the old copy.
 
 - **Production migration pending: `20261027000000_colony_statuses.sql` (docs/plans/40.md, D-053).**
   Not applied anywhere but local Docker. Apply to the hosted Supabase project BEFORE the Cloudflare deploy

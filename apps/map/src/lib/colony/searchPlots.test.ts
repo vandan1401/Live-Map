@@ -60,6 +60,23 @@ const index = buildSearchIndex([
     status: "available",
     owner_name: "Vikas Mehta",
   }),
+  // docs/plans/41.md, D-054: registered and custom statuses keep the buyer searchable.
+  plotRow({
+    id: "5",
+    svg_id: "plot-C-01",
+    block: "C",
+    number: "01",
+    status: "registered",
+    owner_name: "Anil Kapoor",
+  }),
+  plotRow({
+    id: "6",
+    svg_id: "plot-C-02",
+    block: "C",
+    number: "02",
+    status: "sold_to_investors",
+    owner_name: "Sunita Rao",
+  }),
 ]);
 
 describe("searchPlots", () => {
@@ -88,9 +105,14 @@ describe("searchPlots", () => {
     expect(searchPlots(index, "A-01").map((e) => e.svgId)).toEqual(["plot-A-01"]);
   });
 
-  it("does not surface or match a sticky owner_name once the plot is no longer booked", () => {
+  it("does not surface or match a sticky owner_name on an available plot", () => {
     const entry = index.find((e) => e.svgId === "plot-A-03");
     expect(entry?.ownerName).toBeNull();
     expect(searchPlots(index, "vikas mehta")).toEqual([]);
+  });
+
+  it("keeps the owner searchable on a registered plot and on a custom-status plot (D-054)", () => {
+    expect(searchPlots(index, "anil").map((e) => e.svgId)).toEqual(["plot-C-01"]);
+    expect(searchPlots(index, "sunita").map((e) => e.svgId)).toEqual(["plot-C-02"]);
   });
 });
