@@ -8,6 +8,12 @@
   "number_width": 3,
   "number_range": [1, 523],
   "north_deg": null,
+  "statuses": [
+    { "key": "available", "label": "Available", "colour": "#e8b84b" },
+    { "key": "booked", "label": "Booked", "colour": "#3b82f6" },
+    { "key": "registered", "label": "Registry done", "colour": "#ff145a" },
+    { "key": "sold_to_investors", "label": "Sold to investors", "colour": "#9333ea" }
+  ],
   "source": {
     "file": "JAI DEV working v2.dwg",
     "revision": "working v2",
