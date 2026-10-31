@@ -282,6 +282,12 @@ Three checks that have each caught a real defect:
     columns)", and `backdropEditor.js:76-85` carries the D-049 copy-it-back warning. Both
     re-grepped. Keep the rule; do not re-litigate this instance.*
 
+*25th, 2026-10-30 (plan 41):* the plan pinned "`contract/SPEC.md` untouched (no contract
+change)" while relaxing a rule SPEC.md:146-148 states verbatim ("never directly to or from
+booked/registered"); NAVIGATION.md:234 and the D-053 row (no "amended by D-054") also kept
+the old rule. **Rule: when a rule moves, grep its old wording repo-wide; "no contract change"
+does not mean SPEC.md prose is still true.**
+
 **How to apply:** on any review that touches `CLAUDE.md`, `.claude/settings.json`, or a
 skill file, open `.claude/hooks/guard.sh` and `_json.sh` and check the greps in the same
 pass. This has now recurred ten times — worth a CLAUDE.md line or a guard.sh self-test.

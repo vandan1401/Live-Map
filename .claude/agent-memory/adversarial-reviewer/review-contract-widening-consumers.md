@@ -77,6 +77,15 @@ Occurrences (both from plan 15, blockless plot ids):
    computed FROM (not its type), list its existing readers before its new one. A one-line
    change to a `fitBounds` argument is a semantic change to every derived threshold.**
 
+6. 2026-10-30 (plan 41, D-054) — widening a **display gate** over a sticky column.
+   `statusShowsBuyer` went from `=== "booked"` to `!== "available"`, on the premise "a name only
+   exists once a booking happened". But `owner_name` is sticky (D-018: coalesce, never cleared),
+   so `booked(X) -> available -> sold_to_investors` now shows and searches X on a plot X no
+   longer holds, and the new plain "Mark Booked" from a custom status makes it *booked for X*.
+   The plan's §6.4 claimed "never a stale or wrong name". **Rule: when a gate over a sticky /
+   never-cleared value is widened, walk the path un-set -> reset-state -> newly-visible-state;
+   the old gate was the only thing hiding the stale value.**
+
 **How to apply:** grep for the widened field name across both halves and sort the hits into
 "validates it" vs "assumes something about it" — ordering, uniqueness of the rendered form,
 substring/prefix parsing, string concatenation. Only the second group is worth reviewing.

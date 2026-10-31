@@ -124,6 +124,13 @@ on autopilot with a stale plan argument. **Rule: on a third identical pass, the 
 is the process — recommend the WIP get its own `docs/plans/36.md` before any further
 `/review`, and keep the report to the delta (here: none).**
 
+**13th, 2026-10-30 (plan 41).** `git diff HEAD` carried three unplanned blocks: selfhost
+script mode bits + `update.sh` probe fix, `tools/pipeline/colonies/jai-dev-residency.json`
+gaining a `statuses` list (the real production colony, a §4 non-goal), and
+`docs/selfhost/PROGRESS.md` with tunnel id / cloud project ref / org id that the user
+deliberately keeps uncommitted (repo is public). **Rule: `docs/selfhost/PROGRESS.md` and
+`docs/selfhost/usb/` in any diff = say "do not commit" first, without repeating the ids.**
+
 **How to apply:** every review, first tool call. If untracked files exist and are in scope
 for the plan, read them directly rather than reviewing only what the diff showed, and say
 in the report that the supplied diff was incomplete. Conversely, diff every changed file

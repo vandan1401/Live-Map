@@ -1,7 +1,7 @@
 - [Autonomous skill loop](project-autonomous-loop.md) — approval gates removed on purpose; flag the fallout, not the decision.
-- [Review diff blind spots](review-diff-blind-spots.md) — 12x: `diff-head` hides untracked files, sweeps in unplanned work; (12) 3rd identical pass of Worker WIP vs completed plan 35 — demand plan 36.
-- [Docs vs enforcement drift](review-docs-vs-enforcement-drift.md) — 24x: docs claim a guarantee the runtime lacks; (24 CLOSED 2026-09-13) re-run the previous pass's grep verbatim before re-reporting.
-- [Contract widening consumers](review-contract-widening-consumers.md) — 5x: widening a value's *meaning* breaks its old readers; (5) `fitZoomRef` repointed at a padded fit, silently moving the plot-label threshold.
+- [Review diff blind spots](review-diff-blind-spots.md) — 13x: `diff-head` hides untracked files, sweeps in unplanned work; (13) selfhost PROGRESS with infra ids rode in again — say "do not commit".
+- [Docs vs enforcement drift](review-docs-vs-enforcement-drift.md) — 25x: docs claim a guarantee the runtime lacks; (25) a relaxed rule still stated in SPEC.md/NAVIGATION; grep old wording.
+- [Contract widening consumers](review-contract-widening-consumers.md) — 6x: widening a value's *meaning* breaks its old readers; (6) widened gate over sticky `owner_name` surfaces a stale buyer.
 - [Line-cap breaches](review-line-cap-breaches.md) — 9x: `filesize.sh` is advisory, oxlint has no `max-lines`; (9) `colonyBackdrop.test.ts` 148 → 272 — "test file gains N cases" is a cap risk. `wc -l` every path in the plan.
 - [Vacuous acceptance tests](review-vacuous-acceptance-tests.md) — 21x: tests passing for the wrong reason; (21) "other device signed out" is done by GoTrue's updateUser itself, not the step under test.
 - [Prod migration deploy order](review-prod-migration-deploy-order.md) — 6x: prod lags local; **any** new migration with no `## Deferred` entry is a finding (6: old PWA bundle + new status values crashes).
