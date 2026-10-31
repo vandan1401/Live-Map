@@ -33,7 +33,7 @@ free_gb=$(df -BG --output=avail "$DATA_DIR" | tail -1 | tr -dc '0-9')
 health() { # returns 0 only if app, admin portal and the API answer
   curl -fsS -o /dev/null http://127.0.0.1:8080/ \
     && curl -fsS -o /dev/null http://127.0.0.1:3001/ \
-    && curl -fsS -o /dev/null -H "apikey: $ANON" http://127.0.0.1:8000/rest/v1/
+    && curl -fsS -o /dev/null -H "apikey: $ANON" "http://127.0.0.1:8000/rest/v1/plots?limit=0"
 }
 wait_healthy() { for _ in $(seq 1 30); do health && return 0; sleep 2; done; return 1; }
 health || { log "ABORT: the current deployment is not healthy before the update; fix that first"; exit 1; }
