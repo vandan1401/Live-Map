@@ -8,6 +8,19 @@ only after the same change has run on the SaaS for a few days. Migrations are fo
 
 - (nothing yet)
 
+## v1.0.3 — 2026-10-31
+
+- **The buyer survives Registry done and Sold to investors** (docs/plans/41.md, D-054). The plot detail
+  sheet shows the Owner on every status except Available, and search finds a plot by its owner on the
+  same rule. A custom status such as Sold to investors now moves directly to and from Booked and
+  Registry done (not only via Available), without asking for a buyer name, so the owner the plot was
+  booked for stays. Known cost: a booking that was cancelled can show its old owner again if the plot is
+  then marked Sold to investors (the name is never cleared, D-018).
+  **No migration.** Safe to auto-apply.
+- **Fix:** `scripts/update.sh`'s health check probed `/rest/v1/`, which newer PostgREST refuses for the anon
+  key (403), so every update aborted at pre-flight on a healthy stack. It now probes
+  `/rest/v1/plots?limit=0`. The `deploy/selfhost/scripts/*.sh` files are stored executable in git.
+
 ## v1.0.2 — 2026-10-28
 
 - **Per-colony plot statuses** (docs/plans/40.md, D-053). A colony can declare its own status list in
